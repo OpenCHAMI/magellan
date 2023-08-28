@@ -47,6 +47,7 @@ func AddRedfishEndpoint(inventory []byte) error {
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint 
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
 	res, body, _ := api.MakeRequest(url, "POST", inventory)
+	fmt.Println("smd url: ", url)
 	fmt.Println("res: ", res)
 	fmt.Println("body: ", string(body))
 	return nil

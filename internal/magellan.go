@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	bmclib "github.com/bmc-toolbox/bmclib"
+	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/go-logr/logr"
 	"github.com/jacobweinstock/registrar"
 	"github.com/jmoiron/sqlx"
@@ -208,7 +208,7 @@ func QueryInventory(l *logr.Logger, q *QueryParams) ([]byte, error) {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 
-	// return b, nil
+	fmt.Printf("inventory: %v\n", string(b))
 	ctxCancel()
 	return []byte(b), nil
 }
@@ -275,10 +275,10 @@ func makeClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
 		bmclib.WithHTTPClient(&httpClient),
 		bmclib.WithLogger(*l),
 		// bmclib.WithRedfishHTTPClient(&httpClient),
-		// bmclib.WithRedfishPort(fmt.Sprint(q.Port)),
+		bmclib.WithRedfishPort(fmt.Sprint(q.Port)),
 		// bmclib.WithRedfishUseBasicAuth(true),
 		// bmclib.WithDellRedfishUseBasicAuth(true),
-		// bmclib.WithIpmitoolPort(fmt.Sprint(q.Port)),
+		bmclib.WithIpmitoolPort(fmt.Sprint(q.Port)),
 	}
 
 	// only work if valid cert is provided 
@@ -296,9 +296,9 @@ func makeClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
 		clientOpts = append(clientOpts, bmclib.WithSecureTLS(pool))
 	}
 	// url := fmt.Sprintf("https://%s:%s@%s", q.User, q.Pass, q.Host)
-	url := fmt.Sprintf("https://%s:%s@%s:%d", q.User, q.Pass, q.Host, q.Port)
+	url := fmt.Sprintf("https://%s:%s@%s", q.User, q.Pass, q.Host)
 	fmt.Println("url: ", url)
-	client := bmclib.NewClient(url, fmt.Sprint(q.Port), q.User, q.Pass, clientOpts...)
+	client := bmclib.NewClient(url, q.User, q.Pass, clientOpts...)
 	ds := registrar.Drivers{}
 	for _, driver := range q.Drivers {
 		ds = append(ds, client.Registry.Using(driver)...) // ipmi, gofish, redfish

@@ -10,7 +10,7 @@ Once the data is received, it is then stored into `hms-smd` using its API.
 To build the project, run the following:
 
 ```bash
-go mod tidy && go bulid
+go mod tidy && go build
 ```
 
 ## Usage
