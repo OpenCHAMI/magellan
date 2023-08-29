@@ -15,8 +15,8 @@ go mod tidy && go build
 
 ## Usage
 
-Magellan can be used to load inventory components using redfish or IMPI interfaces.
-It can scan subnets or specific hosts to find...
+Magellan's main goal is to load inventory components into `hms-smd` using redfish 
+or IMPI interfaces. It can scan subnets or specific hosts to find interfaces to query and stores into a local database.
 
 ```bash
 ./magellan --help
@@ -33,14 +33,18 @@ Usage of ./magellan:
       --user string        set the BMC user (default "root")
 
 # example usage
-magellan \
-    --subnet 127.0.0.0 \
-    --host 127.0.0.1 \
-    --port 5000 \
-    --timeout 10 \
-    --user root \
-    --pass root_password \
-    --threads 255 \
+./magellan scan \ 
+    --subnet 127.0.0.0 \    # add a subnet of hosts
+    --host 127.0.0.1 \      # add an additional host
+    --port 5000 \           # port to scan for
+    --timeout 10 \          # timeout for response
+    --threads 255 \         # number of simutaneoulsy jobs
+    --dbpath data/assets.db # path to store scan results
+
+./magellan collect \ 
+    --host 127.0.0.1 \      # host of hms-smd API
+    --port 27777 \          # port of hms-smd API
+    --dbpath data/assets.db # path of stored scan results
 ```
 
 ## TODO
@@ -50,3 +54,4 @@ List of things left to fix or do...
 * [ ] Switch to internal scanner if `dora` fails
 * [ ] Test using different `bmclib` supported drivers (mainly 'redfish')
 * [ ] Confirm loading different components into `hms-smd`
+* [ ] Add unit tests
