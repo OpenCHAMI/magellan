@@ -6,13 +6,15 @@ package smd
 import (
 	"davidallendj/magellan/api"
 	"fmt"
+	// hms "github.com/alexlovelltroy/hms-smd"
 )
 
-const (
+var (
 	Host = "http://localhost"
 	BaseEndpoint = "/hsm/v2"
 	Port = 27779
 )
+
 
 func makeEndpointUrl(endpoint string) string {
 	return Host + ":" + fmt.Sprint(Port) + BaseEndpoint + endpoint
@@ -40,13 +42,16 @@ func GetComponentEndpoint(xname string) error {
 	return nil
 }
 
-func AddRedfishEndpoint(inventory []byte) error {
-	if inventory == nil {
+func AddRedfishEndpoint(data []byte) error {
+	if data == nil {
 		return fmt.Errorf("could not add redfish endpoint: no data found")
 	}
+
+	// var ep hms.RedfishEP
+	// _ = ep
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint 
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	res, body, _ := api.MakeRequest(url, "POST", inventory)
+	res, body, _ := api.MakeRequest(url, "POST", data)
 	fmt.Println("smd url: ", url)
 	fmt.Println("res: ", res)
 	fmt.Println("body: ", string(body))
