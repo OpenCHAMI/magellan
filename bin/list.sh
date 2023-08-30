@@ -1,0 +1,1 @@
+./magellan list --dbpath data/assets.db

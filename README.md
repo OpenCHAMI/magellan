@@ -55,3 +55,4 @@ List of things left to fix or do...
 * [ ] Test using different `bmclib` supported drivers (mainly 'redfish')
 * [ ] Confirm loading different components into `hms-smd`
 * [ ] Add unit tests
+* [ ] Code clean up and tidying

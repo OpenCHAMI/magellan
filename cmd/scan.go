@@ -16,7 +16,7 @@ var (
 
 var scanCmd = &cobra.Command{
 	Use:   "scan",
-	Short: "Scan for BMCs",
+	Short: "Scan for BMC nodes on a network",
 	Run: func(cmd *cobra.Command, args []string) {
 		// set hosts to use for scanning
 		hostsToScan := []string{}
@@ -49,7 +49,7 @@ var scanCmd = &cobra.Command{
 func init() {
 	scanCmd.Flags().Uint8Var(&begin, "begin", 0, "set the starting point for range of IP addresses")
 	scanCmd.Flags().Uint8Var(&end, "end", 255, "set the ending point for range of IP addresses")
-	scanCmd.Flags().StringSliceVar(&subnets, "subnet", []string{"127.0.0.0"}, "set additional subnets")
+	scanCmd.Flags().StringSliceVar(&subnets, "subnet", []string{}, "set additional subnets")
 
 	rootCmd.AddCommand(scanCmd)
 }

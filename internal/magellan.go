@@ -39,10 +39,12 @@ type QueryParams struct {
 	User          string
 	Pass          string
 	Drivers       []string
+	Preferred		string
 	Timeout       int
 	WithSecureTLS bool
 	CertPoolFile  string
 	Verbose       bool
+	IpmitoolPath string
 }
 
 func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []bmcProbeResult {
@@ -201,7 +203,8 @@ func NewClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
 		// bmclib.WithRedfishHTTPClient(&httpClient),
 		bmclib.WithRedfishPort(fmt.Sprint(q.Port)),
 		bmclib.WithRedfishUseBasicAuth(true),
-		bmclib.WithIpmitoolPort(fmt.Sprint(q.Port)),
+		bmclib.WithIpmitoolPort(fmt.Sprint(IPMI_PORT)),
+		bmclib.WithIpmitoolPath(q.IpmitoolPath),
 	}
 
 	// only work if valid cert is provided
@@ -220,16 +223,16 @@ func NewClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
 	}
 	// url := fmt.Sprintf("https://%s:%s@%s", q.User, q.Pass, q.Host)
 	url := ""
-	if q.WithSecureTLS {
-		url = "https://"
-	} else {
-		url = "http://"
-	}
+	// if q.WithSecureTLS {
+	// url = "https://"
+	// } else {
+	// 	url = "http://"
+	// }
 
-	if q.User != "" && q.Pass != "" {
+	if q.User == "" && q.Pass == "" {
 		url += fmt.Sprintf("%s:%s@%s", q.User, q.Pass, q.Host)
 	} else {
-		url += fmt.Sprintf("%s", q.Host)
+		url += q.Host
 	}
 
 	client := bmclib.NewClient(url, q.User, q.Pass, clientOpts...)
@@ -244,13 +247,9 @@ func NewClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
 
 func QueryMetadata(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("could not make query: %v", err)
-	// }
 
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
-
 	client.Registry.FilterForCompatible(ctx)
 	err := client.Open(ctx)
 	if err != nil {
@@ -282,16 +281,11 @@ func QueryMetadata(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byt
 
 func QueryInventory(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, error) {
 	// discover.ScanAndConnect(url, user, pass, clientOpts)
-	// client, err := NewClient(l, q)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("could not make query: %v", err)
-	// }
 
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
-
-	// client.Registry.FilterForCompatible(ctx)
-	err := client.Open(ctx)
+	client.Registry.FilterForCompatible(ctx)
+	err := client.PreferProvider(q.Preferred).Open(ctx)
 	if err != nil {
 		ctxCancel()
 		return nil, fmt.Errorf("could not open client: %v", err)

@@ -27,7 +27,7 @@ var collectCmd = &cobra.Command{
 
 	// use the found results to query bmc information
 	inventories := [][]byte{}
-	// users := [][]byte{}
+	users := [][]byte{}
 	for _, ps := range probeStates {
 		if !ps.State {
 			continue
@@ -65,17 +65,17 @@ var collectCmd = &cobra.Command{
 		inventories = append(inventories, inventory)
 
 		// users
-		// user, err := magellan.QueryUsers(client, &logger, &q)
-		// if err != nil {
-		// 	l.Errorf("could not query users: %v\n", err)
-		// }
+		user, err := magellan.QueryUsers(client, &logger, &q)
+		if err != nil {
+			l.Errorf("could not query users: %v\n", err)
+		}
+		users = append(users, user)
 
 		// // bios
-		// _, err = magellan.QueryBios(client, &logger, &q)
-		// if err != nil {
-		// 	l.Errorf("could not query bios: %v\n", err)
-		// }
-		// users = append(users, user)
+		_, err = magellan.QueryBios(client, &logger, &q)
+		if err != nil {
+			l.Errorf("could not query bios: %v\n", err)
+		}
 	}
 
 	// add all endpoints to smd

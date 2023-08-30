@@ -17,8 +17,9 @@ var (
 	certPoolFile  string
 	user          string
 	pass          string
-	dbpath		string 
+	dbpath        string
 	drivers       []string
+	ipmitoolPath  string
 )
 
 // TODO: discover bmc's on network (dora)
@@ -26,9 +27,9 @@ var (
 // TODO: send bmc component information to smd
 
 var rootCmd = &cobra.Command{
-	Use: "magellan",
+	Use:   "magellan",
 	Short: "Tool for BMC discovery",
-	Long: "",
+	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			cmd.Help()
@@ -37,14 +38,14 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func Execute(){
+func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func init(){
+func init() {
 	rootCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
 	rootCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC pass")
 	rootCmd.PersistentFlags().StringSliceVar(&hosts, "host", []string{}, "set additional hosts")
@@ -54,6 +55,7 @@ func init(){
 	rootCmd.PersistentFlags().IntSliceVar(&ports, "port", []int{}, "set the ports to scan")
 	rootCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the BMC driver to use")
 	rootCmd.PersistentFlags().StringVar(&dbpath, "dbpath", ":memory:", "set the probe storage path")
+	rootCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool", "/usr/bin/ipmitool", "set the path for ipmitool")
 	rootCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
 	rootCmd.PersistentFlags().StringVar(&certPoolFile, "cert-pool", "", "path to an file containing x509 CAs. An empty string uses the system CAs. Only takes effect when --secure-tls=true")
 }

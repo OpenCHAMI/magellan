@@ -17,7 +17,9 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			logrus.Errorf("could not get probe results: %v\n", err)
 		}
-		fmt.Printf("%v\n", probeResults)
+		for _, r := range probeResults {
+			fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
+		}
 	},
 }
 
