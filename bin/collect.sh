@@ -1,1 +1,0 @@
-./magellan collect --dbpath data/assets.db --driver ipmi --timeout 5

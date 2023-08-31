@@ -52,7 +52,7 @@ Usage of ./magellan:
 List of things left to fix or do...
 
 * [ ] Switch to internal scanner if `dora` fails
-* [ ] Test using different `bmclib` supported drivers (mainly 'redfish')
+* [X] Test using different `bmclib` supported drivers (mainly 'redfish')
 * [ ] Confirm loading different components into `hms-smd`
+* [ ] Clean up and tidy code
 * [ ] Add unit tests
-* [ ] Code clean up and tidying

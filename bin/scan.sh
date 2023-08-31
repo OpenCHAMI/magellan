@@ -1,1 +1,0 @@
-./magellan scan --subnet 172.16.0.0 --dbpath data/assets.db --driver ipmi --port 623

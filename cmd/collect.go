@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"davidallendj/magellan/api/smd"
 	magellan "davidallendj/magellan/internal"
 
 	"github.com/bombsimon/logrusr/v2"
@@ -76,21 +75,26 @@ var collectCmd = &cobra.Command{
 		if err != nil {
 			l.Errorf("could not query bios: %v\n", err)
 		}
-	}
 
-	// add all endpoints to smd
-	for _, inventory := range inventories {
-		err := smd.AddRedfishEndpoint(inventory)
+		_, err = magellan.QueryPowerState(client, &logger, &q)
 		if err != nil {
-			logrus.Errorf("could not add redfish endpoint: %v", err)
+			l.Errorf("could not query power state: %v\n", err)
 		}
 	}
 
+	// add all endpoints to smd
+	// for _, inventory := range inventories {
+	// 	err := smd.AddRedfishEndpoint(inventory)
+	// 	if err != nil {
+	// 		logrus.Errorf("could not add redfish endpoint: %v", err)
+	// 	}
+	// }
+
 	// confirm the inventories were added
-	err = smd.GetRedfishEndpoints()
-	if err != nil {
-		logrus.Errorf("could not get redfish endpoints: %v\n", err)
-	}
+	// err = smd.GetRedfishEndpoints()
+	// if err != nil {
+	// 	logrus.Errorf("could not get redfish endpoints: %v\n", err)
+	// }
 	},
 }
 

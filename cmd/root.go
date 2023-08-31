@@ -19,6 +19,7 @@ var (
 	pass          string
 	dbpath        string
 	drivers       []string
+	preferredDriver string
 	ipmitoolPath  string
 )
 
@@ -53,9 +54,10 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&threads, "threads", -1, "set the number of threads")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 10, "set the timeout")
 	rootCmd.PersistentFlags().IntSliceVar(&ports, "port", []int{}, "set the ports to scan")
-	rootCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the BMC driver to use")
+	rootCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the driver(s) and fallback drivers to use")
+	rootCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
 	rootCmd.PersistentFlags().StringVar(&dbpath, "dbpath", ":memory:", "set the probe storage path")
 	rootCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool", "/usr/bin/ipmitool", "set the path for ipmitool")
 	rootCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
-	rootCmd.PersistentFlags().StringVar(&certPoolFile, "cert-pool", "", "path to an file containing x509 CAs. An empty string uses the system CAs. Only takes effect when --secure-tls=true")
+	rootCmd.PersistentFlags().StringVar(&certPoolFile, "cert-pool", "", "path to CA cert. (defaults to system CAs; used with --secure-tls=true)")
 }

@@ -1,1 +1,0 @@
-go mod tidy && go build -C bin/magellan
