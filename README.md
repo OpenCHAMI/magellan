@@ -1,58 +1,86 @@
 # Magellan
 
-Magellan is a small tool designed to collect BMC information and load the data
-into `hms-smd`. It is able to probe hosts for specific open ports using the `dora`
-API or it's own simplier, built-in scanner and query BMC information via `bmclib`.
-Once the data is received, it is then stored into `hms-smd` using its API.
+Magellan is a small tool designed to scan a network and collect BMC information
+to load the data into an [`hms-smd`](https://github.com/alexlovelltroy/hms-smd/tree/master) instance.
+
+## How It Works
+
+Magellan is designed to do three things:
+
+1. Scan for BMC nodes in cluster available on a network
+2. Query information about each BMC node
+3. Store queried information into a database
+
+Magellan first tries to probe for specified hosts using the [`dora`](https://github.com/bmc-toolbox/dora)
+API. If that fails, it then tries to use its own built-in, simpler scanner as a fallback.
+Next, it tries to query information about the BMC node using `bmclib` functions, but requires
+access to a redfish interface on the node to work. Once the BMC information is received,
+it is then stored into `hms-smd` using its API.
+
+In summary, `magellan` needs at minimum the following configured to work on each node:
+
+1. Available redfish interface with its host and port
+2. A running instance of `hms-smd` with its host and port
+3. Additional dependencies for `bmclib` such as `ipmitool`
 
 ## Building
 
-To build the project, run the following:
+Install Go, clone the repo, and then run the following in the project root:
 
 ```bash
+clone https://github.com/bikeshack/magellan
+cd magellan
 go mod tidy && go build
 ```
 
+This should find and download all of the required dependencies. Although other 
+versions of Go may work, the project has only been tested with v1.20.
+
 ## Usage
 
-Magellan's main goal is to load inventory components into `hms-smd` using redfish 
-or IMPI interfaces. It can scan subnets or specific hosts to find interfaces to query and stores into a local database.
+There are three main commands to use with the tool: `scan`, `list`, and `collect`.
+To scan a network for BMC nodes, use the `scan` command. If not port is specified,
+`magellan` will probe ports 623, 22, 442, and 5000 by default similar to `dora`:
 
 ```bash
-./magellan --help
-Usage of ./magellan:
-      --cert-pool string   path to an file containing x509 CAs. An empty string uses the system CAs. Only takes effect when --secure-tls=true
-      --driver strings     set the BMC driver to use (default [redfish])
-      --host strings       set additional hosts
-      --pass string        set the BMC pass (default "root_password")
-      --port ints          set the ports to scan
-      --secure-tls         enable secure TLS
-      --subnet strings     set additional subnets (default [127.0.0.0])
-      --threads int        set the number of threads (default -1)
-      --timeout int        set the timeout (default 1)
-      --user string        set the BMC user (default "root")
-
-# example usage
-./magellan scan \ 
-    --subnet 127.0.0.0 \    # add a subnet of hosts
-    --host 127.0.0.1 \      # add an additional host
-    --port 5000 \           # port to scan for
-    --timeout 10 \          # timeout for response
-    --threads 255 \         # number of simutaneoulsy jobs
-    --dbpath data/assets.db # path to store scan results
-
-./magellan collect \ 
-    --host 127.0.0.1 \      # host of hms-smd API
-    --port 27777 \          # port of hms-smd API
-    --dbpath data/assets.db # path of stored scan results
+./magellan scan --subnet 192.168.0.0 --db.path data/assets.db --port 623
 ```
+
+This with scan the `192.168.0.0` network returning the found nodes for port 623
+and store the results in database with path `data/assets.db`. Additional flags can
+be set such as `host` to add additional hosts to scan, `timeout` to set how long
+to wait for a responds from the BMC node, or `threads` to set the number of requests
+to make concurrently. Try using `./magellan help scan` for a complete set of options.
+
+To see the available BMC nodes found from the scan, use the `list` command. Make
+sure to point to the same database used before:
+
+```bash
+./magellan list --db.path data/assets.db
+```
+
+This will print a list of IP address and ports found and stored from the scan.
+Finally, run the `collect` command to store BMC info into `hms-smd`:
+
+```bash
+./magellan collect --db.path data/assets.db --driver ipmi --timeout 5 --user admin --pass password
+```
+
+This uses the info store in the database above to request information about each
+BMC node if possible. It uses the driver specified by the `driver` flag which is
+passed to and set in `bmclib`. Like with the scan, the time to wait for a response
+can be set with the `timeout` flag as well. This command also requires the `user`
+and `pass/password` flag to be set to use `ipmitool` (which must installed as well).
+Additionally, it may be necessary to set the `host` and `port` flags for `magellan`
+to find the `hms-smd` API.
 
 ## TODO
 
-List of things left to fix or do...
+List of things left to fix, do, or ideas...
 
 * [ ] Switch to internal scanner if `dora` fails
+* [ ] Set default port automatically depending on the driver used to scan
 * [X] Test using different `bmclib` supported drivers (mainly 'redfish')
 * [ ] Confirm loading different components into `hms-smd`
-* [ ] Clean up and tidy code
-* [ ] Add unit tests
+* [ ] Add unit tests for `scan`, `list`, and `collect` commands
+* [ ] Clean up, remove unused, and tidy code

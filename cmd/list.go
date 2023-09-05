@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	magellan "davidallendj/magellan/internal"
+	"davidallendj/magellan/internal/db/sqlite"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -13,7 +13,7 @@ var listCmd = &cobra.Command{
 	Use: "list",
 	Short: "List information from scan",
 	Run: func(cmd *cobra.Command, args []string) {
-		probeResults, err := magellan.GetStates(dbpath)
+		probeResults, err := sqlite.GetProbeResults(dbpath)
 		if err != nil {
 			logrus.Errorf("could not get probe results: %v\n", err)
 		}

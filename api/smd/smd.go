@@ -22,7 +22,7 @@ func makeEndpointUrl(endpoint string) string {
 
 func GetRedfishEndpoints() error {
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	_, body, err := api.MakeRequest(url, "GET", nil)
+	_, body, err := api.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("could not get endpoint: %v", err)
 	}
@@ -33,7 +33,7 @@ func GetRedfishEndpoints() error {
 
 func GetComponentEndpoint(xname string) error {
 	url := makeEndpointUrl("/Inventory/ComponentsEndpoints/" + xname)
-	res, body, err := api.MakeRequest(url, "GET", nil)
+	res, body, err := api.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("could not get endpoint: %v", err)
 	}
@@ -42,7 +42,7 @@ func GetComponentEndpoint(xname string) error {
 	return nil
 }
 
-func AddRedfishEndpoint(data []byte) error {
+func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	if data == nil {
 		return fmt.Errorf("could not add redfish endpoint: no data found")
 	}
@@ -51,7 +51,7 @@ func AddRedfishEndpoint(data []byte) error {
 	// _ = ep
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint 
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	res, body, _ := api.MakeRequest(url, "POST", data)
+	res, body, _ := api.MakeRequest(url, "POST", data, headers)
 	fmt.Println("smd url: ", url)
 	fmt.Println("res: ", res)
 	fmt.Println("body: ", string(body))

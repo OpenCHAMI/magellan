@@ -4,14 +4,14 @@ function build(){
 }
 
 function scan() {
-    ./magellan scan --subnet 172.16.0.0 --dbpath data/assets.db --driver ipmi --port 623
+    ./magellan scan --subnet 172.16.0.0 --db.path data/assets.db --port 623
 }
 
 function list(){
-    ./magellan list --dbpath data/assets.db
+    ./magellan list --db.path data/assets.db
 }
 
 function collect() {
-    ./magellan collect --dbpath data/assets.db --driver ipmi --timeout 5 --user admin --pass password
+    ./magellan collect --db.path data/assets.db --driver ipmi --timeout 5 --user admin --pass password
 }
 

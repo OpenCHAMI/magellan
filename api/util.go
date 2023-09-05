@@ -8,10 +8,13 @@ import (
 )
 
 
-func MakeRequest(url string, httpMethod string, body []byte) (*http.Response, []byte, error) {
+func MakeRequest(url string, httpMethod string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	// url := getSmdEndpointUrl(endpoint)
 	req, _ := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
 	req.Header.Add("User-Agent", "magellan")
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not make request: %v", err)

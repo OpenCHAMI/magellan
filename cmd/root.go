@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"davidallendj/magellan/api/smd"
 	"fmt"
 	"os"
 
@@ -26,6 +25,7 @@ var (
 // TODO: discover bmc's on network (dora)
 // TODO: query bmc component information and store in db (?)
 // TODO: send bmc component information to smd
+// TODO: set ports to scan automatically with set driver
 
 var rootCmd = &cobra.Command{
 	Use:   "magellan",
@@ -47,17 +47,9 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
-	rootCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC pass")
-	rootCmd.PersistentFlags().StringSliceVar(&hosts, "host", []string{}, "set additional hosts")
-	rootCmd.PersistentFlags().StringVar(&smd.Host, "smd-host", "localhost", "set the host to the hms-smd API")
 	rootCmd.PersistentFlags().IntVar(&threads, "threads", -1, "set the number of threads")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 10, "set the timeout")
-	rootCmd.PersistentFlags().IntSliceVar(&ports, "port", []int{}, "set the ports to scan")
-	rootCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the driver(s) and fallback drivers to use")
-	rootCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
-	rootCmd.PersistentFlags().StringVar(&dbpath, "dbpath", ":memory:", "set the probe storage path")
-	rootCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool", "/usr/bin/ipmitool", "set the path for ipmitool")
-	rootCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
-	rootCmd.PersistentFlags().StringVar(&certPoolFile, "cert-pool", "", "path to CA cert. (defaults to system CAs; used with --secure-tls=true)")
+	
+	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", "/tmp/magellan.db", "set the probe storage path")
+	
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
-	"github.com/go-logr/logr"
 	"github.com/jacobweinstock/registrar"
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/stmcginnis/gofish"
@@ -22,7 +21,7 @@ const (
 	REDFISH_PORT = 5000
 )
 
-type bmcProbeResult struct {
+type BMCProbeResult struct {
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
 	Protocol string `json:"protocol"`
@@ -44,7 +43,7 @@ type QueryParams struct {
 	IpmitoolPath string
 }
 
-func NewClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
+func NewClient(l *Logger, q *QueryParams) (*bmclib.Client, error) {
 	// NOTE: bmclib.NewClient(host, port, user, pass)
 	// ...seems like the `port` params doesn't work like expected depending on interface
 
@@ -59,7 +58,7 @@ func NewClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
 	clientOpts := []bmclib.Option{
 		// bmclib.WithSecureTLS(),
 		// bmclib.WithHTTPClient(&httpClient),
-		bmclib.WithLogger(*l),
+		// bmclib.WithLogger(),
 		// bmclib.WithRedfishHTTPClient(&httpClient),
 		bmclib.WithRedfishPort(fmt.Sprint(q.Port)),
 		bmclib.WithRedfishUseBasicAuth(true),
@@ -105,7 +104,7 @@ func NewClient(l *logr.Logger, q *QueryParams) (*bmclib.Client, error) {
 	return client, nil
 }
 
-func QueryMetadata(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, error) {
+func QueryMetadata(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 
 	// open BMC session and update driver registry
@@ -139,7 +138,7 @@ func QueryMetadata(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byt
 	return []byte(b), nil
 }
 
-func QueryInventory(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, error) {
+func QueryInventory(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
 	// discover.ScanAndConnect(url, user, pass, clientOpts)
 
 	// open BMC session and update driver registry
@@ -172,7 +171,7 @@ func QueryInventory(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]by
 	return []byte(b), nil
 }
 
-func QueryPowerState(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, error) {
+func QueryPowerState(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
 	err := client.PreferProvider(q.Preferred).Open(ctx)
@@ -203,7 +202,7 @@ func QueryPowerState(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]b
 
 }
 
-func QueryUsers(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, error) {
+func QueryUsers(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
 	// discover.ScanAndConnect(url, user, pass, clientOpts)
 	// client, err := NewClient(l, q)
 	// if err != nil {
@@ -242,7 +241,7 @@ func QueryUsers(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, 
 	return []byte(b), nil
 }
 
-func QueryBios(client *bmclib.Client, l *logr.Logger, q *QueryParams) ([]byte, error) {
+func QueryBios(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("could not make query: %v", err)
