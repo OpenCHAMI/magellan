@@ -4,7 +4,7 @@ function build(){
 }
 
 function scan() {
-    ./magellan scan --subnet 172.16.0.0 --db.path data/assets.db --port 623
+    ./magellan scan --subnet 172.16.0.0 --db.path data/assets.db --port 443,623,5000
 }
 
 function list(){
@@ -12,6 +12,6 @@ function list(){
 }
 
 function collect() {
-    ./magellan collect --db.path data/assets.db --driver ipmi --timeout 5 --user admin --pass password
+    ./magellan collect --db.path data/assets.db --driver redfish --timeout 30 --user admin --pass password
 }
 

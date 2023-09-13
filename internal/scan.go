@@ -52,10 +52,11 @@ func GenerateHosts(subnet string, begin uint8, end uint8) []string {
 }
 
 func ScanForAssets(hosts []string, ports []int, threads int, timeout int) []BMCProbeResult {
-	states := make([]BMCProbeResult, 0, len(hosts))
-	done := make(chan struct{}, threads+1)
-	chanHost := make(chan string, threads+1)
+	results 	:= make([]BMCProbeResult, 0, len(hosts))
+	done 		:= make(chan struct{}, threads+1)
+	chanHost 	:= make(chan string, threads+1)
 	// chanPort := make(chan int, threads+1)
+	
 	var wg sync.WaitGroup
 	wg.Add(threads)
 	for i := 0; i < threads; i++ {
@@ -67,7 +68,7 @@ func ScanForAssets(hosts []string, ports []int, threads int, timeout int) []BMCP
 					return
 				}
 				s := rawConnect(host, ports, timeout, true)
-				states = append(states, s...)
+				results = append(results, s...)
 			}
 		}()
 	}
@@ -87,9 +88,9 @@ func ScanForAssets(hosts []string, ports []int, threads int, timeout int) []BMCP
 	close(chanHost)
 	wg.Wait()
 	close(done)
-	return states
+	return results
 }
 
 func GetDefaultPorts() []int {
-	return []int{SSH_PORT, TLS_PORT, IPMI_PORT, REDFISH_PORT}
+	return []int{SSH_PORT, HTTPS_PORT, IPMI_PORT, REDFISH_PORT}
 }

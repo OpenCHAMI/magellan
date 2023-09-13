@@ -42,7 +42,9 @@ var scanCmd = &cobra.Command{
 			threads = mathutil.Clamp(len(hostsToScan), 1, 255)
 		}
 		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, threads, timeout)
-		fmt.Printf("probe states: %v\n", probeStates)
+		for _, r := range probeStates {
+			fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
+		}
 		sqlite.InsertProbeResults(dbpath, &probeStates)
 	},
 }

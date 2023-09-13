@@ -16,10 +16,11 @@ func InsertProbeResults(path string, states *[]magellan.BMCProbeResult) error {
 	// create database if it doesn't already exist
 	schema := `
 	CREATE TABLE IF NOT EXISTS magellan_scanned_ports (
-		host TEXT PRIMARY KEY NOT NULL,
-		port INTEGER,
+		host TEXT NOT NULL,
+		port INTEGER NOT NULL,
 		protocol TEXT,
-		state INTEGER
+		state INTEGER,
+		PRIMARY KEY (host, port)
 	);
 	`
 	db, err := sqlx.Open("sqlite3", path)
@@ -52,7 +53,7 @@ func GetProbeResults(path string) ([]magellan.BMCProbeResult, error) {
 	}
 
 	results := []magellan.BMCProbeResult{}
-	err = db.Select(&results, "SELECT * FROM magellan_scanned_ports ORDER BY host ASC")
+	err = db.Select(&results, "SELECT * FROM magellan_scanned_ports ORDER BY host ASC, port ASC;")
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve probes: %v", err)
 	}

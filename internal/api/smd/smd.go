@@ -4,7 +4,7 @@ package smd
 //	https://github.com/Cray-HPE/hms-smd/blob/master/docs/examples.adoc
 //	https://github.com/alexlovelltroy/hms-smd
 import (
-	"davidallendj/magellan/api"
+	"davidallendj/magellan/internal/api"
 	"fmt"
 	// hms "github.com/alexlovelltroy/hms-smd"
 )

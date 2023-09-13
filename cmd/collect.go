@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"davidallendj/magellan/api/smd"
 	magellan "davidallendj/magellan/internal"
+	"davidallendj/magellan/internal/api/smd"
 	"davidallendj/magellan/internal/db/sqlite"
-	"fmt"
 
-	"github.com/Cray-HPE/hms-xname/xnames"
+	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -26,93 +25,127 @@ var collectCmd = &cobra.Command{
 		l.Log.Errorf("could not get states: %v", err)
 	}
 
-	// generate custom xnames for bmcs
-	node := xnames.Node{
-		Cabinet:		1000,
-		Chassis:		1,
-		ComputeModule:	7,
-		NodeBMC:		1,
-		Node:			0,
+	q := &magellan.QueryParams{
+		User: 		user,
+		Pass: 		pass,
+		Drivers: 	drivers,
+		Timeout: 	timeout,
+		Threads:	threads,
+		Verbose: 	verbose,
+		WithSecureTLS: withSecureTLS,
 	}
 
-	// use the found results to query bmc information
-	users := [][]byte{}
-	for _, ps := range probeStates {
-		if !ps.State {
-			continue
-		}
-		logrus.Infof("querying %v\n", ps)
-		q := magellan.QueryParams{
-			Host: ps.Host,
-			Port: ps.Port,
-			User: user,
-			Pass: pass,
-			Drivers: drivers,
-			Timeout: timeout,
-			Verbose: true,
-			WithSecureTLS: withSecureTLS,
-		}
+	// scan and store probe data in dbPath
+	if threads <= 0 {
+		threads = mathutil.Clamp(len(probeStates), 1, 255)
+	}
+	magellan.CollectInfo(&probeStates, l, q)
 
-		client, err := magellan.NewClient(l, &q)
-		if err != nil {
-			l.Log.Errorf("could not make client: %v", err)
-			return 
-		}
+	// generate custom xnames for bmcs
+	// node := xnames.Node{
+	// 	Cabinet:		1000,
+	// 	Chassis:		1,
+	// 	ComputeModule:	7,
+	// 	NodeBMC:		1,
+	// 	Node:			0,
+	// }
 
-		// metadata
-		_, err = magellan.QueryMetadata(client, l, &q)
-		if err != nil {
-			l.Log.Errorf("could not query metadata: %v\n", err)
-		}
+	// // use the found results to query bmc information
+	// // users := [][]byte{}
+	// probedHosts := []string{}
+	// for _, ps := range probeStates {
 
-		// inventories
-		inventory, err := magellan.QueryInventory(client, l, &q)
-		// inventory, err := magellan.QueryInventoryV2(q.Host, q.Port, q.User, q.Pass)
-		if err != nil {
-			l.Log.Errorf("could not query inventory: %v\n", err)
-		}
+	// 	// skip if found info from host
+	// 	foundHost := slices.Index(probedHosts, ps.Host)
+	// 	if !ps.State || foundHost >= 0{
+	// 		continue
+	// 	}
 
-		node.NodeBMC += 1
+	// 	logrus.Printf("querying %v:%v (%v)\n", ps.Host, ps.Port, ps.Protocol)
+		
 
-		data := make(map[string]any)
-		data["ID"] 					= fmt.Sprintf("%v", node)
-		data["FQDN"]				= ps.Host
-		data["RediscoverOnUpdate"] 	= false
+	// 	client, err := magellan.NewClient(l, q)
+	// 	if err != nil {
+	// 		l.Log.Errorf("could not make client: %v", err)
+	// 		return
+	// 	}
 
-		headers := make(map[string]string)
-		headers["Content-Type"] = "application/json"
+	// 	// metadata
+	// 	// _, err = magellan.QueryMetadata(client, l, &q)
+	// 	// if err != nil {
+	// 	// 	l.Log.Errorf("could not query metadata: %v\n", err)
+	// 	// }
 
-		// add all endpoints to smd
-		err = smd.AddRedfishEndpoint(inventory, headers)
-		if err != nil {
-			logrus.Errorf("could not add redfish endpoint: %v", err)
-		}
+	// 	// inventories
+	// 	inventory, err := magellan.QueryInventory(client, l, q)
+	// 	if err != nil {
+	// 		l.Log.Errorf("could not query inventory: %v\n", err)
+	// 		continue
+	// 	}
 
-		// confirm the inventories were added
-		err = smd.GetRedfishEndpoints()
-		if err != nil {
-			logrus.Errorf("could not get redfish endpoints: %v\n", err)
-		}
+	// 	// chassis
+	// 	_, err = magellan.QueryChassis(client, l, q)
+	// 	if err != nil {
+	// 		l.Log.Errorf("could not query chassis: %v\n", err)
+	// 		continue
+	// 	}
+
+	// 	// got host information, so add to list of already probed hosts
+	// 	probedHosts = append(probedHosts, ps.Host)
+
+	// 	node.NodeBMC += 1
+
+	// 	headers := make(map[string]string)
+	// 	headers["Content-Type"] = "application/json"
+
+	// 	data := make(map[string]any)
+	// 	data["ID"] 					= fmt.Sprintf("%v", node)
+	// 	data["Type"]				= ""
+	// 	data["Name"]				= ""
+	// 	data["FQDN"]				= ps.Host
+	// 	data["RediscoverOnUpdate"] 	= false
+	// 	data["Inventory"] 			= inventory
+
+
+	// 	b, err := json.MarshalIndent(data, "", "    ")
+	// 	if err != nil {
+	// 		l.Log.Errorf("could not marshal JSON: %v\n", err)
+	// 		continue
+	// 	}
+
+	// 	// add all endpoints to smd
+	// 	err = smd.AddRedfishEndpoint(b, headers)
+	// 	if err != nil {
+	// 		logrus.Errorf("could not add redfish endpoint: %v", err)
+	// 		continue
+	// 	}
+
+	// 	// confirm the inventories were added
+	// 	err = smd.GetRedfishEndpoints()
+	// 	if err != nil {
+	// 		logrus.Errorf("could not get redfish endpoints: %v\n", err)
+	// 		continue
+	// 	}
 
 		// users
-		user, err := magellan.QueryUsers(client, l, &q)
-		if err != nil {
-			l.Log.Errorf("could not query users: %v\n", err)
-		}
-		users = append(users, user)
+		// user, err := magellan.QueryUsers(client, l, &q)
+		// if err != nil {
+		// 	l.Log.Errorf("could not query users: %v\n", err)
+		// }
+		// users = append(users, user)
 
-		// bios
-		_, err = magellan.QueryBios(client, l, &q)
-		if err != nil {
-			l.Log.Errorf("could not query bios: %v\n", err)
-		}
+		// // bios
+		// _, err = magellan.QueryBios(client, l, &q)
+		// if err != nil {
+		// 	l.Log.Errorf("could not query bios: %v\n", err)
+		// }
 
-		_, err = magellan.QueryPowerState(client, l, &q)
-		if err != nil {
-			l.Log.Errorf("could not query power state: %v\n", err)
-		}
+		// _, err = magellan.QueryPowerState(client, l, &q)
+		// if err != nil {
+		// 	l.Log.Errorf("could not query power state: %v\n", err)
+		// }
 		
-	}
+	// }
 	
 	},
 }
