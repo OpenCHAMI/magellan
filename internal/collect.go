@@ -125,8 +125,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 		Cabinet:		1000,
 		Chassis:		1,
 		ComputeModule:	7,
-		NodeBMC:		1,
-		Node:			0,
+		NodeBMC:		-1,
 	}
 
 	found 			:= make([]string, 0, len(*probeStates))
@@ -165,12 +164,14 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				inventory, err := QueryInventory(client, l, q)
 				if err != nil {
 					l.Log.Errorf("could not query inventory: %v", err) 
+					continue
 				}
 
 				// chassis
-				_, err = QueryChassis(client, l, q)
+				chassis, err := QueryChassis(q)
 				if err != nil {
 					l.Log.Errorf("could not query chassis: %v", err)
+					continue
 				}
 
 				node.NodeBMC += 1
@@ -179,12 +180,13 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				headers["Content-Type"] = "application/json"
 
 				data := make(map[string]any)
-				data["ID"] 					= fmt.Sprintf("%v", node)
+				data["ID"] 					= fmt.Sprintf("%v", node.String()[:len(node.String())-2])
 				data["Type"]				= ""
 				data["Name"]				= ""
 				data["FQDN"]				= ps.Host
 				data["RediscoverOnUpdate"] 	= false
 				data["Inventory"] 			= inventory
+				data["Chassis"]				= chassis
 
 				b, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
@@ -415,12 +417,13 @@ func QueryEthernetInterfaces(client *bmclib.Client, l *Logger, q *QueryParams) (
 	return []byte{}, nil
 }
 
-func QueryChassis(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
+func QueryChassis(q *QueryParams) ([]byte, error) {
 	config := gofish.ClientConfig {
-		Endpoint: "https://" + q.Host,
-		Username: q.User,
-		Password: q.Pass,
-		Insecure: q.WithSecureTLS,
+		Endpoint: 				fmt.Sprintf("https://%s:%d", q.Host, q.Port),
+		Username: 				q.User,
+		Password: 				q.Pass,
+		Insecure: 				!q.WithSecureTLS,
+		TLSHandshakeTimeout: 	30,
 	}
 	c, err := gofish.Connect(config)
 	if err != nil {
