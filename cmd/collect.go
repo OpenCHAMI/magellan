@@ -25,6 +25,9 @@ var collectCmd = &cobra.Command{
 		l.Log.Errorf("could not get states: %v", err)
 	}
 
+	if threads <= 0 {
+		threads = mathutil.Clamp(len(probeStates), 1, 255)
+	}
 	q := &magellan.QueryParams{
 		User: 		user,
 		Pass: 		pass,
@@ -33,11 +36,6 @@ var collectCmd = &cobra.Command{
 		Threads:	threads,
 		Verbose: 	verbose,
 		WithSecureTLS: withSecureTLS,
-	}
-
-	// scan and store probe data in dbPath
-	if threads <= 0 {
-		threads = mathutil.Clamp(len(probeStates), 1, 255)
 	}
 	magellan.CollectInfo(&probeStates, l, q)
 
