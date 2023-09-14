@@ -6,7 +6,7 @@ RUN apk add --no-cache tini
 USER 65534:65534
 
 
-COPY  magellan 
+COPY  magellan  /
 
 CMD [ "/magellan" ]
 
