@@ -12,21 +12,16 @@ builds:
       - amd64
 dockers:
   - image_templates:
-    - "bikeshack.azurecr.io/magellan:latest"
-    - "bikeshack.azurecr.io/magellan:{{ .Major }}"
-    - "bikeshack.azurecr.io/magellan:{{ .Major }}.{{ .Minor }}"
-    - "bikeshack.azurecr.io/magellan:{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
-    dockerfile: goreleaser.Dockerfile
+      - bikeshack/{{.ProjectName}}:latest
+      - bikeshack/{{.ProjectName}}:{{ .Tag }}
+      - bikeshack/{{.ProjectName}}:{{ .Major }}
+      - bikeshack/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
     build_flag_templates:
-    - "--pull"
-    - "--no-cache"
-    - "--build-arg=REGISTRY_HOST=docker.io/library/"
-    # OCI annotations: https://github.com/opencontainers/image-spec/blob/main/annotations.md
-    - "--label=org.opencontainers.image.created={{.Date}}"
-    - "--label=org.opencontainers.image.name={{.ProjectName}}"
-    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
 archives:
   - format: tar.gz
     rlcp: true
