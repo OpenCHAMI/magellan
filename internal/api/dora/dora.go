@@ -1,7 +1,7 @@
 package dora
 
 import (
-	"davidallendj/magellan/api"
+	"davidallendj/magellan/internal/api"
 	"encoding/json"
 	"fmt"
 

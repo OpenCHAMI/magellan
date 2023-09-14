@@ -39,17 +39,17 @@ versions of Go may work, the project has only been tested with v1.20.
 ## Usage
 
 There are three main commands to use with the tool: `scan`, `list`, and `collect`.
-To scan a network for BMC nodes, use the `scan` command. If not port is specified,
+To scan a network for BMC nodes, use the `scan` command. If the port is not specified,
 `magellan` will probe ports 623, 22, 442, and 5000 by default similar to `dora`:
 
 ```bash
 ./magellan scan --subnet 192.168.0.0 --db.path data/assets.db --port 623
 ```
 
-This with scan the `192.168.0.0` network returning the found nodes for port 623
+This will scan the `192.168.0.0` subnet returning the host and port that return a response
 and store the results in database with path `data/assets.db`. Additional flags can
-be set such as `host` to add additional hosts to scan, `timeout` to set how long
-to wait for a responds from the BMC node, or `threads` to set the number of requests
+be set such as `host` to add more hosts to scan not included on the subnet, `timeout` to set how long
+to wait for a response from the BMC node, or `threads` to set the number of requests
 to make concurrently. Try using `./magellan help scan` for a complete set of options.
 
 To see the available BMC nodes found from the scan, use the `list` command. Make
@@ -73,6 +73,8 @@ can be set with the `timeout` flag as well. This command also requires the `user
 and `pass/password` flag to be set to use `ipmitool` (which must installed as well).
 Additionally, it may be necessary to set the `host` and `port` flags for `magellan`
 to find the `hms-smd` API.
+
+Note: If `db.path` is not set, `magellan` will use /tmp/magellan.db by default.
 
 ## TODO
 

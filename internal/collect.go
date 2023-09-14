@@ -113,6 +113,7 @@ func NewClient(l *Logger, q *QueryParams) (*bmclib.Client, error) {
 }
 
 func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error {
+	// check for available probe states
 	if probeStates == nil {
 		return fmt.Errorf("no probe states found")
 	}
@@ -132,7 +133,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 	done 			:= make(chan struct{}, q.Threads+1)
 	chanProbeState 	:= make(chan BMCProbeResult, q.Threads+1)
 
-	//
+	// collect bmc information asynchronously
 	var wg sync.WaitGroup
 	wg.Add(q.Threads)
 	for i := 0; i < q.Threads; i++ {
@@ -199,12 +200,6 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 					l.Log.Errorf("could not add redfish endpoint: %v", err)
 				}
 
-				// confirm the inventories were added
-				err = smd.GetRedfishEndpoints()
-				if err != nil {
-					l.Log.Errorf("could not get redfish endpoints: %v", err)
-				}
-
 				// users
 				// user, err := magellan.QueryUsers(client, l, &q)
 				// if err != nil {
@@ -239,6 +234,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 		chanProbeState <- ps
 	}
 
+	// handle goroutine paths
 	go func() {
 		select {
 		case <-done:
@@ -290,8 +286,6 @@ func QueryMetadata(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, er
 }
 
 func QueryInventory(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
-	// discover.ScanAndConnect(url, user, pass, clientOpts)
-
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -354,12 +348,6 @@ func QueryPowerState(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, 
 }
 
 func QueryUsers(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
-	// discover.ScanAndConnect(url, user, pass, clientOpts)
-	// client, err := NewClient(l, q)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("could not make query: %v", err)
-	// }
-
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -406,15 +394,27 @@ func QueryBios(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error)
 
 func QueryEthernetInterfaces(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
 	config := gofish.ClientConfig{
-
+		Endpoint: 				fmt.Sprintf("https://%s:%d", q.Host, q.Port),
+		Username: 				q.User,
+		Password: 				q.Pass,
+		Insecure: 				!q.WithSecureTLS,
+		TLSHandshakeTimeout: 	q.Timeout,
 	}
 	c, err := gofish.Connect(config)
 	if err != nil {
-
+		return nil, fmt.Errorf("could not connect to bmc: %v", err)
 	}
 
-	redfish.ListReferencedEthernetInterfaces(c, "")
-	return []byte{}, nil
+	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not get ethernet interfaces: %v", err)
+	}
+
+	b, err := json.MarshalIndent(interfaces, "", "    ")
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal JSON: %v", err)
+	}
+	return b, nil
 }
 
 func QueryChassis(q *QueryParams) ([]byte, error) {
@@ -423,7 +423,7 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 		Username: 				q.User,
 		Password: 				q.Pass,
 		Insecure: 				!q.WithSecureTLS,
-		TLSHandshakeTimeout: 	30,
+		TLSHandshakeTimeout: 	q.Timeout,
 	}
 	c, err := gofish.Connect(config)
 	if err != nil {

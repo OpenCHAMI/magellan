@@ -37,6 +37,12 @@ var collectCmd = &cobra.Command{
 			WithSecureTLS: 	withSecureTLS,
 		}
 		magellan.CollectInfo(&probeStates, l, q)
+
+		// confirm the inventories were added
+		err = smd.GetRedfishEndpoints()
+		if err != nil {
+			l.Log.Errorf("could not get redfish endpoints: %v", err)
+		}
 	},
 }
 
