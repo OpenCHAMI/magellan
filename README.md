@@ -28,7 +28,7 @@ In summary, `magellan` needs at minimum the following configured to work on each
 Install Go, clone the repo, and then run the following in the project root:
 
 ```bash
-clone https://github.com/bikeshack/magellan
+git clone https://github.com/bikeshack/magellan
 cd magellan
 go mod tidy && go build
 ```
