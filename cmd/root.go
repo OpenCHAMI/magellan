@@ -49,7 +49,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().IntVar(&threads, "threads", -1, "set the number of threads")
-	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 10, "set the timeout")
+	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "set the timeout")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", true, "set verbose flag")
 	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", "/tmp/magellan.db", "set the probe storage path")
 }

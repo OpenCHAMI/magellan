@@ -74,7 +74,7 @@ and `pass/password` flag to be set to use `ipmitool` (which must installed as we
 Additionally, it may be necessary to set the `host` and `port` flags for `magellan`
 to find the `hms-smd` API.
 
-Note: If `db.path` is not set, `magellan` will use /tmp/magellan.db by default.
+Note: If the `db.path` flag is not set, `magellan` will use /tmp/magellan.db by default.
 
 ## TODO
 

@@ -31,6 +31,7 @@ var collectCmd = &cobra.Command{
 			User: 			user,
 			Pass: 			pass,
 			Drivers: 		drivers,
+			Preferred: 		preferredDriver,	
 			Timeout: 		timeout,
 			Threads:		threads,
 			Verbose: 		verbose,
@@ -52,7 +53,6 @@ func init(){
 	collectCmd.PersistentFlags().IntVar(&smd.Port, "port", smd.Port, "set the port to the smd API")
 	collectCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC password")
-	collectCmd.PersistentFlags().StringVar(&pass, "password", "", "set the BMC password")
 	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
 	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
 	collectCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")

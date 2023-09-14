@@ -2,10 +2,12 @@ package magellan
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"davidallendj/magellan/internal/api/smd"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -14,7 +16,6 @@ import (
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/jacobweinstock/registrar"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/sirupsen/logrus"
 	"github.com/stmcginnis/gofish"
 	_ "github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
@@ -25,7 +26,6 @@ const (
 	IPMI_PORT    = 623
 	SSH_PORT     = 22
 	HTTPS_PORT   = 443
-	REDFISH_PORT = 5000
 )
 
 type BMCProbeResult struct {
@@ -55,20 +55,20 @@ func NewClient(l *Logger, q *QueryParams) (*bmclib.Client, error) {
 	// NOTE: bmclib.NewClient(host, port, user, pass)
 	// ...seems like the `port` params doesn't work like expected depending on interface
 
-	// tr := &http.Transport{
-	// 	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	// }
-	// httpClient := http.Client{
-	// 	Transport: tr,
-	// }
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	httpClient := http.Client{
+		Transport: tr,
+	}
 
 	// init client
 	clientOpts := []bmclib.Option{
 		// bmclib.WithSecureTLS(nil),
-		// bmclib.WithHTTPClient(&httpClient),
+		bmclib.WithHTTPClient(&httpClient),
 		// bmclib.WithLogger(),
-		// bmclib.WithRedfishHTTPClient(&httpClient),
-		bmclib.WithDellRedfishUseBasicAuth(true),
+		bmclib.WithRedfishHTTPClient(&httpClient),
+		// bmclib.WithDellRedfishUseBasicAuth(true),
 		bmclib.WithRedfishPort(fmt.Sprint(q.Port)),
 		bmclib.WithRedfishUseBasicAuth(true),
 		bmclib.WithIpmitoolPort(fmt.Sprint(IPMI_PORT)),
@@ -89,16 +89,9 @@ func NewClient(l *Logger, q *QueryParams) (*bmclib.Client, error) {
 		// a nil pool uses the system certs
 		clientOpts = append(clientOpts, bmclib.WithSecureTLS(pool))
 	}
-	// url := fmt.Sprintf("https://%s:%s@%s", q.User, q.Pass, q.Host)
 	url := ""
-	// if q.WithSecureTLS {
-	// url = "https://"
-	// } else {
-	// 	url = "http://"
-	// }
-
-	if q.User == "" && q.Pass == "" {
-		url += fmt.Sprintf("%s:%s@%s", q.User, q.Pass, q.Host)
+	if q.User != "" && q.Pass != "" {
+		url += fmt.Sprintf("https://%s:%s@%s", q.User, q.Pass, q.Host)
 	} else {
 		url += q.Host
 	}
@@ -146,9 +139,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				}
 				q.Host = ps.Host
 				q.Port = ps.Port
-
-				logrus.Printf("querying %v:%v (%v)\n", ps.Host, ps.Port, ps.Protocol)
-
+				
 				client, err := NewClient(l, q)
 				if err != nil {
 					l.Log.Errorf("could not make client: %v", err)
@@ -164,8 +155,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				// inventories
 				inventory, err := QueryInventory(client, l, q)
 				if err != nil {
-					l.Log.Errorf("could not query inventory: %v", err) 
-					continue
+					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err) 
 				}
 
 				// chassis
@@ -185,6 +175,8 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				data["Type"]				= ""
 				data["Name"]				= ""
 				data["FQDN"]				= ps.Host
+				data["User"]				= q.User
+				data["Password"]			= q.Pass
 				data["RediscoverOnUpdate"] 	= false
 				data["Inventory"] 			= inventory
 				data["Chassis"]				= chassis
@@ -198,6 +190,8 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				err = smd.AddRedfishEndpoint(b, headers)
 				if err != nil {
 					l.Log.Errorf("could not add redfish endpoint: %v", err)
+
+					// try updating instead
 				}
 
 				// users
@@ -418,8 +412,13 @@ func QueryEthernetInterfaces(client *bmclib.Client, l *Logger, q *QueryParams) (
 }
 
 func QueryChassis(q *QueryParams) ([]byte, error) {
+	url := "https://"
+	if q.User != "" && q.Pass != "" {
+		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
+	}
+	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
 	config := gofish.ClientConfig {
-		Endpoint: 				fmt.Sprintf("https://%s:%d", q.Host, q.Port),
+		Endpoint: 				url,
 		Username: 				q.User,
 		Password: 				q.Pass,
 		Insecure: 				!q.WithSecureTLS,
@@ -427,11 +426,11 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 	}
 	c, err := gofish.Connect(config)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to bmc: %v", err)
+		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
 	}
 	chassis, err := c.Service.Chassis()
 	if err != nil {
-		return nil, fmt.Errorf("could not query chassis: %v", err)
+		return nil, fmt.Errorf("could not query chassis (%v:%v): %v", q.Host, q.Port, err)
 	}
 
 	b, err := json.MarshalIndent(chassis, "", "    ")
