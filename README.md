@@ -40,7 +40,7 @@ versions of Go may work, the project has only been tested with v1.20.
 
 There are three main commands to use with the tool: `scan`, `list`, and `collect`.
 To scan a network for BMC nodes, use the `scan` command. If the port is not specified,
-`magellan` will probe ports 623, 22, 442, and 5000 by default similar to `dora`:
+`magellan` will probe ports 623, 442 (redfish and IPMI) by default:
 
 ```bash
 ./magellan scan --subnet 192.168.0.0 --db.path data/assets.db --port 623

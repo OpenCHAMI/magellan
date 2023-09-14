@@ -92,5 +92,5 @@ func ScanForAssets(hosts []string, ports []int, threads int, timeout int) []BMCP
 }
 
 func GetDefaultPorts() []int {
-	return []int{SSH_PORT, HTTPS_PORT, IPMI_PORT}
+	return []int{HTTPS_PORT, IPMI_PORT}
 }
