@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	magellan "davidallendj/magellan/internal"
-	"davidallendj/magellan/internal/db/sqlite"
 	"fmt"
+
+	magellan "github.com/bikeshack/magellan/internal"
+	"github.com/bikeshack/magellan/internal/db/sqlite"
 
 	"github.com/cznic/mathutil"
 	"github.com/spf13/cobra"

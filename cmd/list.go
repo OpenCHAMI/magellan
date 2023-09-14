@@ -1,16 +1,16 @@
 package cmd
 
 import (
-	"davidallendj/magellan/internal/db/sqlite"
 	"fmt"
+
+	"github.com/bikeshack/magellan/internal/db/sqlite"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-
 var listCmd = &cobra.Command{
-	Use: "list",
+	Use:   "list",
 	Short: "List information from scan",
 	Run: func(cmd *cobra.Command, args []string) {
 		probeResults, err := sqlite.GetProbeResults(dbpath)

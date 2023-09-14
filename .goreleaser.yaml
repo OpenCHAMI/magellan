@@ -1,0 +1,40 @@
+before:
+  hooks:
+    - go mod download
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+archives:
+  - format_overrides:
+      - goos: windows
+        format: zip
+dockers:
+  - image_templates:
+    - "bikeshack.azurecr.io/magellan:latest"
+    - "bikeshack.azurecr.io/magellan:{{ .Major }}"
+    - "bikeshack.azurecr.io/magellan:{{ .Major }}.{{ .Minor }}"
+    - "bikeshack.azurecr.io/magellan:{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
+    dockerfile: goreleaser.Dockerfile
+    build_flag_templates:
+    - "--pull"
+    - "--no-cache"
+    - "--build-arg=REGISTRY_HOST=docker.io/library/"
+    # OCI annotations: https://github.com/opencontainers/image-spec/blob/main/annotations.md
+    - "--label=org.opencontainers.image.created={{.Date}}"
+    - "--label=org.opencontainers.image.name={{.ProjectName}}"
+    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+    - "--label=org.opencontainers.image.version={{.Version}}"
+    - "--label=org.opencontainers.image.source={{.GitURL}}"
+release:
+  github:
+  name_template: "{{.Version}}"
+  prerelease: auto
+  mode: append
+changelog:
+  skip: true

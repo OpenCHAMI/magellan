@@ -1,8 +1,7 @@
 package main
 
 import (
-	"davidallendj/magellan/cmd"
-	// smd "github.com/alexlovelltroy/hms-smd/pkg/redfish"
+	"github.com/bikeshack/magellan/cmd"
 )
 
 func main() {

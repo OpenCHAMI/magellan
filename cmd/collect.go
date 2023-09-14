@@ -1,18 +1,17 @@
 package cmd
 
 import (
-	magellan "davidallendj/magellan/internal"
-	"davidallendj/magellan/internal/api/smd"
-	"davidallendj/magellan/internal/db/sqlite"
+	magellan "github.com/bikeshack/magellan/internal"
+	"github.com/bikeshack/magellan/internal/api/smd"
+	"github.com/bikeshack/magellan/internal/db/sqlite"
 
 	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-
 var collectCmd = &cobra.Command{
-	Use: "collect",
+	Use:   "collect",
 	Short: "Query information about BMC",
 	Run: func(cmd *cobra.Command, args []string) {
 		// make application logger
@@ -28,13 +27,13 @@ var collectCmd = &cobra.Command{
 			threads = mathutil.Clamp(len(probeStates), 1, 255)
 		}
 		q := &magellan.QueryParams{
-			User: 			user,
-			Pass: 			pass,
-			Drivers: 		drivers,
-			Timeout: 		timeout,
-			Threads:		threads,
-			Verbose: 		verbose,
-			WithSecureTLS: 	withSecureTLS,
+			User:          user,
+			Pass:          pass,
+			Drivers:       drivers,
+			Timeout:       timeout,
+			Threads:       threads,
+			Verbose:       verbose,
+			WithSecureTLS: withSecureTLS,
 		}
 		magellan.CollectInfo(&probeStates, l, q)
 
@@ -46,7 +45,7 @@ var collectCmd = &cobra.Command{
 	},
 }
 
-func init(){
+func init() {
 	collectCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the driver(s) and fallback drivers to use")
 	collectCmd.PersistentFlags().StringVar(&smd.Host, "host", smd.Host, "set the host to the smd API")
 	collectCmd.PersistentFlags().IntVar(&smd.Port, "port", smd.Port, "set the port to the smd API")

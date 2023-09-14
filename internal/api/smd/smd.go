@@ -4,17 +4,17 @@ package smd
 //	https://github.com/Cray-HPE/hms-smd/blob/master/docs/examples.adoc
 //	https://github.com/alexlovelltroy/hms-smd
 import (
-	"davidallendj/magellan/internal/api"
 	"fmt"
+
+	"github.com/bikeshack/magellan/internal/api"
 	// hms "github.com/alexlovelltroy/hms-smd"
 )
 
 var (
-	Host = "http://localhost"
+	Host         = "http://localhost"
 	BaseEndpoint = "/hsm/v2"
-	Port = 27779
+	Port         = 27779
 )
-
 
 func makeEndpointUrl(endpoint string) string {
 	return Host + ":" + fmt.Sprint(Port) + BaseEndpoint + endpoint
@@ -49,7 +49,7 @@ func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 
 	// var ep hms.RedfishEP
 	// _ = ep
-	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint 
+	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
 	res, body, _ := api.MakeRequest(url, "POST", data, headers)
 	fmt.Println("smd url: ", url)
