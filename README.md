@@ -28,7 +28,7 @@ In summary, `magellan` needs at minimum the following configured to work on each
 Install Go, clone the repo, and then run the following in the project root:
 
 ```bash
-clone https://github.com/bikeshack/magellan
+git clone https://github.com/bikeshack/magellan
 cd magellan
 go mod tidy && go build
 ```
@@ -40,7 +40,7 @@ versions of Go may work, the project has only been tested with v1.20.
 
 There are three main commands to use with the tool: `scan`, `list`, and `collect`.
 To scan a network for BMC nodes, use the `scan` command. If the port is not specified,
-`magellan` will probe ports 623, 22, 442, and 5000 by default similar to `dora`:
+`magellan` will probe ports 623, 442 (redfish and IPMI) by default:
 
 ```bash
 ./magellan scan --subnet 192.168.0.0 --db.path data/assets.db --port 623
@@ -74,7 +74,7 @@ and `pass/password` flag to be set to use `ipmitool` (which must installed as we
 Additionally, it may be necessary to set the `host` and `port` flags for `magellan`
 to find the `hms-smd` API.
 
-Note: If `db.path` is not set, `magellan` will use /tmp/magellan.db by default.
+Note: If the `db.path` flag is not set, `magellan` will use /tmp/magellan.db by default.
 
 ## TODO
 
