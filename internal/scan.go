@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-
 func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []BMCProbeResult {
 	results := []BMCProbeResult{}
 	for _, p := range ports {
@@ -52,11 +51,11 @@ func GenerateHosts(subnet string, begin uint8, end uint8) []string {
 }
 
 func ScanForAssets(hosts []string, ports []int, threads int, timeout int) []BMCProbeResult {
-	results 	:= make([]BMCProbeResult, 0, len(hosts))
-	done 		:= make(chan struct{}, threads+1)
-	chanHost 	:= make(chan string, threads+1)
+	results := make([]BMCProbeResult, 0, len(hosts))
+	done := make(chan struct{}, threads+1)
+	chanHost := make(chan string, threads+1)
 	// chanPort := make(chan int, threads+1)
-	
+
 	var wg sync.WaitGroup
 	wg.Add(threads)
 	for i := 0; i < threads; i++ {

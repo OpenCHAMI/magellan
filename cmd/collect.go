@@ -30,11 +30,11 @@ var collectCmd = &cobra.Command{
 			User:          user,
 			Pass:          pass,
 			Drivers:       drivers,
+			Preferred:     preferredDriver,
 			Timeout:       timeout,
 			Threads:       threads,
 			Verbose:       verbose,
 			WithSecureTLS: withSecureTLS,
-
 		}
 		magellan.CollectInfo(&probeStates, l, q)
 

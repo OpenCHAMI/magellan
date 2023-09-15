@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	IPMI_PORT    = 623
-	SSH_PORT     = 22
-	HTTPS_PORT   = 443
+	IPMI_PORT  = 623
+	SSH_PORT   = 22
+	HTTPS_PORT = 443
 )
 
 type BMCProbeResult struct {
@@ -140,7 +140,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				}
 				q.Host = ps.Host
 				q.Port = ps.Port
-				
+
 				client, err := NewClient(l, q)
 				if err != nil {
 					l.Log.Errorf("could not make client: %v", err)
@@ -156,8 +156,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				// inventories
 				inventory, err := QueryInventory(client, l, q)
 				if err != nil {
-					l.Log.Errorf("could not query inventory: %v", err)
-					continue
+					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
 				}
 
 				// chassis
@@ -177,11 +176,12 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				data["Type"] = ""
 				data["Name"] = ""
 				data["FQDN"] = ps.Host
+				data["User"] = q.User
+				data["Password"] = q.Pass
 				data["RediscoverOnUpdate"] = false
 				data["Inventory"] = inventory
 				data["Chassis"] = chassis
-
-
+        
 				b, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
 					l.Log.Errorf("could not marshal JSON: %v", err)
@@ -419,13 +419,13 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
 	}
 	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
-	config := gofish.ClientConfig {
-		Endpoint: 				url,
-		Username: 				q.User,
-		Password: 				q.Pass,
-		Insecure: 				!q.WithSecureTLS,
-		TLSHandshakeTimeout: 	q.Timeout,
-
+  
+	config := gofish.ClientConfig{
+		Endpoint:            url,
+		Username:            q.User,
+		Password:            q.Pass,
+		Insecure:            !q.WithSecureTLS,
+		TLSHandshakeTimeout: q.Timeout,
 	}
 	c, err := gofish.Connect(config)
 	if err != nil {
