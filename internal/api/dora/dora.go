@@ -9,23 +9,23 @@ import (
 )
 
 const (
-	Host = "http://localhost"
-	DbType = "sqlite3"
-	DbPath = "../data/assets.db"
+	Host         = "http://localhost"
+	DbType       = "sqlite3"
+	DbPath       = "../data/assets.db"
 	BaseEndpoint = "/v1"
-	Port = 8000
+	Port         = 8000
 )
 
 type ScannedResult struct {
-	id string
-	site any
-	cidr string 
-	ip string
-	port int
+	id       string
+	site     any
+	cidr     string
+	ip       string
+	port     int
 	protocol string
-	scanner string
-	state string
-	updated string
+	scanner  string
+	state    string
+	updated  string
 }
 
 func makeEndpointUrl(endpoint string) string {
@@ -67,7 +67,7 @@ func LoadScannedPortsFromDB(dbPath string, dbType string) {
 	for rows.Next() {
 		var r ScannedResult
 		rows.Scan(
-			&r.id, &r.site, &r.cidr, &r.ip, &r.port, &r.protocol, &r.scanner, 
+			&r.id, &r.site, &r.cidr, &r.ip, &r.port, &r.protocol, &r.scanner,
 			&r.state, &r.updated,
 		)
 	}

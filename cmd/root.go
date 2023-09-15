@@ -8,19 +8,19 @@ import (
 )
 
 var (
-	timeout       int
-	threads       int
-	ports         []int
-	hosts         []string
-	withSecureTLS bool
-	certPoolFile  string
-	user          string
-	pass          string
-	dbpath        string
-	drivers       []string
+	timeout         int
+	threads         int
+	ports           []int
+	hosts           []string
+	withSecureTLS   bool
+	certPoolFile    string
+	user            string
+	pass            string
+	dbpath          string
+	drivers         []string
 	preferredDriver string
-	ipmitoolPath  string
-	verbose			bool
+	ipmitoolPath    string
+	verbose         bool
 )
 
 // TODO: discover bmc's on network (dora)

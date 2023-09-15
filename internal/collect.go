@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	IPMI_PORT    = 623
-	SSH_PORT     = 22
-	HTTPS_PORT   = 443
+	IPMI_PORT  = 623
+	SSH_PORT   = 22
+	HTTPS_PORT = 443
 )
 
 type BMCProbeResult struct {
@@ -42,13 +42,13 @@ type QueryParams struct {
 	User          string
 	Pass          string
 	Drivers       []string
-	Threads			int
-	Preferred		string
+	Threads       int
+	Preferred     string
 	Timeout       int
 	WithSecureTLS bool
 	CertPoolFile  string
 	Verbose       bool
-	IpmitoolPath string
+	IpmitoolPath  string
 }
 
 func NewClient(l *Logger, q *QueryParams) (*bmclib.Client, error) {
@@ -113,18 +113,18 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 	if len(*probeStates) <= 0 {
 		return fmt.Errorf("no probe states found")
 	}
-	
+
 	// generate custom xnames for bmcs
 	node := xnames.Node{
-		Cabinet:		1000,
-		Chassis:		1,
-		ComputeModule:	7,
-		NodeBMC:		-1,
+		Cabinet:       1000,
+		Chassis:       1,
+		ComputeModule: 7,
+		NodeBMC:       -1,
 	}
 
-	found 			:= make([]string, 0, len(*probeStates))
-	done 			:= make(chan struct{}, q.Threads+1)
-	chanProbeState 	:= make(chan BMCProbeResult, q.Threads+1)
+	found := make([]string, 0, len(*probeStates))
+	done := make(chan struct{}, q.Threads+1)
+	chanProbeState := make(chan BMCProbeResult, q.Threads+1)
 
 	// collect bmc information asynchronously
 	var wg sync.WaitGroup
@@ -132,18 +132,18 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 	for i := 0; i < q.Threads; i++ {
 		go func() {
 			for {
-				ps, ok := <- chanProbeState
+				ps, ok := <-chanProbeState
 				if !ok {
 					wg.Done()
 					return
 				}
 				q.Host = ps.Host
 				q.Port = ps.Port
-				
+
 				client, err := NewClient(l, q)
 				if err != nil {
 					l.Log.Errorf("could not make client: %v", err)
-					continue 
+					continue
 				}
 
 				// metadata
@@ -155,7 +155,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				// inventories
 				inventory, err := QueryInventory(client, l, q)
 				if err != nil {
-					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err) 
+					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
 				}
 
 				// chassis
@@ -171,15 +171,15 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				headers["Content-Type"] = "application/json"
 
 				data := make(map[string]any)
-				data["ID"] 					= fmt.Sprintf("%v", node.String()[:len(node.String())-2])
-				data["Type"]				= ""
-				data["Name"]				= ""
-				data["FQDN"]				= ps.Host
-				data["User"]				= q.User
-				data["Password"]			= q.Pass
-				data["RediscoverOnUpdate"] 	= false
-				data["Inventory"] 			= inventory
-				data["Chassis"]				= chassis
+				data["ID"] = fmt.Sprintf("%v", node.String()[:len(node.String())-2])
+				data["Type"] = ""
+				data["Name"] = ""
+				data["FQDN"] = ps.Host
+				data["User"] = q.User
+				data["Password"] = q.Pass
+				data["RediscoverOnUpdate"] = false
+				data["Inventory"] = inventory
+				data["Chassis"] = chassis
 
 				b, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
@@ -222,7 +222,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 	for _, ps := range *probeStates {
 		// skip if found info from host
 		foundHost := slices.Index(found, ps.Host)
-		if !ps.State || foundHost >= 0{
+		if !ps.State || foundHost >= 0 {
 			continue
 		}
 		chanProbeState <- ps
@@ -388,11 +388,11 @@ func QueryBios(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error)
 
 func QueryEthernetInterfaces(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
 	config := gofish.ClientConfig{
-		Endpoint: 				fmt.Sprintf("https://%s:%d", q.Host, q.Port),
-		Username: 				q.User,
-		Password: 				q.Pass,
-		Insecure: 				!q.WithSecureTLS,
-		TLSHandshakeTimeout: 	q.Timeout,
+		Endpoint:            fmt.Sprintf("https://%s:%d", q.Host, q.Port),
+		Username:            q.User,
+		Password:            q.Pass,
+		Insecure:            !q.WithSecureTLS,
+		TLSHandshakeTimeout: q.Timeout,
 	}
 	c, err := gofish.Connect(config)
 	if err != nil {
@@ -417,12 +417,12 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
 	}
 	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
-	config := gofish.ClientConfig {
-		Endpoint: 				url,
-		Username: 				q.User,
-		Password: 				q.Pass,
-		Insecure: 				!q.WithSecureTLS,
-		TLSHandshakeTimeout: 	q.Timeout,
+	config := gofish.ClientConfig{
+		Endpoint:            url,
+		Username:            q.User,
+		Password:            q.Pass,
+		Insecure:            !q.WithSecureTLS,
+		TLSHandshakeTimeout: q.Timeout,
 	}
 	c, err := gofish.Connect(config)
 	if err != nil {

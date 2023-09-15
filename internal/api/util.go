@@ -7,7 +7,6 @@ import (
 	"net/http"
 )
 
-
 func MakeRequest(url string, httpMethod string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	// url := getSmdEndpointUrl(endpoint)
 	req, _ := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
