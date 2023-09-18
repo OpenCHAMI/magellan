@@ -4,7 +4,7 @@ import (
 	magellan "github.com/bikeshack/magellan/internal"
 	"github.com/bikeshack/magellan/internal/api/smd"
 	"github.com/bikeshack/magellan/internal/db/sqlite"
-
+	"github.com/bikeshack/magellan/internal/log"
 	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -15,7 +15,7 @@ var collectCmd = &cobra.Command{
 	Short: "Query information about BMC",
 	Run: func(cmd *cobra.Command, args []string) {
 		// make application logger
-		l := magellan.NewLogger(logrus.New(), logrus.DebugLevel)
+		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
 
 		// get probe states stored in db from scan
 		probeStates, err := sqlite.GetProbeResults(dbpath)
@@ -35,6 +35,7 @@ var collectCmd = &cobra.Command{
 			Threads:       threads,
 			Verbose:       verbose,
 			WithSecureTLS: withSecureTLS,
+			OutputPath:    outputPath,
 		}
 		magellan.CollectInfo(&probeStates, l, q)
 
@@ -52,6 +53,7 @@ func init() {
 	collectCmd.PersistentFlags().IntVar(&smd.Port, "port", smd.Port, "set the port to the smd API")
 	collectCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC password")
+	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", "/tmp/magellan/data/", "set the path to store collection data")
 	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
 	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
 	collectCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
