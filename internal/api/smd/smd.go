@@ -6,7 +6,7 @@ package smd
 import (
 	"fmt"
 
-	"github.com/bikeshack/magellan/internal/api"
+	"github.com/bikeshack/magellan/internal/util"
 	// hms "github.com/alexlovelltroy/hms-smd"
 )
 
@@ -22,7 +22,7 @@ func makeEndpointUrl(endpoint string) string {
 
 func GetRedfishEndpoints() error {
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	_, body, err := api.MakeRequest(url, "GET", nil, nil)
+	_, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("could not get endpoint: %v", err)
 	}
@@ -33,7 +33,7 @@ func GetRedfishEndpoints() error {
 
 func GetComponentEndpoint(xname string) error {
 	url := makeEndpointUrl("/Inventory/ComponentsEndpoints/" + xname)
-	res, body, err := api.MakeRequest(url, "GET", nil, nil)
+	res, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("could not get endpoint: %v", err)
 	}
@@ -51,7 +51,7 @@ func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	// _ = ep
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	res, body, _ := api.MakeRequest(url, "POST", data, headers)
+	res, body, _ := util.MakeRequest(url, "POST", data, headers)
 	fmt.Println("smd url: ", url)
 	fmt.Println("res: ", res)
 	fmt.Println("body: ", string(body))
