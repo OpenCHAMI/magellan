@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path"
 
 	magellan "github.com/bikeshack/magellan/internal"
 	"github.com/bikeshack/magellan/internal/db/sqlite"
@@ -46,6 +48,13 @@ var scanCmd = &cobra.Command{
 		for _, r := range probeStates {
 			fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
 		}
+
+		// make the dbpath dir if needed
+		err := os.MkdirAll(path.Dir(dbpath), 0766)
+		if err != nil {
+			fmt.Printf("could not make database directory: %v", err)
+		}
+
 		sqlite.InsertProbeResults(dbpath, &probeStates)
 	},
 }
