@@ -8,10 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"sync"
 	"time"
 
+	"github.com/bikeshack/magellan/internal/log"
+
 	"github.com/bikeshack/magellan/internal/api/smd"
+	"github.com/bikeshack/magellan/internal/util"
 
 	"github.com/Cray-HPE/hms-xname/xnames"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
@@ -50,9 +54,10 @@ type QueryParams struct {
 	CertPoolFile  string
 	Verbose       bool
 	IpmitoolPath  string
+	OutputPath    string
 }
 
-func NewClient(l *Logger, q *QueryParams) (*bmclib.Client, error) {
+func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
 	// NOTE: bmclib.NewClient(host, port, user, pass)
 	// ...seems like the `port` params doesn't work like expected depending on interface
 
@@ -106,7 +111,7 @@ func NewClient(l *Logger, q *QueryParams) (*bmclib.Client, error) {
 	return client, nil
 }
 
-func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error {
+func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) error {
 	// check for available probe states
 	if probeStates == nil {
 		return fmt.Errorf("no probe states found")
@@ -121,6 +126,13 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 		Chassis:       1,
 		ComputeModule: 7,
 		NodeBMC:       -1,
+	}
+
+	// make the output directory to store files
+	outputPath := path.Clean(q.OutputPath)
+	outputPath, err := util.MakeOutputDirectory(outputPath)
+	if err != nil {
+		l.Log.Errorf("could not make output directory: %v", err)
 	}
 
 	found := make([]string, 0, len(*probeStates))
@@ -171,6 +183,11 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				headers := make(map[string]string)
 				headers["Content-Type"] = "application/json"
 
+				// unmarshal json to send in correct format
+				var iobj, cobj map[string]json.RawMessage
+				json.Unmarshal(inventory, &iobj)
+				json.Unmarshal(chassis, &cobj)
+
 				data := make(map[string]any)
 				data["ID"] = fmt.Sprintf("%v", node.String()[:len(node.String())-2])
 				data["Type"] = ""
@@ -179,12 +196,18 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 				data["User"] = q.User
 				data["Password"] = q.Pass
 				data["RediscoverOnUpdate"] = false
-				data["Inventory"] = inventory
-				data["Chassis"] = chassis
-        
+				data["Inventory"] = iobj
+				data["Chassis"] = cobj
+
 				b, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
 					l.Log.Errorf("could not marshal JSON: %v", err)
+				}
+
+				// write JSON data to file
+				err = os.WriteFile(path.Clean(outputPath + "/" + q.Host + ".json"), b, os.ModePerm)
+				if err != nil {
+					l.Log.Errorf("could not write data to file: %v", err)
 				}
 
 				// add all endpoints to smd
@@ -246,7 +269,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *Logger, q *QueryParams) error
 	return nil
 }
 
-func QueryMetadata(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
+func QueryMetadata(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 
 	// open BMC session and update driver registry
@@ -280,7 +303,7 @@ func QueryMetadata(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, er
 	return b, nil
 }
 
-func QueryInventory(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
+func QueryInventory(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -297,21 +320,23 @@ func QueryInventory(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, e
 		return nil, fmt.Errorf("could not get inventory: %v", err)
 	}
 
+	
 	// retrieve inventory data
-	b, err := json.MarshalIndent(inventory, "", "    ")
+	data := map[string]any{"Inventory": inventory}
+	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		ctxCancel()
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 
 	if q.Verbose {
-		fmt.Printf("inventory: %v\n", string(b))
+		fmt.Printf("%v\n", string(b))
 	}
 	ctxCancel()
 	return b, nil
 }
 
-func QueryPowerState(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
+func QueryPowerState(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
 	err := client.PreferProvider(q.Preferred).Open(ctx)
@@ -321,28 +346,29 @@ func QueryPowerState(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, 
 	}
 	defer client.Close(ctx)
 
-	inventory, err := client.GetPowerState(ctx)
+	powerState, err := client.GetPowerState(ctx)
 	if err != nil {
 		ctxCancel()
 		return nil, fmt.Errorf("could not get inventory: %v", err)
 	}
 
 	// retrieve inventory data
-	b, err := json.MarshalIndent(inventory, "", "    ")
+	data := map[string]any{"PowerState": powerState}
+	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		ctxCancel()
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 
 	if q.Verbose {
-		fmt.Printf("power state: %v\n", string(b))
+		fmt.Printf("%v\n", string(b))
 	}
 	ctxCancel()
 	return b, nil
 
 }
 
-func QueryUsers(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
+func QueryUsers(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -361,7 +387,8 @@ func QueryUsers(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error
 	}
 
 	// retrieve inventory data
-	b, err := json.MarshalIndent(users, "", "    ")
+	data := map[string]any {"Users": users}
+	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		ctxCancel()
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
@@ -370,24 +397,24 @@ func QueryUsers(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error
 	// return b, nil
 	ctxCancel()
 	if q.Verbose {
-		fmt.Printf("users: %v\n", string(b))
+		fmt.Printf("%v\n", string(b))
 	}
 	return b, nil
 }
 
-func QueryBios(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
+func QueryBios(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("could not make query: %v", err)
 	// }
 	b, err := makeRequest(client, client.GetBiosConfiguration, q.Timeout)
 	if q.Verbose {
-		fmt.Printf("bios: %v\n", string(b))
+		fmt.Printf("%v\n", string(b))
 	}
 	return b, err
 }
 
-func QueryEthernetInterfaces(client *bmclib.Client, l *Logger, q *QueryParams) ([]byte, error) {
+func QueryEthernetInterfaces(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
 	config := gofish.ClientConfig{
 		Endpoint:            fmt.Sprintf("https://%s:%d", q.Host, q.Port),
 		Username:            q.User,
@@ -413,7 +440,6 @@ func QueryEthernetInterfaces(client *bmclib.Client, l *Logger, q *QueryParams) (
 }
 
 func QueryChassis(q *QueryParams) ([]byte, error) {
-
 	url := "https://"
 	if q.User != "" && q.Pass != "" {
 		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
@@ -436,18 +462,19 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 		return nil, fmt.Errorf("could not query chassis (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	b, err := json.MarshalIndent(chassis, "", "    ")
+	data := map[string]any{"chassis": chassis}
+	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 
 	if q.Verbose {
-		fmt.Printf("chassis: %v\n", string(b))
+		fmt.Printf("%v\n", string(b))
 	}
 	return b, nil
 }
 
-func makeRequest[T interface{}](client *bmclib.Client, fn func(context.Context) (T, error), timeout int) ([]byte, error) {
+func makeRequest[T any](client *bmclib.Client, fn func(context.Context) (T, error), timeout int) ([]byte, error) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(timeout))
 	client.Registry.FilterForCompatible(ctx)
 	err := client.Open(ctx)
@@ -468,7 +495,7 @@ func makeRequest[T interface{}](client *bmclib.Client, fn func(context.Context) 
 	return makeJson(response)
 }
 
-func makeJson(object interface{}) ([]byte, error) {
+func makeJson(object any) ([]byte, error) {
 	b, err := json.MarshalIndent(object, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)

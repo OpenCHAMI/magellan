@@ -83,6 +83,7 @@ List of things left to fix, do, or ideas...
 * [ ] Switch to internal scanner if `dora` fails
 * [ ] Set default port automatically depending on the driver used to scan
 * [X] Test using different `bmclib` supported drivers (mainly 'redfish')
-* [ ] Confirm loading different components into `hms-smd`
+* [X] Confirm loading different components into `hms-smd`
+* [ ] Add ability to set subnet mask for scanning
 * [ ] Add unit tests for `scan`, `list`, and `collect` commands
 * [ ] Clean up, remove unused, and tidy code

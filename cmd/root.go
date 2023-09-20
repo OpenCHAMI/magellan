@@ -20,6 +20,7 @@ var (
 	drivers         []string
 	preferredDriver string
 	ipmitoolPath    string
+	outputPath		string
 	verbose         bool
 )
 
@@ -51,5 +52,5 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&threads, "threads", -1, "set the number of threads")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "set the timeout")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", true, "set verbose flag")
-	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", "/tmp/magellan.db", "set the probe storage path")
+	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", "/tmp/magellan/magellan.db", "set the probe storage path")
 }
