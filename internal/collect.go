@@ -196,8 +196,8 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				data["User"] = q.User
 				data["Password"] = q.Pass
 				data["RediscoverOnUpdate"] = false
-				data["Inventory"] = iobj
-				data["Chassis"] = cobj
+				data["Inventory"] = iobj["Inventory"]
+				data["Chassis"] = cobj["Chassis"]
 
 				b, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
@@ -297,7 +297,7 @@ func QueryMetadata(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte
 	}
 
 	if q.Verbose {
-		fmt.Printf("metadata: %v\n", string(b))
+		fmt.Printf("Metadata: %v\n", string(b))
 	}
 	ctxCancel()
 	return b, nil
@@ -462,7 +462,7 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 		return nil, fmt.Errorf("could not query chassis (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	data := map[string]any{"chassis": chassis}
+	data := map[string]any{"Chassis": chassis}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
