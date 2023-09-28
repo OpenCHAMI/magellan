@@ -52,9 +52,9 @@ func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
 	res, body, _ := util.MakeRequest(url, "POST", data, headers)
-	fmt.Println("smd url: ", url)
-	fmt.Println("res: ", res)
-	fmt.Println("body: ", string(body))
+	fmt.Printf("smd url: %v\n", url)
+	fmt.Printf("res: %v %v\n", res.StatusCode, res.Status)
+	fmt.Printf("body: %v\n", string(body))
 	return nil
 }
 
