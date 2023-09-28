@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,7 +18,7 @@ func PathExists(path string) (bool, error) {
 }
 
 func MakeRequest(url string, httpMethod string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
-	// url := getSmdEndpointUrl(endpoint)
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	req, _ := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
 	req.Header.Add("User-Agent", "magellan")
 	for k, v := range headers {

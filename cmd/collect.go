@@ -10,6 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	forceUpdate bool
+)
+
 var collectCmd = &cobra.Command{
 	Use:   "collect",
 	Short: "Query information about BMC",
@@ -36,6 +40,7 @@ var collectCmd = &cobra.Command{
 			Verbose:       verbose,
 			WithSecureTLS: withSecureTLS,
 			OutputPath:    outputPath,
+			ForceUpdate:   forceUpdate,
 		}
 		magellan.CollectInfo(&probeStates, l, q)
 
@@ -50,10 +55,11 @@ var collectCmd = &cobra.Command{
 func init() {
 	collectCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the driver(s) and fallback drivers to use")
 	collectCmd.PersistentFlags().StringVar(&smd.Host, "host", smd.Host, "set the host to the smd API")
-	collectCmd.PersistentFlags().IntVar(&smd.Port, "port", smd.Port, "set the port to the smd API")
+	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the smd API")
 	collectCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC password")
 	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", "/tmp/magellan/data/", "set the path to store collection data")
+	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", true, "set flag to force update data sent to SMD ")
 	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
 	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
 	collectCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
