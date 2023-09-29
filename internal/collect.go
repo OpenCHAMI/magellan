@@ -638,6 +638,9 @@ func QueryProcessors(q *QueryParams) ([]byte, error) {
 func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 	config := makeGofishConfig(q)
 	c, err := gofish.Connect(config)
+	if err != nil {
+		return nil, err
+	}
 	c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
 		ExpandQuery: gofish.Expand{
 			ExpandAll: true,
