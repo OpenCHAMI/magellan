@@ -178,7 +178,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				var rm map[string]json.RawMessage
 
 				// inventories
-				inventory, err := QueryInventory(client, l, q)
+				inventory, err := QueryInventory(client, q)
 				if err != nil {
 					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
 				}
@@ -195,7 +195,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				data["Chassis"] = rm["Chassis"]
 
 				// ethernet interfaces
-				interfaces, err := QueryEthernetInterfaces(client, l, q)
+				interfaces, err := QueryEthernetInterfaces(client, q)
 				if err != nil {
 					l.Log.Errorf("could not query ethernet interfaces: %v", err)
 					continue
@@ -318,7 +318,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 	return nil
 }
 
-func QueryMetadata(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryMetadata(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 
 	// open BMC session and update driver registry
@@ -352,7 +352,7 @@ func QueryMetadata(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte
 	return b, nil
 }
 
-func QueryInventory(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -385,7 +385,7 @@ func QueryInventory(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byt
 	return b, nil
 }
 
-func QueryPowerState(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
 	err := client.PreferProvider(q.Preferred).Open(ctx)
@@ -417,7 +417,7 @@ func QueryPowerState(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]by
 
 }
 
-func QueryUsers(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -451,7 +451,7 @@ func QueryUsers(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, e
 	return b, nil
 }
 
-func QueryBios(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("could not make query: %v", err)
@@ -463,7 +463,7 @@ func QueryBios(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, er
 	return b, err
 }
 
-func QueryEthernetInterfaces(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc: %v", err)
@@ -588,12 +588,7 @@ func QueryRegisteries(q *QueryParams) ([]byte, error) {
 }
 
 func QueryProcessors(q *QueryParams) ([]byte, error) {
-	baseUrl := "https://"
-	if q.User != "" && q.Pass != "" {
-		baseUrl += fmt.Sprintf("%s:%s@", q.User, q.Pass)
-	}
-	baseUrl += fmt.Sprintf("%s:%d", q.Host, q.Port)
-	url := baseUrl + "/redfish/v1/Systems"
+	url := baseUrl(q) + "Systems"
 	res, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("something went wrong: %v", err)
@@ -612,7 +607,7 @@ func QueryProcessors(q *QueryParams) ([]byte, error) {
 	// request data about each processor member on node
 	for _, member := range members {
 		var oid = member["@odata.id"].(string)
-		var infoUrl = baseUrl + oid
+		var infoUrl = url + oid
 		res, _, err := util.MakeRequest(infoUrl, "GET", nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("something went wrong: %v", err)
@@ -635,6 +630,37 @@ func QueryProcessors(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
+func UpdateFirmware(q *QueryParams) error {
+	
+	return nil
+}
+
+func UpdateFirmwareRemote(imageURI string, q *QueryParams) error {
+	url := baseUrl(q) + "UpdateService/Actions/SimpleUpdate"
+	b := map[string]any{
+		"UpdateComponent": "BMC",
+		"TransferProtocol": "HTTP",
+		"ImageURI": imageURI,
+	}
+	data, err := json.Marshal(b)
+	if err != nil {
+		return fmt.Errorf("could not marshal data: %v", err)
+	}
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"cache-control": "no-cache",
+	}
+	res, _, err := util.MakeRequest(url, "POST", data, headers)
+	if err != nil {
+		return fmt.Errorf("something went wrong: %v", err)
+	} else if res == nil {
+		return fmt.Errorf("no response returned (url: %s)", url)
+	} else if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("returned status code %d", res.StatusCode)
+	}
+	return nil
+}
+
 func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 	config := makeGofishConfig(q)
 	c, err := gofish.Connect(config)
@@ -651,12 +677,7 @@ func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 }
 
 func makeGofishConfig(q *QueryParams) gofish.ClientConfig {
-	url := "https://"
-	if q.User != "" && q.Pass != "" {
-		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
-	}
-	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
-  
+	url := baseUrl(q)
 	return gofish.ClientConfig{
 		Endpoint:            url,
 		Username:            q.User,
@@ -693,4 +714,13 @@ func makeJson(object any) ([]byte, error) {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 	return []byte(b), nil
+}
+
+func baseUrl(q *QueryParams) string {
+	url := "https://"
+	if q.User != "" && q.Pass != "" {
+		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
+	}
+	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
+	return url + "/redfish/v1/"
 }
