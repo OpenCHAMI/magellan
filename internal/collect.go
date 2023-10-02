@@ -55,6 +55,7 @@ type QueryParams struct {
 	Verbose       bool
 	IpmitoolPath  string
 	OutputPath    string
+	ForceUpdate   bool
 }
 
 func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
@@ -120,14 +121,6 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 		return fmt.Errorf("no probe states found")
 	}
 
-	// generate custom xnames for bmcs
-	node := xnames.Node{
-		Cabinet:       1000,
-		Chassis:       1,
-		ComputeModule: 7,
-		NodeBMC:       -1,
-	}
-
 	// make the output directory to store files
 	outputPath := path.Clean(q.OutputPath)
 	outputPath, err := util.MakeOutputDirectory(outputPath)
@@ -138,6 +131,14 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 	found := make([]string, 0, len(*probeStates))
 	done := make(chan struct{}, q.Threads+1)
 	chanProbeState := make(chan BMCProbeResult, q.Threads+1)
+
+	// generate custom xnames for bmcs
+	node := xnames.Node{
+		Cabinet:       1000,
+		Chassis:       1,
+		ComputeModule: 7,
+		NodeBMC:       -1,
+	}
 
 	// collect bmc information asynchronously
 	var wg sync.WaitGroup
@@ -159,35 +160,9 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 					continue
 				}
 
-				// metadata
-				// _, err = magellan.QueryMetadata(client, l, &q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query metadata: %v\n", err)
-				// }
-
-				// inventories
-				inventory, err := QueryInventory(client, l, q)
-				if err != nil {
-					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
-				}
-
-				// chassis
-				chassis, err := QueryChassis(q)
-				if err != nil {
-					l.Log.Errorf("could not query chassis: %v", err)
-					continue
-				}
-
 				node.NodeBMC += 1
 
-				headers := make(map[string]string)
-				headers["Content-Type"] = "application/json"
-
-				// unmarshal json to send in correct format
-				var iobj, cobj map[string]json.RawMessage
-				json.Unmarshal(inventory, &iobj)
-				json.Unmarshal(chassis, &cobj)
-
+				// data to be sent to smd
 				data := make(map[string]any)
 				data["ID"] = fmt.Sprintf("%v", node.String()[:len(node.String())-2])
 				data["Type"] = ""
@@ -195,9 +170,95 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				data["FQDN"] = ps.Host
 				data["User"] = q.User
 				data["Password"] = q.Pass
+				data["IPAddr"] = ""
+				data["MACAddr"] = ""
 				data["RediscoverOnUpdate"] = false
-				data["Inventory"] = iobj
-				data["Chassis"] = cobj
+
+				// unmarshal json to send in correct format
+				var rm map[string]json.RawMessage
+
+				// inventories
+				inventory, err := QueryInventory(client, l, q)
+				if err != nil {
+					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
+				}
+				json.Unmarshal(inventory, &rm)
+				data["Inventory"] = rm["Inventory"]
+
+				// chassis
+				chassis, err := QueryChassis(q)
+				if err != nil {
+					l.Log.Errorf("could not query chassis: %v", err)
+					continue
+				}
+				json.Unmarshal(chassis, &rm)
+				data["Chassis"] = rm["Chassis"]
+
+				// ethernet interfaces
+				interfaces, err := QueryEthernetInterfaces(client, l, q)
+				if err != nil {
+					l.Log.Errorf("could not query ethernet interfaces: %v", err)
+					continue
+				}
+				json.Unmarshal(interfaces, &rm)
+				data["Interface"] = rm["Interface"]
+
+				// get MAC address of first interface (for now...)
+				if len(rm["Interface"]) > 0 {
+					var i map[string]interface{}
+					json.Unmarshal(rm["Interface"], &i)
+					data["MACAddr"] = i["MACAddress"]
+					data["IPAddr"] = i["IPAddress"]
+					if i["FQDN"] != "" {
+						data["FQDN"] = rm["FQDN"]
+					}
+				}
+
+				// storage
+				// storage, err := QueryStorage(q)
+				// if err != nil {
+				// 	l.Log.Errorf("could not query storage: %v", err)
+				// 	continue
+				// }
+				// json.Unmarshal(storage, &rm)
+				// data["Storage"] = rm["Storage"]
+
+				// get specific processor info
+				procs, err := QueryProcessors(q)
+				if err != nil {
+					l.Log.Errorf("could not query processors: %v", err)
+				}
+				var p map[string]interface{}
+				json.Unmarshal(procs, &p)
+				data["Processors"] = rm["Processors"]
+
+				// systems
+				systems, err := QuerySystems(q)
+				if err != nil {
+					l.Log.Errorf("could not query systems: %v", err)
+				}
+				json.Unmarshal(systems, &rm)
+				data["Systems"] = rm["Systems"]
+
+				// add other fields from systems
+				if len(rm["Systems"]) > 0 {
+					var s map[string][]interface{}
+					json.Unmarshal(rm["Systems"], &s)
+					data["Name"] = s["Name"]
+				}
+
+				// data["Type"] = rm[""]
+
+				// registries
+				// registries, err := QueryRegisteries(q)
+				// if err != nil {
+				// 	l.Log.Errorf("could not query registries: %v", err)
+				// }
+				// json.Unmarshal(registries, &rm)
+				// data["Registries"] = rm["Registries"]
+
+				headers := make(map[string]string)
+				headers["Content-Type"] = "application/json"
 
 				b, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
@@ -213,28 +274,16 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				// add all endpoints to smd
 				err = smd.AddRedfishEndpoint(b, headers)
 				if err != nil {
-					l.Log.Errorf("could not add redfish endpoint: %v", err)
+					l.Log.Error(err)
 
 					// try updating instead
+					if q.ForceUpdate {
+						err = smd.UpdateRedfishEndpoint(data["ID"].(string), b, headers)
+						if err != nil {
+							l.Log.Error(err)
+						}
+					}
 				}
-
-				// users
-				// user, err := magellan.QueryUsers(client, l, &q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query users: %v\n", err)
-				// }
-				// users = append(users, user)
-
-				// bios
-				// _, err = magellan.QueryBios(client, l, &q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query bios: %v\n", err)
-				// }
-
-				// _, err = magellan.QueryPowerState(client, l, &q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query power state: %v\n", err)
-				// }
 
 				// got host information, so add to list of already probed hosts
 				found = append(found, ps.Host)
@@ -297,7 +346,7 @@ func QueryMetadata(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte
 	}
 
 	if q.Verbose {
-		fmt.Printf("metadata: %v\n", string(b))
+		fmt.Printf("Metadata: %v\n", string(b))
 	}
 	ctxCancel()
 	return b, nil
@@ -415,54 +464,17 @@ func QueryBios(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, er
 }
 
 func QueryEthernetInterfaces(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
-	config := gofish.ClientConfig{
-		Endpoint:            fmt.Sprintf("https://%s:%d", q.Host, q.Port),
-		Username:            q.User,
-		Password:            q.Pass,
-		Insecure:            !q.WithSecureTLS,
-		TLSHandshakeTimeout: q.Timeout,
-	}
-	c, err := gofish.Connect(config)
+	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc: %v", err)
 	}
 
-	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "")
+	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/")
 	if err != nil {
 		return nil, fmt.Errorf("could not get ethernet interfaces: %v", err)
 	}
 
-	b, err := json.MarshalIndent(interfaces, "", "    ")
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal JSON: %v", err)
-	}
-	return b, nil
-}
-
-func QueryChassis(q *QueryParams) ([]byte, error) {
-	url := "https://"
-	if q.User != "" && q.Pass != "" {
-		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
-	}
-	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
-  
-	config := gofish.ClientConfig{
-		Endpoint:            url,
-		Username:            q.User,
-		Password:            q.Pass,
-		Insecure:            !q.WithSecureTLS,
-		TLSHandshakeTimeout: q.Timeout,
-	}
-	c, err := gofish.Connect(config)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
-	}
-	chassis, err := c.Service.Chassis()
-	if err != nil {
-		return nil, fmt.Errorf("could not query chassis (%v:%v): %v", q.Host, q.Port, err)
-	}
-
-	data := map[string]any{"chassis": chassis}
+	data := map[string]any{"Interfaces": interfaces}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
@@ -472,6 +484,183 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 		fmt.Printf("%v\n", string(b))
 	}
 	return b, nil
+}
+
+func QueryChassis(q *QueryParams) ([]byte, error) {
+	c, err := connectGofish(q)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+	}
+	chassis, err := c.Service.Chassis()
+	if err != nil {
+		return nil, fmt.Errorf("could not query chassis (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	data := map[string]any{"Chassis": chassis}
+	b, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal JSON: %v", err)
+	}
+
+	if q.Verbose {
+		fmt.Printf("%v\n", string(b))
+	}
+	return b, nil
+}
+
+func QueryStorage(q *QueryParams) ([]byte, error) {
+	c, err := connectGofish(q)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	systems, err := c.Service.StorageSystems()
+	if err != nil {
+		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	services, err := c.Service.StorageServices()
+	if err != nil {
+		return nil, fmt.Errorf("could not query storage services (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	data := map[string]any{
+		"Storage": map[string]any{
+			"Systems": systems,
+			"Services": services,
+		},
+	}
+	b, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal JSON: %v", err)
+	}
+
+	if q.Verbose {
+		fmt.Printf("%v\n", string(b))
+	}
+	return b, nil
+}
+
+func QuerySystems(q *QueryParams) ([]byte, error) {
+	c, err := connectGofish(q)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	systems, err := c.Service.Systems()
+	if err != nil {
+		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	data := map[string]any{"Systems": systems }
+	b, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal JSON: %v", err)
+	}
+
+	if q.Verbose {
+		fmt.Printf("%v\n", string(b))
+	}
+	return b, nil
+}
+
+func QueryRegisteries(q *QueryParams) ([]byte, error) {
+	c, err := connectGofish(q)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	registries, err := c.Service.Registries()
+	if err != nil {
+		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	data := map[string]any{"Registries": registries }
+	b, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal JSON: %v", err)
+	}
+
+	if q.Verbose {
+		fmt.Printf("%v\n", string(b))
+	}
+	return b, nil
+}
+
+func QueryProcessors(q *QueryParams) ([]byte, error) {
+	baseUrl := "https://"
+	if q.User != "" && q.Pass != "" {
+		baseUrl += fmt.Sprintf("%s:%s@", q.User, q.Pass)
+	}
+	baseUrl += fmt.Sprintf("%s:%d", q.Host, q.Port)
+	url := baseUrl + "/redfish/v1/Systems"
+	res, body, err := util.MakeRequest(url, "GET", nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("something went wrong: %v", err)
+	} else if res == nil {
+		return nil, fmt.Errorf("no response returned (url: %s)", url)
+	} else if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("returned status code %d", res.StatusCode)
+	}
+
+	// convert to not get base64 string
+	var procs map[string]json.RawMessage
+	var members []map[string]any
+	json.Unmarshal(body, &procs)
+	json.Unmarshal(procs["Members"], &members)
+
+	// request data about each processor member on node
+	for _, member := range members {
+		var oid = member["@odata.id"].(string)
+		var infoUrl = baseUrl + oid
+		res, _, err := util.MakeRequest(infoUrl, "GET", nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("something went wrong: %v", err)
+		} else if res == nil {
+			return nil, fmt.Errorf("no response returned (url: %s)", url)
+		} else if res.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("returned status code %d", res.StatusCode)
+		}
+	}
+
+	data := map[string]any{"Processors": procs }
+	b, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal JSON: %v", err)
+	}
+
+	if q.Verbose {
+		fmt.Printf("%v\n", string(b))
+	}
+	return b, nil
+}
+
+func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
+	config := makeGofishConfig(q)
+	c, err := gofish.Connect(config)
+	c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
+		ExpandQuery: gofish.Expand{
+			ExpandAll: true,
+			Links: true,
+		},
+	}
+	return c, err
+}
+
+func makeGofishConfig(q *QueryParams) gofish.ClientConfig {
+	url := "https://"
+	if q.User != "" && q.Pass != "" {
+		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
+	}
+	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
+  
+	return gofish.ClientConfig{
+		Endpoint:            url,
+		Username:            q.User,
+		Password:            q.Pass,
+		Insecure:            !q.WithSecureTLS,
+		TLSHandshakeTimeout: q.Timeout,
+	}
 }
 
 func makeRequest[T any](client *bmclib.Client, fn func(context.Context) (T, error), timeout int) ([]byte, error) {
