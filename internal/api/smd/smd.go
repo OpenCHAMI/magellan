@@ -51,6 +51,9 @@ func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
 	res, body, err := util.MakeRequest(url, "POST", data, headers)
+	if res == nil {
+		return fmt.Errorf("no response")
+	}
 	fmt.Printf("smd url: %v\n", url)
 	fmt.Printf("res: %v\n", res.Status)
 	fmt.Printf("body: %v\n", string(body))
@@ -69,6 +72,9 @@ func UpdateRedfishEndpoint(xname string, data []byte, headers map[string]string)
 	// Update redfish endpoint via PUT `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints/" + xname)
 	res, body, err := util.MakeRequest(url, "PUT", data, headers)
+	if res == nil {
+		return fmt.Errorf("no response")
+	}
 	fmt.Printf("smd url: %v\n", url)
 	fmt.Printf("res: %v\n", res.Status)
 	fmt.Printf("body: %v\n", string(body))
