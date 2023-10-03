@@ -6,6 +6,7 @@ PORTS=""
 USER=""
 PASS=""
 SMD_HOST=""
+SMD_PORT=""
 THREADS="-1"
 TIMEOUT="30"
 ARGS=""
@@ -27,7 +28,7 @@ function list(){
 
 function collect() {
 	# ./magellan collect --user admin --pass password
-	${EXE} collect --user ${USER} --pass ${PASS} --timeout ${TIMEOUT} --threads ${THREADS} --host ${SMD_HOST} 
+	${EXE} collect --user ${USER} --pass ${PASS} --timeout ${TIMEOUT} --threads ${THREADS} --host ${SMD_HOST} --port ${SMD_PORT}
 }
 
 
@@ -59,6 +60,11 @@ while [[ $# -gt 0 ]]; do
 		shift
 		shift
 		;;
+	--smd-port)
+		SMD_PORT="$2"
+		shift
+		shift
+		;;
 	--timeout)
 		TIMEOUT="$2"
 		shift
@@ -82,6 +88,8 @@ done
 
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
+echo "SMD host	= ${SMD_HOST}"
+echo "SMD port	= ${SMD_PORT}"
 echo "subnets 	= ${SUBNETS}"
 echo "ports	 	= ${PORTS}"
 echo "user 		= ${USER}"
