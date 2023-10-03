@@ -17,7 +17,7 @@ function build(){
 
 function scan() {
 	# ./magellan scan --subnet 172.16.0.0 --port 443
-	${EXE} scan --subnet ${SUBNETS} --port ${PORTS} --host ${SMD_HOST} --timeout ${TIMEOUT} --threads ${THREADS}
+	${EXE} scan --subnet ${SUBNETS} --port ${PORTS} --timeout ${TIMEOUT} --threads ${THREADS}
 }
 
 function list(){
@@ -27,7 +27,7 @@ function list(){
 
 function collect() {
 	# ./magellan collect --user admin --pass password
-	${EXE} collect --user ${USER} --pass ${PASS} --timeout ${TIMEOUT} --threads ${THREADS}
+	${EXE} collect --user ${USER} --pass ${PASS} --timeout ${TIMEOUT} --threads ${THREADS} --host ${SMD_HOST} 
 }
 
 
