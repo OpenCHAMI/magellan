@@ -5,25 +5,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/bikeshack/magellan/internal/log"
-	"github.com/sirupsen/logrus"
 
 	"github.com/bikeshack/magellan/internal/api/smd"
 	"github.com/bikeshack/magellan/internal/util"
 
 	"github.com/Cray-HPE/hms-xname/xnames"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
-	"github.com/bmc-toolbox/bmclib/v2/constants"
-	bmclibErrs "github.com/bmc-toolbox/bmclib/v2/errors"
 	"github.com/jacobweinstock/registrar"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish"
@@ -633,127 +628,6 @@ func QueryProcessors(q *QueryParams) ([]byte, error) {
 		fmt.Printf("%v\n", string(b))
 	}
 	return b, nil
-}
-
-func UpdateFirmware(client bmclib.Client, l log.Logger, q *QueryParams) error {
-	// open BMC session and update driver registry
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
-	client.Registry.FilterForCompatible(ctx)
-	err := client.Open(ctx)
-	if err != nil {
-		ctxCancel()
-		return fmt.Errorf("could not connect to bmc: %v", err)
-	}
-
-	defer client.Close(ctx)
-
-	filepath := ""
-	file, err := os.Open(filepath)
-	if err != nil {
-		ctxCancel()
-		return fmt.Errorf("could not open firmware path: %v", err)
-	}
-
-	defer file.Close()
-
-	component := ""
-	taskId, err := client.FirmwareInstall(ctx, component, constants.FirmwareApplyOnReset, true, file)
-	if err != nil {
-		ctxCancel()
-		return fmt.Errorf("could not install firmware: %v", err)
-	}
-
-	firmwareVersion := ""
-	for {
-		if ctx.Err() != nil {
-			ctxCancel()
-			return fmt.Errorf("context error: %v", ctx.Err())
-		}
-
-		state, err := client.FirmwareInstallStatus(ctx, firmwareVersion, component, taskId)
-		if err != nil {
-			// when its under update a connection refused is returned
-			if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "operation timed out") {
-				l.Log.Info("BMC refused connection, BMC most likely resetting...")
-				time.Sleep(2 * time.Second)
-
-				continue
-			}
-
-			if errors.Is(err, bmclibErrs.ErrSessionExpired) || strings.Contains(err.Error(), "session expired") {
-				err := client.Open(ctx)
-				if err != nil {
-					l.Log.Fatal(err, "bmc re-login failed")
-				}
-
-				l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("BMC session expired, logging in...")
-
-				continue
-			}
-
-			l.Log.Fatal(err)
-		}
-
-		switch state {
-		case constants.FirmwareInstallRunning, constants.FirmwareInstallInitializing:
-			l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("firmware install running")
-
-		case constants.FirmwareInstallFailed:
-			ctxCancel()
-			l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("firmware install failed")
-			return fmt.Errorf("failed to install firmware")
-
-		case constants.FirmwareInstallComplete:
-			ctxCancel()
-			l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("firmware install completed")
-			return nil
-
-		case constants.FirmwareInstallPowerCyleHost:
-			l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("host powercycle required")
-
-			if _, err := client.SetPowerState(ctx, "cycle"); err != nil {
-				ctxCancel()
-				l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("error power cycling host for install")
-				return fmt.Errorf("failed to install firmware")
-			}
-
-			ctxCancel()
-			l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("host power cycled, all done!")
-			return nil
-		default:
-			l.Log.WithFields(logrus.Fields{"state": state, "component": component}).Info("unknown state returned")
-		}
-
-		time.Sleep(2 * time.Second)
-	}
-	
-	return nil
-}
-
-func UpdateFirmwareV2(serverIP string, imageURI string, component string, q *QueryParams) error {
-	url := baseUrl(q) + "UpdateService/Actions/SimpleUpdate"
-	b := map[string]any{
-		"UpdateComponent": component, // BMC, BIOS
-		"TransferProtocol": "HTTP",
-		"ImageURI": "http://" + serverIP + "/" +  imageURI,
-	}
-	data, err := json.Marshal(b)
-	if err != nil {
-		return fmt.Errorf("could not marshal data: %v", err)
-	}
-	headers := map[string]string{
-		"Content-Type": "application/json",
-		"cache-control": "no-cache",
-	}
-	res, _, err := util.MakeRequest(url, "POST", data, headers)
-	if err != nil {
-		return fmt.Errorf("something went wrong: %v", err)
-	} else if res == nil {
-		return fmt.Errorf("no response returned (url: %s)", url)
-	} else if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("returned status code %d", res.StatusCode)
-	}
-	return nil
 }
 
 func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
