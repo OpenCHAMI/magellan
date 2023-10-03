@@ -730,12 +730,12 @@ func UpdateFirmware(client bmclib.Client, l log.Logger, q *QueryParams) error {
 	return nil
 }
 
-func UpdateFirmwareRemote(imageURI string, q *QueryParams) error {
+func UpdateFirmwareV2(serverIP string, imageURI string, component string, q *QueryParams) error {
 	url := baseUrl(q) + "UpdateService/Actions/SimpleUpdate"
 	b := map[string]any{
-		"UpdateComponent": "BMC",
+		"UpdateComponent": component, // BMC, BIOS
 		"TransferProtocol": "HTTP",
-		"ImageURI": imageURI,
+		"ImageURI": "http://" + serverIP + "/" +  imageURI,
 	}
 	data, err := json.Marshal(b)
 	if err != nil {
