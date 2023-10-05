@@ -71,6 +71,7 @@ func init() {
 	updateCmd.Flags().StringVar(&user, "user", "", "set the BMC user")
 	updateCmd.Flags().StringVar(&pass, "pass", "", "set the BMC password")
 	updateCmd.Flags().StringVar(&transferProtocol, "protocol", "HTTP", "set the transfer protocol")
+	updateCmd.Flags().StringVar(&protocol, "protocol", "https", "set the Redfish protocol")
 	updateCmd.Flags().StringVar(&firmwarePath, "firmware-path", "", "set the path to the firmware")
 	updateCmd.Flags().StringVar(&firmwareVersion, "firmware-version", "", "set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
