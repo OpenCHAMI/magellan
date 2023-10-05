@@ -44,6 +44,7 @@ type BMCProbeResult struct {
 type QueryParams struct {
 	Host          string
 	Port          int
+	Protocol      string
 	User          string
 	Pass          string
 	Drivers       []string
@@ -59,9 +60,6 @@ type QueryParams struct {
 }
 
 func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
-	// NOTE: bmclib.NewClient(host, port, user, pass)
-	// ...seems like the `port` params doesn't work like expected depending on interface
-
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -83,22 +81,20 @@ func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
 	}
 
 	// only work if valid cert is provided
-	if q.WithSecureTLS {
-		var pool *x509.CertPool
-		if q.CertPoolFile != "" {
-			pool = x509.NewCertPool()
-			data, err := os.ReadFile(q.CertPoolFile)
-			if err != nil {
-				return nil, fmt.Errorf("could not read cert pool file: %v", err)
-			}
-			pool.AppendCertsFromPEM(data)
+	if q.WithSecureTLS && q.CertPoolFile != "" {
+		pool := x509.NewCertPool()
+		data, err := os.ReadFile(q.CertPoolFile)
+		if err != nil {
+			return nil, fmt.Errorf("could not read cert pool file: %v", err)
 		}
+		pool.AppendCertsFromPEM(data)
 		// a nil pool uses the system certs
 		clientOpts = append(clientOpts, bmclib.WithSecureTLS(pool))
 	}
 	url := ""
+	fmt.Println(url)
 	if q.User != "" && q.Pass != "" {
-		url += fmt.Sprintf("https://%s:%s@%s", q.User, q.Pass, q.Host)
+		url += fmt.Sprintf("%s://%s:%s@%s", q.Protocol, q.User, q.Pass, q.Host)
 	} else {
 		url += q.Host
 	}
@@ -469,7 +465,7 @@ func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams) ([]byte, err
 		return nil, fmt.Errorf("could not connect to bmc: %v", err)
 	}
 
-	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/")
+	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "")
 	if err != nil {
 		return nil, fmt.Errorf("could not get ethernet interfaces: %v", err)
 	}
@@ -588,7 +584,7 @@ func QueryRegisteries(q *QueryParams) ([]byte, error) {
 }
 
 func QueryProcessors(q *QueryParams) ([]byte, error) {
-	url := baseUrl(q) + "Systems"
+	url := baseRedfishUrl(q) + "/Systems"
 	res, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("something went wrong: %v", err)
@@ -636,17 +632,19 @@ func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
-		ExpandQuery: gofish.Expand{
-			ExpandAll: true,
-			Links: true,
-		},
+	if c.Service != nil {
+		c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
+			ExpandQuery: gofish.Expand{
+				ExpandAll: true,
+				Links: true,
+			},
+		}
 	}
 	return c, err
 }
 
 func makeGofishConfig(q *QueryParams) gofish.ClientConfig {
-	url := baseUrl(q)
+	url := baseRedfishUrl(q)
 	return gofish.ClientConfig{
 		Endpoint:            url,
 		Username:            q.User,
@@ -685,11 +683,10 @@ func makeJson(object any) ([]byte, error) {
 	return []byte(b), nil
 }
 
-func baseUrl(q *QueryParams) string {
-	url := "https://"
+func baseRedfishUrl(q *QueryParams) string {
+	url := fmt.Sprintf("%s://", q.Protocol)
 	if q.User != "" && q.Pass != "" {
 		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
 	}
-	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
-	return url + "/redfish/v1/"
+	return fmt.Sprintf("%s%s:%d", url, q.Host, q.Port)
 }
