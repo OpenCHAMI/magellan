@@ -465,7 +465,7 @@ func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams) ([]byte, err
 		return nil, fmt.Errorf("could not connect to bmc: %v", err)
 	}
 
-	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "")
+	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/Self/EthernetInterfaces/")
 	if err != nil {
 		return nil, fmt.Errorf("could not get ethernet interfaces: %v", err)
 	}
