@@ -19,7 +19,10 @@ func PathExists(path string) (bool, error) {
 
 func MakeRequest(url string, httpMethod string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	req, _ := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
+	req, err := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create new HTTP request: %v", err)
+	}
 	req.Header.Add("User-Agent", "magellan")
 	for k, v := range headers {
 		req.Header.Add(k, v)
