@@ -126,7 +126,7 @@ func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error
 }
 
 func UpdateFirmwareRemote(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.QueryParams) + "/UpdateService/Actions/SimpleUpdate"
+	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService/Actions/SimpleUpdate"
 	headers := map[string]string {
 		"Content-Type": "application/json",
 		"cache-control": "no-cache",
@@ -153,7 +153,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 }
 
 func GetUpdateStatus(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.QueryParams) + "/UpdateService"
+	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService"
 	res, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
