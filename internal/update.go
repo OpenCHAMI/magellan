@@ -24,9 +24,16 @@ type UpdateParams struct {
 	FirmwarePath string
 	FirmwareVersion string
 	Component string
+	TransferProtocol string
 }
 
+// NOTE: Does not work since OpenBMC, whic bmclib uses underneath, does not 
+// support multipart updates. See issue: https://github.com/bmc-toolbox/bmclib/issues/341
 func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error {
+	if q.Component == "" {
+		return fmt.Errorf("component is required")
+	}
+	
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -118,22 +125,36 @@ func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error
 	return nil
 }
 
-func UpdateFirmwareV2(serverIP string, imageURI string, component string, q *QueryParams) error {
-	url := baseUrl(q) + "UpdateService/Actions/SimpleUpdate"
+func UpdateFirmwareRemote(q *UpdateParams) error {
+	url := baseRedfishUrl(&q.QueryParams) + "/UpdateService/Actions/SimpleUpdate"
+	headers := map[string]string {
+		"Content-Type": "application/json",
+		"cache-control": "no-cache",
+	}
 	b := map[string]any{
-		"UpdateComponent": component, // BMC, BIOS
-		"TransferProtocol": "HTTP",
-		"ImageURI": "http://" + serverIP + "/" +  imageURI,
+		"UpdateComponent": q.Component, // BMC, BIOS
+		"TransferProtocol": q.TransferProtocol,
+		"ImageURI": q.FirmwarePath,
 	}
 	data, err := json.Marshal(b)
 	if err != nil {
 		return fmt.Errorf("could not marshal data: %v", err)
 	}
-	headers := map[string]string{
-		"Content-Type": "application/json",
-		"cache-control": "no-cache",
+	res, body, err := util.MakeRequest(url, "POST", data, headers)
+	if err != nil {
+		return fmt.Errorf("something went wrong: %v", err)
+	} else if res == nil {
+		return fmt.Errorf("no response returned (url: %s)", url)
 	}
-	res, _, err := util.MakeRequest(url, "POST", data, headers)
+	if len(body) > 0 {
+		fmt.Printf("%d: %v\n", res.StatusCode, string(body))
+	}
+	return nil
+}
+
+func GetUpdateStatus(q *UpdateParams) error {
+	url := baseRedfishUrl(&q.QueryParams) + "/UpdateService"
+	res, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {
@@ -141,5 +162,34 @@ func UpdateFirmwareV2(serverIP string, imageURI string, component string, q *Que
 	} else if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("returned status code %d", res.StatusCode)
 	}
+	if len(body) > 0 {
+		fmt.Printf("%d: %v\n", res.StatusCode, string(body))
+	}
 	return nil
 }
+
+// func UpdateFirmwareLocal(q *UpdateParams) error {
+// 	fwUrl := baseUrl(&q.QueryParams) + ""
+// 	url := baseUrl(&q.QueryParams) + "UpdateService/Actions/"
+// 	headers := map[string]string {
+
+// 	}
+
+// 	// get etag from FW inventory
+// 	response, err := util.MakeRequest()
+
+// 	// load file from disk
+// 	file, err := os.ReadFile(q.FirmwarePath)
+// 	if err != nil {
+// 		return fmt.Errorf("could not read file: %v", err)
+// 	}
+
+
+
+// 	switch q.TransferProtocol {
+// 	case "HTTP":
+// 	default:
+// 		return fmt.Errorf("transfer protocol not supported")
+// 	}
+// 	return nil
+// }
