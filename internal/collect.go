@@ -33,12 +33,6 @@ const (
 	HTTPS_PORT = 443
 )
 
-type BMCProbeResult struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Protocol string `json:"protocol"`
-	State    bool   `json:"state"`
-}
 
 // NOTE: ...params were getting too long...
 type QueryParams struct {
@@ -112,7 +106,7 @@ func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
 	return client, nil
 }
 
-func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) error {
+func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) error {
 	// check for available probe states
 	if probeStates == nil {
 		return fmt.Errorf("no probe states found")
@@ -130,7 +124,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 
 	found := make([]string, 0, len(*probeStates))
 	done := make(chan struct{}, q.Threads+1)
-	chanProbeState := make(chan BMCProbeResult, q.Threads+1)
+	chanProbeState := make(chan ScannedResult, q.Threads+1)
 
 	// generate custom xnames for bmcs
 	node := xnames.Node{
