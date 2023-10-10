@@ -78,13 +78,13 @@ func DeleteProbeResults(path string, results *[]magellan.BMCProbeResult) error {
 	return nil
 }
 
-func GetProbeResults(path string) ([]magellan.BMCProbeResult, error) {
+func GetProbeResults(path string) ([]magellan.ScannedResult, error) {
 	db, err := sqlx.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open database: %v", err)
 	}
 
-	results := []magellan.BMCProbeResult{}
+	results := []magellan.ScannedResult{}
 	err = db.Select(&results, "SELECT * FROM magellan_scanned_ports ORDER BY host ASC, port ASC;")
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve probes: %v", err)
