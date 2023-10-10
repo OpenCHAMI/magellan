@@ -3,14 +3,24 @@ package magellan
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 	"time"
+
+	"github.com/bikeshack/magellan/internal/util"
 )
 
-func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []BMCProbeResult {
-	results := []BMCProbeResult{}
+type ScannedResult struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"`
+	State    bool   `json:"state"`
+}
+
+func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []ScannedResult {
+	results := []ScannedResult{}
 	for _, p := range ports {
-		result := BMCProbeResult{
+		result := ScannedResult{
 			Host:     host,
 			Port:     p,
 			Protocol: "tcp",
@@ -50,8 +60,8 @@ func GenerateHosts(subnet string, begin uint8, end uint8) []string {
 	return hosts
 }
 
-func ScanForAssets(hosts []string, ports []int, threads int, timeout int) []BMCProbeResult {
-	results := make([]BMCProbeResult, 0, len(hosts))
+func ScanForAssets(hosts []string, ports []int, threads int, timeout int, disableProbing bool) []ScannedResult {
+	results := make([]ScannedResult, 0, len(hosts))
 	done := make(chan struct{}, threads+1)
 	chanHost := make(chan string, threads+1)
 	// chanPort := make(chan int, threads+1)
@@ -66,8 +76,25 @@ func ScanForAssets(hosts []string, ports []int, threads int, timeout int) []BMCP
 					wg.Done()
 					return
 				}
-				s := rawConnect(host, ports, timeout, true)
-				results = append(results, s...)
+				scannedResults := rawConnect(host, ports, timeout, true)
+				if !disableProbing {
+					probeResults := []ScannedResult{}
+					for _, result := range scannedResults {
+						url := fmt.Sprintf("https://%s:%d/redfish/v1/", result.Host, result.Port)
+						res, _, err := util.MakeRequest(url, "GET", nil, nil)
+						if err != nil || res == nil {
+							continue
+						} else if res.StatusCode != http.StatusOK {
+							continue
+						} else {
+							probeResults = append(probeResults, result)
+						}
+					}
+					results = append(results, probeResults...)
+				} else {
+					results = append(results, scannedResults...)
+				}
+
 			}
 		}()
 	}
