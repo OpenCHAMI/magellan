@@ -464,10 +464,8 @@ func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams) ([]byte, err
 		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-
 	var interfaces []*redfish.EthernetInterface
 	for _, system := range systems {
-		fmt.Printf("%s\n", system.ID + "/EthernetInterfaces/")
 		i, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/" + system.ID + "/EthernetInterfaces/")
 		if err != nil {
 			continue
