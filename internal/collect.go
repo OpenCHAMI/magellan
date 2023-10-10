@@ -632,11 +632,16 @@ func QueryProcessors(q *QueryParams) ([]byte, error) {
 func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 	config := makeGofishConfig(q)
 	c, err := gofish.Connect(config)
-	c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
-		ExpandQuery: gofish.Expand{
-			ExpandAll: true,
-			Links: true,
-		},
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to redfish endpoint: %v", err)
+	}
+	if c != nil {
+		c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
+			ExpandQuery: gofish.Expand{
+				ExpandAll: true,
+				Links: true,
+			},
+		}
 	}
 	return c, err
 }
