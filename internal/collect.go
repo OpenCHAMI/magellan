@@ -153,16 +153,16 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 				node.NodeBMC += 1
 
 				// data to be sent to smd
-				data := make(map[string]any)
-				data["ID"] = fmt.Sprintf("%v", node.String()[:len(node.String())-2])
-				data["Type"] = ""
-				data["Name"] = ""
-				data["FQDN"] = ps.Host
-				data["User"] = q.User
-				data["Password"] = q.Pass
-				data["IPAddr"] = ""
-				data["MACAddr"] = ""
-				data["RediscoverOnUpdate"] = false
+				data := map[string]any{
+					"ID": fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
+					"Type": "",
+					"Name": "",
+					"FQDN": ps.Host,
+					"User": q.User,
+					"Password": q.Pass,
+					"MACRequired": true,
+					"RediscoverOnUpdate": false,
+				}
 
 				// unmarshal json to send in correct format
 				var rm map[string]json.RawMessage
@@ -191,14 +191,14 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 					continue
 				}
 				json.Unmarshal(interfaces, &rm)
-				data["Interface"] = rm["Interface"]
+				data["Interfaces"] = rm["Interfaces"]
 
 				// get MAC address of first interface (for now...)
-				if len(rm["Interface"]) > 0 {
+				if len(rm["Interfaces"]) > 0 {
 					var i map[string]interface{}
-					json.Unmarshal(rm["Interface"], &i)
+					json.Unmarshal(rm["Interfaces"], &i)
 					data["MACAddr"] = i["MACAddress"]
-					data["IPAddr"] = i["IPAddress"]
+					data["IPAddress"] = i["IPAddress"]
 					if i["FQDN"] != "" {
 						data["FQDN"] = rm["FQDN"]
 					}

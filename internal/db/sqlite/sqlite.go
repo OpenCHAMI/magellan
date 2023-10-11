@@ -26,7 +26,7 @@ func CreateProbeResultsIfNotExists(path string) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func InsertProbeResults(path string, states *[]magellan.BMCProbeResult) error {
+func InsertProbeResults(path string, states *[]magellan.ScannedResult) error {
 	if states == nil {
 		return fmt.Errorf("states == nil")
 	}
@@ -54,7 +54,7 @@ func InsertProbeResults(path string, states *[]magellan.BMCProbeResult) error {
 	return nil
 }
 
-func DeleteProbeResults(path string, results *[]magellan.BMCProbeResult) error {
+func DeleteProbeResults(path string, results *[]magellan.ScannedResult) error {
 	if results == nil {
 		return fmt.Errorf("no probe results found")
 	}
