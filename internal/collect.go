@@ -185,24 +185,13 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 				data["Chassis"] = rm["Chassis"]
 
 				// ethernet interfaces
-				interfaces, err := QueryEthernetInterfaces(client, q)
-				if err != nil {
-					l.Log.Errorf("could not query ethernet interfaces: %v", err)
-					continue
-				}
-				json.Unmarshal(interfaces, &rm)
-				data["Interfaces"] = rm["Interfaces"]
-
-				// get MAC address of first interface (for now...)
-				if len(rm["Interfaces"]) > 0 {
-					var i map[string]interface{}
-					json.Unmarshal(rm["Interfaces"], &i)
-					data["MACAddr"] = i["MACAddress"]
-					data["IPAddress"] = i["IPAddress"]
-					if i["FQDN"] != "" {
-						data["FQDN"] = rm["FQDN"]
-					}
-				}
+				// interfaces, err := QueryEthernetInterfaces(client, q)
+				// if err != nil {
+				// 	l.Log.Errorf("could not query ethernet interfaces: %v", err)
+				// 	continue
+				// }
+				// json.Unmarshal(interfaces, &rm)
+				// data["Interfaces"] = rm["Interfaces"]
 
 				// storage
 				// storage, err := QueryStorage(q)
@@ -214,16 +203,16 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 				// data["Storage"] = rm["Storage"]
 
 				// get specific processor info
-				procs, err := QueryProcessors(q)
-				if err != nil {
-					l.Log.Errorf("could not query processors: %v", err)
-				}
-				var p map[string]interface{}
-				json.Unmarshal(procs, &p)
-				data["Processors"] = rm["Processors"]
+				// procs, err := QueryProcessors(q)
+				// if err != nil {
+				// 	l.Log.Errorf("could not query processors: %v", err)
+				// }
+				// var p map[string]interface{}
+				// json.Unmarshal(procs, &p)
+				// data["Processors"] = rm["Processors"]
 
 				// systems
-				systems, err := QuerySystems(q)
+				systems, err := QuerySystems(client, q)
 				if err != nil {
 					l.Log.Errorf("could not query systems: %v", err)
 				}
@@ -453,7 +442,7 @@ func QueryBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, err
 }
 
-func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams) ([]byte, error) {
+func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams, systemID string) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc: %v", err)
@@ -477,15 +466,15 @@ func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams) ([]byte, err
 		return nil, fmt.Errorf("could not get ethernet interfaces: %v", err)
 	}
 
-	data := map[string]any{"Interfaces": interfaces}
+	data := map[string]any{"EthernetInterfaces": interfaces}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 
-	if q.Verbose {
-		fmt.Printf("%v\n", string(b))
-	}
+	// if q.Verbose {
+	// 	fmt.Printf("%v\n", string(b))
+	// }
 	return b, nil
 }
 
@@ -544,7 +533,7 @@ func QueryStorage(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QuerySystems(q *QueryParams) ([]byte, error) {
+func QuerySystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
@@ -552,10 +541,25 @@ func QuerySystems(q *QueryParams) ([]byte, error) {
 
 	systems, err := c.Service.Systems()
 	if err != nil {
-		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
+		return nil, fmt.Errorf("could not query systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	data := map[string]any{"Systems": systems }
+	// query the system's ethernet interfaces
+	var temp []map[string]any
+	for _, system := range systems {
+		interfaces, err := QueryEthernetInterfaces(client, q, system.ID)
+		if err != nil {
+			continue
+		}
+		var i map[string]any
+		json.Unmarshal(interfaces, &i)
+		temp = append(temp, map[string]any{
+			"Data": system,
+			"EthernetInterfaces": i["EthernetInterfaces"],
+		})
+	}
+
+	data := map[string]any{"Systems": temp }
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
