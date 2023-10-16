@@ -12,6 +12,7 @@ var (
 	threads         int
 	ports           []int
 	hosts           []string
+	protocol        string
 	withSecureTLS   bool
 	certPoolFile    string
 	user            string

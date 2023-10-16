@@ -8,12 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func InsertProbeResults(path string, states *[]magellan.ScannedResult) error {
-	if states == nil {
-		return fmt.Errorf("states == nil")
-	}
-
-	// create database if it doesn't already exist
+func CreateProbeResultsIfNotExists(path string) (*sqlx.DB, error) {
 	schema := `
 	CREATE TABLE IF NOT EXISTS magellan_scanned_ports (
 		host TEXT NOT NULL,
@@ -25,9 +20,22 @@ func InsertProbeResults(path string, states *[]magellan.ScannedResult) error {
 	`
 	db, err := sqlx.Open("sqlite3", path)
 	if err != nil {
-		return fmt.Errorf("could not open database: %v", err)
+		return nil, fmt.Errorf("could not open database: %v", err)
 	}
 	db.MustExec(schema)
+	return db, nil
+}
+
+func InsertProbeResults(path string, states *[]magellan.BMCProbeResult) error {
+	if states == nil {
+		return fmt.Errorf("states == nil")
+	}
+
+	// create database if it doesn't already exist
+	db, err := CreateProbeResultsIfNotExists(path)
+	if err != nil {
+		return err
+	}
 
 	// insert all probe states into db
 	tx := db.MustBegin()
@@ -39,6 +47,30 @@ func InsertProbeResults(path string, states *[]magellan.ScannedResult) error {
 			fmt.Printf("could not execute transaction: %v\n", err)
 		}
 	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("could not commit transaction: %v", err)
+	}
+	return nil
+}
+
+func DeleteProbeResults(path string, results *[]magellan.BMCProbeResult) error {
+	if results == nil {
+		return fmt.Errorf("no probe results found")
+	}
+	db, err := sqlx.Open("sqlite3", path)
+	if err != nil {
+		return fmt.Errorf("could not open database: %v", err)
+	}
+	tx := db.MustBegin()
+	for _, state := range *results {
+		sql := `DELETE FROM magellan_scanned_ports WHERE host = :host, port = :port;`
+		_, err := tx.NamedExec(sql, &state)
+		if err != nil {
+			fmt.Printf("could not execute transaction: %v\n", err)
+		}
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("could not commit transaction: %v", err)
