@@ -50,11 +50,79 @@ func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []Scan
 	return results
 }
 
-func GenerateHosts(subnet string, begin uint8, end uint8) []string {
+func GenerateHosts(subnet string, mask string, begin uint8, end uint8) []string {
 	hosts := []string{}
 	ip := net.ParseIP(subnet).To4()
 	for i := begin; i < end; i++ {
-		ip[3] = byte(i)
+		ip = util.GetNextIP(ip, 1)
+		hosts = append(hosts, fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]))
+	}
+	return hosts
+}
+
+func GenerateHostsWithCIDR(subnet string) []string {
+	// check for network with valid CIDR
+	ip, network, err := net.ParseCIDR(subnet)
+	if err != nil && (network != nil || ip != nil) {
+		network.Mask = ip.DefaultMask()
+	}
+
+	// check for IP with no CIDR
+	if ip == nil {
+		ip = net.ParseIP(subnet)
+		if ip == nil {
+			return nil
+		}
+	}
+
+	if network == nil {
+		network = &net.IPNet{
+			Mask: ip.DefaultMask(),
+		}
+	}
+	
+	// get all IP addresses in network
+	return generateHosts(ip, network.Mask)
+}
+
+func GenerateHostsWithSubnet(subnet string, subnetMask string) []string {
+	// if no subnet mask, use a default 24-bit mask (for now)
+	if subnetMask != "" {
+		ip, network, err := net.ParseCIDR(subnet)
+		if err != nil && (network != nil || ip != nil) {
+			network.Mask = ip.DefaultMask()
+		}
+		// check for IP with no CIDR
+		if ip == nil {
+			ip = net.ParseIP(subnet)
+			if ip == nil {
+				return nil
+			}
+		}
+
+		if network == nil {
+			network = &net.IPNet{
+				Mask: ip.DefaultMask(),
+			}
+		}
+		return generateHosts(ip, network.Mask)
+	} else {
+		ip := net.ParseIP(subnetMask)
+		if ip != nil {
+			return []string{}
+		}
+		return generateHosts(ip, ip.DefaultMask())
+	}
+}
+
+func generateHosts(ip net.IP, mask net.IPMask) []string {
+	// get all IP addresses in network
+	ones, _ := mask.Size()
+	hosts := []string{}
+	fmt.Printf("ones: %d\n", ones)
+	for i := 0; i < 32-ones; i++ {
+		// ip[3] = byte(i)
+		ip = util.GetNextIP(ip, 1)
 		hosts = append(hosts, fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]))
 	}
 	return hosts
