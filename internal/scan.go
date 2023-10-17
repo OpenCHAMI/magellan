@@ -2,6 +2,7 @@ package magellan
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"sync"
@@ -50,12 +51,47 @@ func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []Scan
 	return results
 }
 
-func GenerateHosts(subnet string, begin uint8, end uint8) []string {
+
+func GenerateHosts(subnet string, subnetMask *net.IP) []string {
+	if subnet == "" || subnetMask == nil {
+		return nil
+	}
+
+	// convert subnets from string to net.IP
+	subnetIp := net.ParseIP(subnet)
+	if subnetIp == nil {
+		// try parse CIDR instead
+		ip, network, err := net.ParseCIDR(subnet)
+		if err != nil {
+			return nil
+		}
+		subnetIp = ip
+		if network != nil {
+			t := net.IP(network.Mask)
+			subnetMask = &t 
+		}
+	}
+
+	mask := net.IPMask(subnetMask.To4())
+
+	// if no subnet mask, use a default 24-bit mask (for now)
+	return generateHosts(&subnetIp, &mask)
+}
+
+func generateHosts(ip *net.IP, mask *net.IPMask) []string {
+	// get all IP addresses in network
+	ones, _ := mask.Size()
 	hosts := []string{}
-	ip := net.ParseIP(subnet).To4()
-	for i := begin; i < end; i++ {
-		ip[3] = byte(i)
-		hosts = append(hosts, fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]))
+	end := int(math.Pow(2, float64((32-ones))))-1
+	for i := 0; i < end; i++ {
+		// ip[3] = byte(i)
+		ip = util.GetNextIP(ip, 1)
+		if ip == nil {
+			continue
+		}
+		// host := fmt.Sprintf("%v.%v.%v.%v", (*ip)[0], (*ip)[1], (*ip)[2], (*ip)[3])
+		// fmt.Printf("host: %v\n", ip.String())
+		hosts = append(hosts, ip.String())
 	}
 	return hosts
 }
