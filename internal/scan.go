@@ -2,6 +2,7 @@ package magellan
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"sync"
@@ -50,80 +51,47 @@ func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []Scan
 	return results
 }
 
-func GenerateHosts(subnet string, mask string, begin uint8, end uint8) []string {
-	hosts := []string{}
-	ip := net.ParseIP(subnet).To4()
-	for i := begin; i < end; i++ {
-		ip = util.GetNextIP(ip, 1)
-		hosts = append(hosts, fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]))
-	}
-	return hosts
-}
 
-func GenerateHostsWithCIDR(subnet string) []string {
-	// check for network with valid CIDR
-	ip, network, err := net.ParseCIDR(subnet)
-	if err != nil && (network != nil || ip != nil) {
-		network.Mask = ip.DefaultMask()
+func GenerateHosts(subnet string, subnetMask *net.IP) []string {
+	if subnet == "" || subnetMask == nil {
+		return nil
 	}
 
-	// check for IP with no CIDR
-	if ip == nil {
-		ip = net.ParseIP(subnet)
-		if ip == nil {
+	// convert subnets from string to net.IP
+	subnetIp := net.ParseIP(subnet)
+	if subnetIp == nil {
+		// try parse CIDR instead
+		ip, network, err := net.ParseCIDR(subnet)
+		if err != nil {
 			return nil
 		}
-	}
-
-	if network == nil {
-		network = &net.IPNet{
-			Mask: ip.DefaultMask(),
+		subnetIp = ip
+		if network != nil {
+			t := net.IP(network.Mask)
+			subnetMask = &t 
 		}
 	}
-	
-	// get all IP addresses in network
-	return generateHosts(ip, network.Mask)
-}
 
-func GenerateHostsWithSubnet(subnet string, subnetMask string) []string {
+	mask := net.IPMask(subnetMask.To4())
+
 	// if no subnet mask, use a default 24-bit mask (for now)
-	if subnetMask != "" {
-		ip, network, err := net.ParseCIDR(subnet)
-		if err != nil && (network != nil || ip != nil) {
-			network.Mask = ip.DefaultMask()
-		}
-		// check for IP with no CIDR
-		if ip == nil {
-			ip = net.ParseIP(subnet)
-			if ip == nil {
-				return nil
-			}
-		}
-
-		if network == nil {
-			network = &net.IPNet{
-				Mask: ip.DefaultMask(),
-			}
-		}
-		return generateHosts(ip, network.Mask)
-	} else {
-		ip := net.ParseIP(subnetMask)
-		if ip != nil {
-			return []string{}
-		}
-		return generateHosts(ip, ip.DefaultMask())
-	}
+	return generateHosts(&subnetIp, &mask)
 }
 
-func generateHosts(ip net.IP, mask net.IPMask) []string {
+func generateHosts(ip *net.IP, mask *net.IPMask) []string {
 	// get all IP addresses in network
 	ones, _ := mask.Size()
 	hosts := []string{}
-	fmt.Printf("ones: %d\n", ones)
-	for i := 0; i < 32-ones; i++ {
+	end := int(math.Pow(2, float64((32-ones))))-1
+	for i := 0; i < end; i++ {
 		// ip[3] = byte(i)
 		ip = util.GetNextIP(ip, 1)
-		hosts = append(hosts, fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]))
+		if ip == nil {
+			continue
+		}
+		// host := fmt.Sprintf("%v.%v.%v.%v", (*ip)[0], (*ip)[1], (*ip)[2], (*ip)[3])
+		// fmt.Printf("host: %v\n", ip.String())
+		hosts = append(hosts, ip.String())
 	}
 	return hosts
 }

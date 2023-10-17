@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path"
 
@@ -16,7 +17,7 @@ var (
 	begin   uint8
 	end     uint8
 	subnets []string
-	subnetMasks []string
+	subnetMasks []net.IP
 	disableProbing bool
 )
 
@@ -30,13 +31,19 @@ var scanCmd = &cobra.Command{
 			hostsToScan = hosts
 		} else {
 			for i, subnet := range subnets {
-				if len(subnetMasks) > 0 {
-					hostsToScan = append(hostsToScan, magellan.GenerateHostsWithSubnet(subnet, subnetMasks[i])...)
-				} else {
-					hostsToScan = append(hostsToScan, magellan.GenerateHosts(subnet)...)
+				if len(subnet) <= 0 {
+					return
 				}
+
+				if len(subnetMasks) < i + 1 {
+					subnetMasks = append(subnetMasks, net.IP{255, 255, 255, 0})
+				}
+				
+				hostsToScan = append(hostsToScan, magellan.GenerateHosts(subnet, &subnetMasks[i])...)
 			}
 		}
+
+		fmt.Printf("hosts to scan: %v\n", hostsToScan)
 
 		// set ports to use for scanning
 		portsToScan := []int{}
@@ -71,7 +78,7 @@ func init() {
 	// scanCmd.Flags().Uint8Var(&begin, "begin", 0, "set the starting point for range of IP addresses")
 	// scanCmd.Flags().Uint8Var(&end, "end", 255, "set the ending point for range of IP addresses")
 	scanCmd.Flags().StringSliceVar(&subnets, "subnet", []string{}, "set additional subnets")
-	scanCmd.Flags().StringSliceVar(&subnetMasks, "subnet-mask", []string{}, "set the subnet masks to use for network")
+	scanCmd.Flags().IPSliceVar(&subnetMasks, "subnet-mask", []net.IP{}, "set the subnet masks to use for network")
 	scanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "disable probing scanned results for BMC nodes")
 
 	rootCmd.AddCommand(scanCmd)
