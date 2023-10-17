@@ -43,8 +43,6 @@ var scanCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("hosts to scan: %v\n", hostsToScan)
-
 		// set ports to use for scanning
 		portsToScan := []int{}
 		if len(ports) > 0 {
