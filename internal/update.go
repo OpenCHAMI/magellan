@@ -163,7 +163,7 @@ func GetUpdateStatus(q *UpdateParams) error {
 		return fmt.Errorf("returned status code %d", res.StatusCode)
 	}
 	if len(body) > 0 {
-		fmt.Printf("%d: %v\n", res.StatusCode, string(body))
+		fmt.Printf("%v\n", string(body))
 	}
 	return nil
 }
