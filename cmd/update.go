@@ -10,7 +10,7 @@ import (
 var (
 	host string
 	port int
-	firmwarePath string
+	firmwareUrl string
 	firmwareVersion string
 	component string
 	transferProtocol string
@@ -23,7 +23,7 @@ var updateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
 		q := &magellan.UpdateParams {
-			FirmwarePath: firmwarePath,
+			FirmwarePath: firmwareUrl,
 			FirmwareVersion: firmwareVersion,
 			Component: component,
 			TransferProtocol: transferProtocol,
@@ -67,13 +67,13 @@ var updateCmd = &cobra.Command{
 }
 
 func init() {
-	updateCmd.Flags().StringVar(&host, "host", "", "set the BMC host")
-	updateCmd.Flags().IntVar(&port, "port", 443, "set the BMC port")
+	updateCmd.Flags().StringVar(&host, "bmc-host", "", "set the BMC host")
+	updateCmd.Flags().IntVar(&port, "bmc-port", 443, "set the BMC port")
 	updateCmd.Flags().StringVar(&user, "user", "", "set the BMC user")
 	updateCmd.Flags().StringVar(&pass, "pass", "", "set the BMC password")
 	updateCmd.Flags().StringVar(&transferProtocol, "transfer-protocol", "HTTP", "set the transfer protocol")
 	updateCmd.Flags().StringVar(&protocol, "protocol", "https", "set the Redfish protocol")
-	updateCmd.Flags().StringVar(&firmwarePath, "firmware-path", "", "set the path to the firmware")
+	updateCmd.Flags().StringVar(&firmwareUrl, "firmware-url", "", "set the path to the firmware")
 	updateCmd.Flags().StringVar(&firmwareVersion, "firmware-version", "", "set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
 	updateCmd.Flags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
