@@ -8,6 +8,7 @@ import (
 	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -66,5 +67,20 @@ func init() {
 	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
 	collectCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
 	collectCmd.PersistentFlags().StringVar(&certPoolFile, "cert-pool", "", "path to CA cert. (defaults to system CAs; used with --secure-tls=true)")
+
+	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
+	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
+	viper.BindPFlag("collect.port", collectCmd.Flags().Lookup("port"))
+	viper.BindPFlag("collect.user", collectCmd.Flags().Lookup("user"))
+	viper.BindPFlag("collect.pass", collectCmd.Flags().Lookup("pass"))
+	viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol"))
+	viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output"))
+	viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update"))
+	viper.BindPFlag("collect.preferred-driver", collectCmd.Flags().Lookup("preferred-driver"))
+	viper.BindPFlag("collect.ipmitool.path", collectCmd.Flags().Lookup("ipmitool.path"))
+	viper.BindPFlag("collect.secure-tls", collectCmd.Flags().Lookup("secure-tls"))
+	viper.BindPFlag("collect.cert-pool", collectCmd.Flags().Lookup("cert-pool"))
+
+
 	rootCmd.AddCommand(collectCmd)
 }

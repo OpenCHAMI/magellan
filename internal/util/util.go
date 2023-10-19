@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -78,4 +80,10 @@ func MakeOutputDirectory(path string) (string, error) {
 		return final, fmt.Errorf("could not make directory: %v", err)
 	}
 	return final, nil
+}
+
+func SplitPathForViper(path string) (string, string, string) {
+	filename := filepath.Base(path)
+	ext := filepath.Ext(filename)
+	return filepath.Dir(path), strings.TrimSuffix(filename, ext), strings.TrimPrefix(ext, ".")
 }

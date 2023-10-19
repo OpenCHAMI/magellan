@@ -11,6 +11,7 @@ import (
 
 	"github.com/cznic/mathutil"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -25,6 +26,7 @@ var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan for BMC nodes on a network",
 	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("subnets in cmd: %v\n", subnets)
 		// set hosts to use for scanning
 		hostsToScan := []string{}
 		if len(hosts) > 0 {
@@ -79,5 +81,11 @@ func init() {
 	scanCmd.Flags().IPSliceVar(&subnetMasks, "subnet-mask", []net.IP{}, "set the subnet masks to use for network")
 	scanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "disable probing scanned results for BMC nodes")
 
+	viper.BindPFlag("scan.hosts", scanCmd.Flags().Lookup("host"))
+	viper.BindPFlag("scan.ports", scanCmd.Flags().Lookup("port"))
+	viper.BindPFlag("scan.subnets", scanCmd.Flags().Lookup("subnet"))
+	viper.BindPFlag("scan.subnet-masks", scanCmd.Flags().Lookup("subnet-mask"))
+	viper.BindPFlag("scan.disable-probing", scanCmd.Flags().Lookup("disable-probing"))
+	
 	rootCmd.AddCommand(scanCmd)
 }
