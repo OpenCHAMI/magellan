@@ -33,6 +33,7 @@ var collectCmd = &cobra.Command{
 		q := &magellan.QueryParams{
 			User:          user,
 			Pass:          pass,
+			Protocol:      protocol,
 			Drivers:       drivers,
 			Preferred:     preferredDriver,
 			Timeout:       timeout,
@@ -58,8 +59,9 @@ func init() {
 	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the smd API")
 	collectCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC password")
+	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the Redfish protocol")
 	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", "/tmp/magellan/data/", "set the path to store collection data")
-	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", true, "set flag to force update data sent to SMD ")
+	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD ")
 	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
 	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
 	collectCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")

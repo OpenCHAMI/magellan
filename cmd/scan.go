@@ -16,6 +16,7 @@ var (
 	begin   uint8
 	end     uint8
 	subnets []string
+	disableProbing bool
 )
 
 var scanCmd = &cobra.Command{
@@ -44,7 +45,7 @@ var scanCmd = &cobra.Command{
 		if threads <= 0 {
 			threads = mathutil.Clamp(len(hostsToScan), 1, 255)
 		}
-		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, threads, timeout)
+		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, threads, timeout, disableProbing)
 		for _, r := range probeStates {
 			fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
 		}
@@ -60,11 +61,12 @@ var scanCmd = &cobra.Command{
 }
 
 func init() {
-	scanCmd.PersistentFlags().StringSliceVar(&hosts, "host", []string{}, "set additional hosts to scan")
-	scanCmd.PersistentFlags().IntSliceVar(&ports, "port", []int{}, "set the ports to scan")
+	scanCmd.Flags().StringSliceVar(&hosts, "host", []string{}, "set additional hosts to scan")
+	scanCmd.Flags().IntSliceVar(&ports, "port", []int{}, "set the ports to scan")
 	scanCmd.Flags().Uint8Var(&begin, "begin", 0, "set the starting point for range of IP addresses")
 	scanCmd.Flags().Uint8Var(&end, "end", 255, "set the ending point for range of IP addresses")
 	scanCmd.Flags().StringSliceVar(&subnets, "subnet", []string{}, "set additional subnets")
+	scanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "disable probing scanned results for BMC nodes")
 
 	rootCmd.AddCommand(scanCmd)
 }

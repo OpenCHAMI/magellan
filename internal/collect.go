@@ -33,17 +33,12 @@ const (
 	HTTPS_PORT = 443
 )
 
-type BMCProbeResult struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Protocol string `json:"protocol"`
-	State    bool   `json:"state"`
-}
 
 // NOTE: ...params were getting too long...
 type QueryParams struct {
 	Host          string
 	Port          int
+	Protocol      string
 	User          string
 	Pass          string
 	Drivers       []string
@@ -59,9 +54,6 @@ type QueryParams struct {
 }
 
 func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
-	// NOTE: bmclib.NewClient(host, port, user, pass)
-	// ...seems like the `port` params doesn't work like expected depending on interface
-
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -83,22 +75,20 @@ func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
 	}
 
 	// only work if valid cert is provided
-	if q.WithSecureTLS {
-		var pool *x509.CertPool
-		if q.CertPoolFile != "" {
-			pool = x509.NewCertPool()
-			data, err := os.ReadFile(q.CertPoolFile)
-			if err != nil {
-				return nil, fmt.Errorf("could not read cert pool file: %v", err)
-			}
-			pool.AppendCertsFromPEM(data)
+	if q.WithSecureTLS && q.CertPoolFile != "" {
+		pool := x509.NewCertPool()
+		data, err := os.ReadFile(q.CertPoolFile)
+		if err != nil {
+			return nil, fmt.Errorf("could not read cert pool file: %v", err)
 		}
+		pool.AppendCertsFromPEM(data)
 		// a nil pool uses the system certs
 		clientOpts = append(clientOpts, bmclib.WithSecureTLS(pool))
 	}
 	url := ""
+	fmt.Println(url)
 	if q.User != "" && q.Pass != "" {
-		url += fmt.Sprintf("https://%s:%s@%s", q.User, q.Pass, q.Host)
+		url += fmt.Sprintf("%s://%s:%s@%s", q.Protocol, q.User, q.Pass, q.Host)
 	} else {
 		url += q.Host
 	}
@@ -112,7 +102,7 @@ func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
 	return client, nil
 }
 
-func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) error {
+func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) error {
 	// check for available probe states
 	if probeStates == nil {
 		return fmt.Errorf("no probe states found")
@@ -130,7 +120,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 
 	found := make([]string, 0, len(*probeStates))
 	done := make(chan struct{}, q.Threads+1)
-	chanProbeState := make(chan BMCProbeResult, q.Threads+1)
+	chanProbeState := make(chan ScannedResult, q.Threads+1)
 
 	// generate custom xnames for bmcs
 	node := xnames.Node{
@@ -163,22 +153,22 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				node.NodeBMC += 1
 
 				// data to be sent to smd
-				data := make(map[string]any)
-				data["ID"] = fmt.Sprintf("%v", node.String()[:len(node.String())-2])
-				data["Type"] = ""
-				data["Name"] = ""
-				data["FQDN"] = ps.Host
-				data["User"] = q.User
-				data["Password"] = q.Pass
-				data["IPAddr"] = ""
-				data["MACAddr"] = ""
-				data["RediscoverOnUpdate"] = false
+				data := map[string]any{
+					"ID": fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
+					"Type": "",
+					"Name": "",
+					"FQDN": ps.Host,
+					"User": q.User,
+					"Password": q.Pass,
+					"MACRequired": true,
+					"RediscoverOnUpdate": false,
+				}
 
 				// unmarshal json to send in correct format
 				var rm map[string]json.RawMessage
 
 				// inventories
-				inventory, err := QueryInventory(client, l, q)
+				inventory, err := QueryInventory(client, q)
 				if err != nil {
 					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
 				}
@@ -195,24 +185,13 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				data["Chassis"] = rm["Chassis"]
 
 				// ethernet interfaces
-				interfaces, err := QueryEthernetInterfaces(client, l, q)
-				if err != nil {
-					l.Log.Errorf("could not query ethernet interfaces: %v", err)
-					continue
-				}
-				json.Unmarshal(interfaces, &rm)
-				data["Interface"] = rm["Interface"]
-
-				// get MAC address of first interface (for now...)
-				if len(rm["Interface"]) > 0 {
-					var i map[string]interface{}
-					json.Unmarshal(rm["Interface"], &i)
-					data["MACAddr"] = i["MACAddress"]
-					data["IPAddr"] = i["IPAddress"]
-					if i["FQDN"] != "" {
-						data["FQDN"] = rm["FQDN"]
-					}
-				}
+				// interfaces, err := QueryEthernetInterfaces(client, q)
+				// if err != nil {
+				// 	l.Log.Errorf("could not query ethernet interfaces: %v", err)
+				// 	continue
+				// }
+				// json.Unmarshal(interfaces, &rm)
+				// data["Interfaces"] = rm["Interfaces"]
 
 				// storage
 				// storage, err := QueryStorage(q)
@@ -224,16 +203,16 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 				// data["Storage"] = rm["Storage"]
 
 				// get specific processor info
-				procs, err := QueryProcessors(q)
-				if err != nil {
-					l.Log.Errorf("could not query processors: %v", err)
-				}
-				var p map[string]interface{}
-				json.Unmarshal(procs, &p)
-				data["Processors"] = rm["Processors"]
+				// procs, err := QueryProcessors(q)
+				// if err != nil {
+				// 	l.Log.Errorf("could not query processors: %v", err)
+				// }
+				// var p map[string]interface{}
+				// json.Unmarshal(procs, &p)
+				// data["Processors"] = rm["Processors"]
 
 				// systems
-				systems, err := QuerySystems(q)
+				systems, err := QuerySystems(client, q)
 				if err != nil {
 					l.Log.Errorf("could not query systems: %v", err)
 				}
@@ -318,7 +297,7 @@ func CollectInfo(probeStates *[]BMCProbeResult, l *log.Logger, q *QueryParams) e
 	return nil
 }
 
-func QueryMetadata(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryMetadata(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 
 	// open BMC session and update driver registry
@@ -352,7 +331,7 @@ func QueryMetadata(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte
 	return b, nil
 }
 
-func QueryInventory(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -385,7 +364,7 @@ func QueryInventory(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byt
 	return b, nil
 }
 
-func QueryPowerState(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
 	err := client.PreferProvider(q.Preferred).Open(ctx)
@@ -417,7 +396,7 @@ func QueryPowerState(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]by
 
 }
 
-func QueryUsers(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -451,7 +430,7 @@ func QueryUsers(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, e
 	return b, nil
 }
 
-func QueryBios(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("could not make query: %v", err)
@@ -463,26 +442,39 @@ func QueryBios(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, er
 	return b, err
 }
 
-func QueryEthernetInterfaces(client *bmclib.Client, l *log.Logger, q *QueryParams) ([]byte, error) {
+func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams, systemID string) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc: %v", err)
 	}
 
-	interfaces, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/")
+	systems, err := c.Service.Systems()
 	if err != nil {
+		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	var interfaces []*redfish.EthernetInterface
+	for _, system := range systems {
+		i, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/" + system.ID + "/EthernetInterfaces/")
+		if err != nil {
+			continue
+		}
+		interfaces = append(interfaces, i...)
+	}
+	
+	if len(interfaces) <= 0 {
 		return nil, fmt.Errorf("could not get ethernet interfaces: %v", err)
 	}
 
-	data := map[string]any{"Interfaces": interfaces}
+	data := map[string]any{"EthernetInterfaces": interfaces}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 
-	if q.Verbose {
-		fmt.Printf("%v\n", string(b))
-	}
+	// if q.Verbose {
+	// 	fmt.Printf("%v\n", string(b))
+	// }
 	return b, nil
 }
 
@@ -541,7 +533,7 @@ func QueryStorage(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QuerySystems(q *QueryParams) ([]byte, error) {
+func QuerySystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
@@ -549,10 +541,25 @@ func QuerySystems(q *QueryParams) ([]byte, error) {
 
 	systems, err := c.Service.Systems()
 	if err != nil {
-		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
+		return nil, fmt.Errorf("could not query systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	data := map[string]any{"Systems": systems }
+	// query the system's ethernet interfaces
+	var temp []map[string]any
+	for _, system := range systems {
+		interfaces, err := QueryEthernetInterfaces(client, q, system.ID)
+		if err != nil {
+			continue
+		}
+		var i map[string]any
+		json.Unmarshal(interfaces, &i)
+		temp = append(temp, map[string]any{
+			"Data": system,
+			"EthernetInterfaces": i["EthernetInterfaces"],
+		})
+	}
+
+	data := map[string]any{"Systems": temp }
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
@@ -588,12 +595,7 @@ func QueryRegisteries(q *QueryParams) ([]byte, error) {
 }
 
 func QueryProcessors(q *QueryParams) ([]byte, error) {
-	baseUrl := "https://"
-	if q.User != "" && q.Pass != "" {
-		baseUrl += fmt.Sprintf("%s:%s@", q.User, q.Pass)
-	}
-	baseUrl += fmt.Sprintf("%s:%d", q.Host, q.Port)
-	url := baseUrl + "/redfish/v1/Systems"
+	url := baseRedfishUrl(q) + "/Systems"
 	res, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("something went wrong: %v", err)
@@ -612,7 +614,7 @@ func QueryProcessors(q *QueryParams) ([]byte, error) {
 	// request data about each processor member on node
 	for _, member := range members {
 		var oid = member["@odata.id"].(string)
-		var infoUrl = baseUrl + oid
+		var infoUrl = url + oid
 		res, _, err := util.MakeRequest(infoUrl, "GET", nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("something went wrong: %v", err)
@@ -638,22 +640,23 @@ func QueryProcessors(q *QueryParams) ([]byte, error) {
 func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 	config := makeGofishConfig(q)
 	c, err := gofish.Connect(config)
-	c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
-		ExpandQuery: gofish.Expand{
-			ExpandAll: true,
-			Links: true,
-		},
+	if err != nil {
+
+		return nil, fmt.Errorf("could not connect to redfish endpoint: %v", err)
+	}
+	if c != nil {
+		c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
+			ExpandQuery: gofish.Expand{
+				ExpandAll: true,
+				Links: true,
+			},
+		}
 	}
 	return c, err
 }
 
 func makeGofishConfig(q *QueryParams) gofish.ClientConfig {
-	url := "https://"
-	if q.User != "" && q.Pass != "" {
-		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
-	}
-	url += fmt.Sprintf("%s:%d", q.Host, q.Port)
-  
+	url := baseRedfishUrl(q)
 	return gofish.ClientConfig{
 		Endpoint:            url,
 		Username:            q.User,
@@ -690,4 +693,12 @@ func makeJson(object any) ([]byte, error) {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
 	}
 	return []byte(b), nil
+}
+
+func baseRedfishUrl(q *QueryParams) string {
+	url := fmt.Sprintf("%s://", q.Protocol)
+	if q.User != "" && q.Pass != "" {
+		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
+	}
+	return fmt.Sprintf("%s%s:%d", url, q.Host, q.Port)
 }

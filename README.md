@@ -1,7 +1,8 @@
 # Magellan
 
-Magellan is a small tool designed to scan a network and collect BMC information
-to load the data into an [`hms-smd`](https://github.com/alexlovelltroy/hms-smd/tree/master) instance.
+Magellan is a board management controller discovery tool designed to scan a network
+and collect information about a BMC node and load that data into an
+[`hms-smd`](https://github.com/bikeshack/smd/tree/master) instance.
 
 ## How It Works
 
@@ -13,9 +14,13 @@ Magellan is designed to do three things:
 
 Magellan first tries to probe for specified hosts using the [`dora`](https://github.com/bmc-toolbox/dora)
 API. If that fails, it then tries to use its own built-in, simpler scanner as a fallback.
-Next, it tries to query information about the BMC node using `bmclib` functions, but requires
-access to a redfish interface on the node to work. Once the BMC information is received,
-it is then stored into `hms-smd` using its API.
+This is done by sending a raw TCP request to a number of potential hosts over a
+network, and noting which requests are successful. At this point, `magellan` sees
+no difference between a services.
+
+Next, it tries to query information about the BMC node using `bmclib` functions,
+but requires access to a redfish interface on the node to work. Once the BMC 
+information is received, it is then stored into `hms-smd` using its API.
 
 In summary, `magellan` needs at minimum the following configured to work on each node:
 
@@ -33,7 +38,7 @@ cd magellan
 go mod tidy && go build
 ```
 
-This should find and download all of the required dependencies. Although other 
+This should find and download all of the required dependencies. Although other
 versions of Go may work, the project has only been tested with v1.20.
 
 ## Usage
