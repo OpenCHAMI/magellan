@@ -102,7 +102,7 @@ func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
 	return client, nil
 }
 
-func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) error {
+func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) error {
 	// check for available probe states
 	if probeStates == nil {
 		return fmt.Errorf("no probe states found")
@@ -168,7 +168,7 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 				var rm map[string]json.RawMessage
 
 				// inventories
-				inventory, err := QueryInventory(client, q)
+				inventory, err := CollectInventory(client, q)
 				if err != nil {
 					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
 				}
@@ -176,7 +176,7 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 				data["Inventory"] = rm["Inventory"]
 
 				// chassis
-				chassis, err := QueryChassis(q)
+				chassis, err := CollectChassis(q)
 				if err != nil {
 					l.Log.Errorf("could not query chassis: %v", err)
 					continue
@@ -212,7 +212,7 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 				// data["Processors"] = rm["Processors"]
 
 				// systems
-				systems, err := QuerySystems(client, q)
+				systems, err := CollectSystems(client, q)
 				if err != nil {
 					l.Log.Errorf("could not query systems: %v", err)
 				}
@@ -297,7 +297,7 @@ func CollectInfo(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) er
 	return nil
 }
 
-func QueryMetadata(client *bmclib.Client, q *QueryParams) ([]byte, error) {
+func CollectMetadata(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 
 	// open BMC session and update driver registry
@@ -331,7 +331,7 @@ func QueryMetadata(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QueryInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
+func CollectInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -364,7 +364,7 @@ func QueryInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QueryPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
+func CollectPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
 	err := client.PreferProvider(q.Preferred).Open(ctx)
@@ -396,7 +396,7 @@ func QueryPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 
 }
 
-func QueryUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
+func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -430,7 +430,7 @@ func QueryUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QueryBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
+func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// client, err := NewClient(l, q)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("could not make query: %v", err)
@@ -442,7 +442,7 @@ func QueryBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, err
 }
 
-func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams, systemID string) ([]byte, error) {
+func CollectEthernetInterfaces(client *bmclib.Client, q *QueryParams, systemID string) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc: %v", err)
@@ -478,7 +478,7 @@ func QueryEthernetInterfaces(client *bmclib.Client, q *QueryParams, systemID str
 	return b, nil
 }
 
-func QueryChassis(q *QueryParams) ([]byte, error) {
+func CollectChassis(q *QueryParams) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
@@ -500,7 +500,7 @@ func QueryChassis(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QueryStorage(q *QueryParams) ([]byte, error) {
+func CollectStorage(q *QueryParams) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
@@ -533,7 +533,7 @@ func QueryStorage(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QuerySystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
+func CollectSystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
@@ -547,7 +547,7 @@ func QuerySystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// query the system's ethernet interfaces
 	var temp []map[string]any
 	for _, system := range systems {
-		interfaces, err := QueryEthernetInterfaces(client, q, system.ID)
+		interfaces, err := CollectEthernetInterfaces(client, q, system.ID)
 		if err != nil {
 			continue
 		}
@@ -571,7 +571,7 @@ func QuerySystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QueryRegisteries(q *QueryParams) ([]byte, error) {
+func CollectRegisteries(q *QueryParams) ([]byte, error) {
 	c, err := connectGofish(q)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
@@ -594,7 +594,7 @@ func QueryRegisteries(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func QueryProcessors(q *QueryParams) ([]byte, error) {
+func CollectProcessors(q *QueryParams) ([]byte, error) {
 	url := baseRedfishUrl(q) + "/Systems"
 	res, body, err := util.MakeRequest(url, "GET", nil, nil)
 	if err != nil {

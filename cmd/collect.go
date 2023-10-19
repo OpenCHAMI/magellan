@@ -43,7 +43,7 @@ var collectCmd = &cobra.Command{
 			OutputPath:    outputPath,
 			ForceUpdate:   forceUpdate,
 		}
-		magellan.CollectInfo(&probeStates, l, q)
+		magellan.CollectAll(&probeStates, l, q)
 
 		// confirm the inventories were added
 		err = smd.GetRedfishEndpoints()
