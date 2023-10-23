@@ -22,6 +22,11 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - LICENSE
+      - CHANGELOG.md
+      - README.md
+      - bin/magellan.sh
 archives:
   - format: tar.gz
     rlcp: true
@@ -34,10 +39,10 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     files:
-      - migrations/*
       - LICENSE
       - CHANGELOG.md
       - README.md
+      - bin/magellan.sh
 checksum:
   name_template: 'checksums.txt'
 snapshot:

@@ -7,7 +7,7 @@ USER 65534:65534
 
 
 COPY  magellan  /magellan
-COPY  bin/magellan.sh /usr/bin/magellan.sh
+COPY  /bin/magellan.sh /magellan.sh
 
 
 CMD [ "/magellan.sh" ]
