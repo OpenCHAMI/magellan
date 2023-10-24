@@ -130,6 +130,16 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 		NodeBMC:       -1,
 	}
 
+	bmclibClient, err := NewClient(l, q)
+	if err != nil {
+		l.Log.Errorf("could not make client: %v", err)
+	}
+
+	c, err := connectGofish(q)
+	if err != nil {
+		l.Log.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+	}
+
 	// collect bmc information asynchronously
 	var wg sync.WaitGroup
 	wg.Add(q.Threads)
@@ -143,12 +153,6 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				}
 				q.Host = ps.Host
 				q.Port = ps.Port
-
-				client, err := NewClient(l, q)
-				if err != nil {
-					l.Log.Errorf("could not make client: %v", err)
-					continue
-				}
 
 				node.NodeBMC += 1
 
@@ -168,17 +172,12 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				var rm map[string]json.RawMessage
 
 				// inventories
-				inventory, err := CollectInventory(client, q)
+				inventory, err := CollectInventory(bmclibClient, q)
 				if err != nil {
 					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
 				}
 				json.Unmarshal(inventory, &rm)
 				data["Inventory"] = rm["Inventory"]
-
-				c, err := connectGofish(q)
-				if err != nil {
-					l.Log.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
-				}
 
 				// chassis
 				chassis, err := CollectChassis(c, q)
@@ -345,7 +344,6 @@ func CollectInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 		ctxCancel()
 		return nil, fmt.Errorf("could not open client: %v", err)
 	}
-	defer client.Close(ctx)
 
 	inventory, err := client.Inventory(ctx)
 	if err != nil {
@@ -377,7 +375,6 @@ func CollectPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 		ctxCancel()
 		return nil, fmt.Errorf("could not open client: %v", err)
 	}
-	defer client.Close(ctx)
 
 	powerState, err := client.GetPowerState(ctx)
 	if err != nil {
@@ -545,7 +542,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 		})
 	}
 
-	data := map[string]any{"Systems": temp }
+	data := map[string]any{"Systems": temp}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
