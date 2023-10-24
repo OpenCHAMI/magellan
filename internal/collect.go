@@ -130,15 +130,6 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 		NodeBMC:       -1,
 	}
 
-	bmclibClient, err := NewClient(l, q)
-	if err != nil {
-		l.Log.Errorf("could not make client: %v", err)
-	}
-
-	c, err := connectGofish(q)
-	if err != nil {
-		l.Log.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
-	}
 
 	// collect bmc information asynchronously
 	var wg sync.WaitGroup
@@ -156,6 +147,16 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				node.NodeBMC += 1
 
+				bmclibClient, err := NewClient(l, q)
+				if err != nil {
+					l.Log.Errorf("could not make client: %v", err)
+				}
+
+				gofishClient, err := connectGofish(q)
+				if err != nil {
+					l.Log.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+				}
+
 				// data to be sent to smd
 				data := map[string]any{
 					"ID": fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
@@ -172,73 +173,40 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				var rm map[string]json.RawMessage
 
 				// inventories
-				inventory, err := CollectInventory(bmclibClient, q)
-				if err != nil {
-					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
+				if bmclibClient != nil {
+					inventory, err := CollectInventory(bmclibClient, q)
+					if err != nil {
+						l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
+					}
+					json.Unmarshal(inventory, &rm)
+					data["Inventory"] = rm["Inventory"]
 				}
-				json.Unmarshal(inventory, &rm)
-				data["Inventory"] = rm["Inventory"]
 
 				// chassis
-				chassis, err := CollectChassis(c, q)
-				if err != nil {
-					l.Log.Errorf("could not query chassis: %v", err)
-					continue
+				if gofishClient != nil {
+					chassis, err := CollectChassis(gofishClient, q)
+					if err != nil {
+						l.Log.Errorf("could not query chassis: %v", err)
+						continue
+					}
+					json.Unmarshal(chassis, &rm)
+					data["Chassis"] = rm["Chassis"]
+
+					// systems
+					systems, err := CollectSystems(gofishClient, q)
+					if err != nil {
+						l.Log.Errorf("could not query systems: %v", err)
+					}
+					json.Unmarshal(systems, &rm)
+					data["Systems"] = rm["Systems"]
+
+					// add other fields from systems
+					if len(rm["Systems"]) > 0 {
+						var s map[string][]interface{}
+						json.Unmarshal(rm["Systems"], &s)
+						data["Name"] = s["Name"]
+					}
 				}
-				json.Unmarshal(chassis, &rm)
-				data["Chassis"] = rm["Chassis"]
-
-				// ethernet interfaces
-				// interfaces, err := QueryEthernetInterfaces(client, q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query ethernet interfaces: %v", err)
-				// 	continue
-				// }
-				// json.Unmarshal(interfaces, &rm)
-				// data["Interfaces"] = rm["Interfaces"]
-
-				// storage
-				// storage, err := QueryStorage(q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query storage: %v", err)
-				// 	continue
-				// }
-				// json.Unmarshal(storage, &rm)
-				// data["Storage"] = rm["Storage"]
-
-				// get specific processor info
-				// procs, err := QueryProcessors(q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query processors: %v", err)
-				// }
-				// var p map[string]interface{}
-				// json.Unmarshal(procs, &p)
-				// data["Processors"] = rm["Processors"]
-
-				// systems
-				systems, err := CollectSystems(c, q)
-				if err != nil {
-					l.Log.Errorf("could not query systems: %v", err)
-				}
-				json.Unmarshal(systems, &rm)
-				data["Systems"] = rm["Systems"]
-
-				// add other fields from systems
-				if len(rm["Systems"]) > 0 {
-					var s map[string][]interface{}
-					json.Unmarshal(rm["Systems"], &s)
-					data["Name"] = s["Name"]
-				}
-
-				// data["Type"] = rm[""]
-
-				// registries
-				// registries, err := QueryRegisteries(q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query registries: %v", err)
-				// }
-				// json.Unmarshal(registries, &rm)
-				// data["Registries"] = rm["Registries"]
 
 				headers := make(map[string]string)
 				headers["Content-Type"] = "application/json"
