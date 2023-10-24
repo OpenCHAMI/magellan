@@ -130,6 +130,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 		NodeBMC:       -1,
 	}
 
+
 	// collect bmc information asynchronously
 	var wg sync.WaitGroup
 	wg.Add(q.Threads)
@@ -144,13 +145,17 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				q.Host = ps.Host
 				q.Port = ps.Port
 
-				client, err := NewClient(l, q)
+				node.NodeBMC += 1
+
+				bmclibClient, err := NewClient(l, q)
 				if err != nil {
 					l.Log.Errorf("could not make client: %v", err)
-					continue
 				}
 
-				node.NodeBMC += 1
+				gofishClient, err := connectGofish(q)
+				if err != nil {
+					l.Log.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+				}
 
 				// data to be sent to smd
 				data := map[string]any{
@@ -168,73 +173,40 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				var rm map[string]json.RawMessage
 
 				// inventories
-				inventory, err := CollectInventory(client, q)
-				if err != nil {
-					l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
+				if bmclibClient != nil {
+					inventory, err := CollectInventory(bmclibClient, q)
+					if err != nil {
+						l.Log.Errorf("could not query inventory (%v:%v): %v", q.Host, q.Port, err)
+					}
+					json.Unmarshal(inventory, &rm)
+					data["Inventory"] = rm["Inventory"]
 				}
-				json.Unmarshal(inventory, &rm)
-				data["Inventory"] = rm["Inventory"]
 
 				// chassis
-				chassis, err := CollectChassis(q)
-				if err != nil {
-					l.Log.Errorf("could not query chassis: %v", err)
-					continue
+				if gofishClient != nil {
+					chassis, err := CollectChassis(gofishClient, q)
+					if err != nil {
+						l.Log.Errorf("could not query chassis: %v", err)
+						continue
+					}
+					json.Unmarshal(chassis, &rm)
+					data["Chassis"] = rm["Chassis"]
+
+					// systems
+					systems, err := CollectSystems(gofishClient, q)
+					if err != nil {
+						l.Log.Errorf("could not query systems: %v", err)
+					}
+					json.Unmarshal(systems, &rm)
+					data["Systems"] = rm["Systems"]
+
+					// add other fields from systems
+					if len(rm["Systems"]) > 0 {
+						var s map[string][]interface{}
+						json.Unmarshal(rm["Systems"], &s)
+						data["Name"] = s["Name"]
+					}
 				}
-				json.Unmarshal(chassis, &rm)
-				data["Chassis"] = rm["Chassis"]
-
-				// ethernet interfaces
-				// interfaces, err := QueryEthernetInterfaces(client, q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query ethernet interfaces: %v", err)
-				// 	continue
-				// }
-				// json.Unmarshal(interfaces, &rm)
-				// data["Interfaces"] = rm["Interfaces"]
-
-				// storage
-				// storage, err := QueryStorage(q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query storage: %v", err)
-				// 	continue
-				// }
-				// json.Unmarshal(storage, &rm)
-				// data["Storage"] = rm["Storage"]
-
-				// get specific processor info
-				// procs, err := QueryProcessors(q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query processors: %v", err)
-				// }
-				// var p map[string]interface{}
-				// json.Unmarshal(procs, &p)
-				// data["Processors"] = rm["Processors"]
-
-				// systems
-				systems, err := CollectSystems(client, q)
-				if err != nil {
-					l.Log.Errorf("could not query systems: %v", err)
-				}
-				json.Unmarshal(systems, &rm)
-				data["Systems"] = rm["Systems"]
-
-				// add other fields from systems
-				if len(rm["Systems"]) > 0 {
-					var s map[string][]interface{}
-					json.Unmarshal(rm["Systems"], &s)
-					data["Name"] = s["Name"]
-				}
-
-				// data["Type"] = rm[""]
-
-				// registries
-				// registries, err := QueryRegisteries(q)
-				// if err != nil {
-				// 	l.Log.Errorf("could not query registries: %v", err)
-				// }
-				// json.Unmarshal(registries, &rm)
-				// data["Registries"] = rm["Registries"]
 
 				headers := make(map[string]string)
 				headers["Content-Type"] = "application/json"
@@ -340,7 +312,6 @@ func CollectInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 		ctxCancel()
 		return nil, fmt.Errorf("could not open client: %v", err)
 	}
-	defer client.Close(ctx)
 
 	inventory, err := client.Inventory(ctx)
 	if err != nil {
@@ -372,7 +343,6 @@ func CollectPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 		ctxCancel()
 		return nil, fmt.Errorf("could not open client: %v", err)
 	}
-	defer client.Close(ctx)
 
 	powerState, err := client.GetPowerState(ctx)
 	if err != nil {
@@ -442,12 +412,7 @@ func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, err
 }
 
-func CollectEthernetInterfaces(client *bmclib.Client, q *QueryParams, systemID string) ([]byte, error) {
-	c, err := connectGofish(q)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to bmc: %v", err)
-	}
-
+func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID string) ([]byte, error) {
 	systems, err := c.Service.Systems()
 	if err != nil {
 		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
@@ -478,11 +443,7 @@ func CollectEthernetInterfaces(client *bmclib.Client, q *QueryParams, systemID s
 	return b, nil
 }
 
-func CollectChassis(q *QueryParams) ([]byte, error) {
-	c, err := connectGofish(q)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
-	}
+func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	chassis, err := c.Service.Chassis()
 	if err != nil {
 		return nil, fmt.Errorf("could not query chassis (%v:%v): %v", q.Host, q.Port, err)
@@ -500,12 +461,7 @@ func CollectChassis(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func CollectStorage(q *QueryParams) ([]byte, error) {
-	c, err := connectGofish(q)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
-	}
-
+func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {	
 	systems, err := c.Service.StorageSystems()
 	if err != nil {
 		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
@@ -533,12 +489,7 @@ func CollectStorage(q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func CollectSystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	c, err := connectGofish(q)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
-	}
-
+func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	systems, err := c.Service.Systems()
 	if err != nil {
 		return nil, fmt.Errorf("could not query systems (%v:%v): %v", q.Host, q.Port, err)
@@ -547,7 +498,7 @@ func CollectSystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// query the system's ethernet interfaces
 	var temp []map[string]any
 	for _, system := range systems {
-		interfaces, err := CollectEthernetInterfaces(client, q, system.ID)
+		interfaces, err := CollectEthernetInterfaces(c, q, system.ID)
 		if err != nil {
 			continue
 		}
@@ -559,7 +510,7 @@ func CollectSystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 		})
 	}
 
-	data := map[string]any{"Systems": temp }
+	data := map[string]any{"Systems": temp}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
@@ -571,12 +522,7 @@ func CollectSystems(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func CollectRegisteries(q *QueryParams) ([]byte, error) {
-	c, err := connectGofish(q)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to bmc (%v:%v): %v", q.Host, q.Port, err)
-	}
-
+func CollectRegisteries(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	registries, err := c.Service.Registries()
 	if err != nil {
 		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
