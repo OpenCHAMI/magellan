@@ -41,6 +41,9 @@ go mod tidy && go build
 This should find and download all of the required dependencies. Although other
 versions of Go may work, the project has only been tested with v1.20.
 
+To build the Docker container, run `docker build -t magellan:latest .` in the
+project's directory.
+
 ## Usage
 
 There are three main commands to use with the tool: `scan`, `list`, and `collect`.
@@ -81,6 +84,13 @@ to find the `hms-smd` API.
 
 Note: If the `db.path` flag is not set, `magellan` will use /tmp/magellan.db by default.
 
+Both the `scan` and `collect` commands can be ran via Docker after pulling the image:
+
+```bash
+docker pull bikeshack/magellan:latest
+docker run bikeshack/magellan:latest /magellan.sh --scan "--subnet 172.16.0.0 --port 443 --timeout 3" --collect "--user admin --pass password --host http://vm01 --port 27779"
+```
+
 ## TODO
 
 List of things left to fix, do, or ideas...
@@ -89,9 +99,9 @@ List of things left to fix, do, or ideas...
 * [ ] Set default port automatically depending on the driver used to scan
 * [X] Test using different `bmclib` supported drivers (mainly 'redfish')
 * [X] Confirm loading different components into `hms-smd`
-* [ ] Add ability to set subnet mask for scanning
+* [X] Add ability to set subnet mask for scanning
 * [ ] Add unit tests for `scan`, `list`, and `collect` commands
-* [ ] Clean up, remove unused, and tidy code
+* [X] Clean up, remove unused, and tidy code
 
 ## Copyright
 
