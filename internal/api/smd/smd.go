@@ -53,7 +53,7 @@ func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
-			return fmt.Errorf("could not add redfish endpoint")
+			return fmt.Errorf("returned status code %d when adding endpoint", res.StatusCode)
 		}
 		fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
