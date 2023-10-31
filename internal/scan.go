@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bikeshack/magellan/internal/util"
+	"github.com/OpenChami/magellan/internal/util"
 )
 
 type ScannedResult struct {

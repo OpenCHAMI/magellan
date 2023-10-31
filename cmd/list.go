@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/bikeshack/magellan/internal/db/sqlite"
+	"github.com/OpenChami/magellan/internal/db/sqlite"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

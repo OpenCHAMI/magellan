@@ -6,7 +6,7 @@ package smd
 import (
 	"fmt"
 
-	"github.com/bikeshack/magellan/internal/util"
+	"github.com/OpenChami/magellan/internal/util"
 	// hms "github.com/alexlovelltroy/hms-smd"
 )
 

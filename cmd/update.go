@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	magellan "github.com/bikeshack/magellan/internal"
-	"github.com/bikeshack/magellan/internal/log"
+	magellan "github.com/OpenChami/magellan/internal"
+	"github.com/OpenChami/magellan/internal/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

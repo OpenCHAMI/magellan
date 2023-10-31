@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bikeshack/magellan/internal/log"
+	"github.com/OpenChami/magellan/internal/log"
 
-	"github.com/bikeshack/magellan/internal/api/smd"
-	"github.com/bikeshack/magellan/internal/util"
+	"github.com/OpenChami/magellan/internal/api/smd"
+	"github.com/OpenChami/magellan/internal/util"
 
 	"github.com/Cray-HPE/hms-xname/xnames"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"

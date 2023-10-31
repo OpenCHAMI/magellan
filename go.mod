@@ -1,4 +1,4 @@
-module github.com/bikeshack/magellan
+module github.com/OpenChami/magellan
 
 go 1.20
 

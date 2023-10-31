@@ -3,7 +3,7 @@ package sqlite
 import (
 	"fmt"
 
-	magellan "github.com/bikeshack/magellan/internal"
+	magellan "github.com/OpenChami/magellan/internal"
 
 	"github.com/jmoiron/sqlx"
 )

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 
-	magellan "github.com/bikeshack/magellan/internal"
-	"github.com/bikeshack/magellan/internal/db/sqlite"
+	magellan "github.com/OpenChami/magellan/internal"
+	"github.com/OpenChami/magellan/internal/db/sqlite"
 
 	"github.com/cznic/mathutil"
 	"github.com/spf13/cobra"

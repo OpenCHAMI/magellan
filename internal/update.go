@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bikeshack/magellan/internal/log"
-	"github.com/bikeshack/magellan/internal/util"
+	"github.com/OpenChami/magellan/internal/log"
+	"github.com/OpenChami/magellan/internal/util"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/constants"
 	bmclibErrs "github.com/bmc-toolbox/bmclib/v2/errors"

@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	magellan "github.com/bikeshack/magellan/internal"
-	"github.com/bikeshack/magellan/internal/api/smd"
-	"github.com/bikeshack/magellan/internal/db/sqlite"
-	"github.com/bikeshack/magellan/internal/log"
+	magellan "github.com/OpenChami/magellan/internal"
+	"github.com/OpenChami/magellan/internal/api/smd"
+	"github.com/OpenChami/magellan/internal/db/sqlite"
+	"github.com/OpenChami/magellan/internal/log"
 	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

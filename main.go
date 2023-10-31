@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/bikeshack/magellan/cmd"
+	"github.com/OpenChami/magellan/cmd"
 )
 
 func main() {
