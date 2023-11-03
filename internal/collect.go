@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenChami/magellan/internal/log"
+	"github.com/OpenCHAMI/magellan/internal/log"
 
-	"github.com/OpenChami/magellan/internal/api/smd"
-	"github.com/OpenChami/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/internal/api/smd"
+	"github.com/OpenCHAMI/magellan/internal/util"
 
 	"github.com/Cray-HPE/hms-xname/xnames"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
@@ -32,7 +32,6 @@ const (
 	SSH_PORT   = 22
 	HTTPS_PORT = 443
 )
-
 
 // NOTE: ...params were getting too long...
 type QueryParams struct {
@@ -121,7 +120,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 	found := make([]string, 0, len(*probeStates))
 	done := make(chan struct{}, q.Threads+1)
 	chanProbeState := make(chan ScannedResult, q.Threads+1)
-	
+
 	// collect bmc information asynchronously
 	var offset = 0
 	var wg sync.WaitGroup
@@ -136,7 +135,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				}
 				q.Host = ps.Host
 				q.Port = ps.Port
-				
+
 				// generate custom xnames for bmcs
 				node := xnames.Node{
 					Cabinet:       1000,
@@ -158,13 +157,13 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				// data to be sent to smd
 				data := map[string]any{
-					"ID": fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
-					"Type": "",
-					"Name": "",
-					"FQDN": ps.Host,
-					"User": q.User,
-					"Password": q.Pass,
-					"MACRequired": true,
+					"ID":                 fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
+					"Type":               "",
+					"Name":               "",
+					"FQDN":               ps.Host,
+					"User":               q.User,
+					"Password":           q.Pass,
+					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
 				}
 
@@ -220,7 +219,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				}
 
 				// write JSON data to file
-				err = os.WriteFile(path.Clean(outputPath + "/" + q.Host + ".json"), body, os.ModePerm)
+				err = os.WriteFile(path.Clean(outputPath+"/"+q.Host+".json"), body, os.ModePerm)
 				if err != nil {
 					l.Log.Errorf("could not write data to file: %v", err)
 				}
@@ -319,7 +318,6 @@ func CollectInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 		return nil, fmt.Errorf("could not get inventory: %v", err)
 	}
 
-	
 	// retrieve inventory data
 	data := map[string]any{"Inventory": inventory}
 	b, err := json.MarshalIndent(data, "", "    ")
@@ -379,7 +377,7 @@ func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	}
 
 	// retrieve inventory data
-	data := map[string]any {"Users": users}
+	data := map[string]any{"Users": users}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		ctxCancel()
@@ -407,13 +405,13 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 
 	var interfaces []*redfish.EthernetInterface
 	for _, system := range systems {
-		i, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/" + system.ID + "/EthernetInterfaces/")
+		i, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/"+system.ID+"/EthernetInterfaces/")
 		if err != nil {
 			continue
 		}
 		interfaces = append(interfaces, i...)
 	}
-	
+
 	if len(interfaces) <= 0 {
 		return nil, fmt.Errorf("could not get ethernet interfaces: %v", err)
 	}
@@ -442,7 +440,7 @@ func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {	
+func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	systems, err := c.Service.StorageSystems()
 	if err != nil {
 		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
@@ -455,7 +453,7 @@ func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 
 	data := map[string]any{
 		"Storage": map[string]any{
-			"Systems": systems,
+			"Systems":  systems,
 			"Services": services,
 		},
 	}
@@ -483,7 +481,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 		var i map[string]any
 		json.Unmarshal(interfaces, &i)
 		temp = append(temp, map[string]any{
-			"Data": system,
+			"Data":               system,
 			"EthernetInterfaces": i["EthernetInterfaces"],
 		})
 	}
@@ -503,7 +501,7 @@ func CollectRegisteries(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 		return nil, fmt.Errorf("could not query storage systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	data := map[string]any{"Registries": registries }
+	data := map[string]any{"Registries": registries}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
@@ -543,7 +541,7 @@ func CollectProcessors(q *QueryParams) ([]byte, error) {
 		}
 	}
 
-	data := map[string]any{"Processors": procs }
+	data := map[string]any{"Processors": procs}
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal JSON: %v", err)
@@ -563,7 +561,7 @@ func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 		c.Service.ProtocolFeaturesSupported = gofish.ProtocolFeaturesSupported{
 			ExpandQuery: gofish.Expand{
 				ExpandAll: true,
-				Links: true,
+				Links:     true,
 			},
 		}
 	}

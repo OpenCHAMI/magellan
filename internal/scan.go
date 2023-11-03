@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenChami/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/internal/util"
 )
 
 type ScannedResult struct {
@@ -51,7 +51,6 @@ func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []Scan
 	return results
 }
 
-
 func GenerateHosts(subnet string, subnetMask *net.IP) []string {
 	if subnet == "" || subnetMask == nil {
 		return nil
@@ -68,7 +67,7 @@ func GenerateHosts(subnet string, subnetMask *net.IP) []string {
 		subnetIp = ip
 		if network != nil {
 			t := net.IP(network.Mask)
-			subnetMask = &t 
+			subnetMask = &t
 		}
 	}
 
@@ -82,7 +81,7 @@ func generateHosts(ip *net.IP, mask *net.IPMask) []string {
 	// get all IP addresses in network
 	ones, _ := mask.Size()
 	hosts := []string{}
-	end := int(math.Pow(2, float64((32-ones))))-1
+	end := int(math.Pow(2, float64((32-ones)))) - 1
 	for i := 0; i < end; i++ {
 		// ip[3] = byte(i)
 		ip = util.GetNextIP(ip, 1)

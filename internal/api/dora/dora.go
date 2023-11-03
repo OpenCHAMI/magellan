@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/OpenChami/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/internal/util"
 
 	"github.com/jmoiron/sqlx"
 )
