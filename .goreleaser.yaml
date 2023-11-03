@@ -10,10 +10,10 @@ builds:
       - amd64
 dockers:
   - image_templates:
-      - bikeshack/{{.ProjectName}}:latest
-      - bikeshack/{{.ProjectName}}:{{ .Tag }}
-      - bikeshack/{{.ProjectName}}:{{ .Major }}
-      - bikeshack/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
+      - ghcr.io/OpenCHAMI/{{.ProjectName}}:latest
+      - ghcr.io/OpenCHAMI/{{.ProjectName}}:{{ .Tag }}
+      - ghcr.io/OpenCHAMI/{{.ProjectName}}:{{ .Major }}
+      - ghcr.io/OpenCHAMI/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
