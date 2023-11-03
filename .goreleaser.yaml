@@ -10,10 +10,10 @@ builds:
       - amd64
 dockers:
   - image_templates:
-      - ghcr.io/OpenCHAMI/{{.ProjectName}}:latest
-      - ghcr.io/OpenCHAMI/{{.ProjectName}}:{{ .Tag }}
-      - ghcr.io/OpenCHAMI/{{.ProjectName}}:{{ .Major }}
-      - ghcr.io/OpenCHAMI/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
+      - ghcr.io/openchami/{{.ProjectName}}:latest
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
