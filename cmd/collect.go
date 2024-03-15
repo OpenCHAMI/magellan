@@ -27,6 +27,16 @@ var collectCmd = &cobra.Command{
 			l.Log.Errorf("could not get states: %v", err)
 		}
 
+		// try to load access token either from env var, file, or config if var not set
+		if accessToken == "" {
+			var err error
+			accessToken, err = LoadAccessToken()
+			if err != nil {
+				l.Log.Errorf("failed to load access token: %v", err)
+			}
+		}
+
+		//
 		if threads <= 0 {
 			threads = mathutil.Clamp(len(probeStates), 1, 255)
 		}
