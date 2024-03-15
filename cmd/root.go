@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	accessToken     string
 	timeout         int
 	threads         int
 	ports           []int
@@ -21,7 +22,7 @@ var (
 	drivers         []string
 	preferredDriver string
 	ipmitoolPath    string
-	outputPath		string
+	outputPath      string
 	verbose         bool
 )
 
