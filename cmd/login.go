@@ -7,7 +7,9 @@ import (
 	"os"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -25,21 +27,19 @@ var loginCmd = &cobra.Command{
 	Short: "Log in with identity provider for access token",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
+		// make application logger
+		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
+
 		// check if we have a valid JWT before starting login
 		if !forceLogin {
 			// try getting the access token from env var
-			testToken := []byte(os.Getenv("OCHAMI_ACCESS_TOKEN"))
-			if testToken == nil {
-				// try reading access token from a file
-				b, err := os.ReadFile(tokenPath)
-				if err != nil {
-					fmt.Printf("failed to read access token from file: %v\n", err)
-					return
-				}
-				testToken = b
+			testToken, err := LoadAccessToken()
+			if err != nil {
+				l.Log.Errorf("failed to load access token: %v", err)
 			}
+
 			// parse into jwt.Token to validate
-			token, err := jwt.Parse(testToken)
+			token, err := jwt.Parse([]byte(testToken))
 			if err != nil {
 				fmt.Printf("failed to parse access token contents: %v\n", err)
 				return
