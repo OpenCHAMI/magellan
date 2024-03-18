@@ -15,6 +15,7 @@ import (
 
 var (
 	loginUrl   string
+	refreshUrl string
 	targetHost string
 	targetPort int
 	tokenPath  string
@@ -48,6 +49,24 @@ var loginCmd = &cobra.Command{
 			err = jwt.Validate(token)
 			if err != nil {
 				fmt.Printf("failed to validate access token...fetching a new one")
+
+				// try to get access token with refresh token if it's valid
+				bearer, err := magellan.Refresh(refreshUrl, targetHost, targetPort)
+				if err != nil {
+					return
+				} else {
+					fmt.Printf("successfully fetched new access token...skipping login(use the '-f/--force' flag to login anyway)\n")
+
+					// if we got a new token successfully, save it to the token path
+					if bearer.AccessToken != "" && tokenPath != "" {
+						err := os.WriteFile(tokenPath, []byte(bearer.AccessToken), os.ModePerm)
+						if err != nil {
+							fmt.Printf("failed to write access token to file: %v\n", err)
+						}
+					}
+					return
+				}
+
 			} else {
 				fmt.Printf("found a valid token...skipping login (use the '-f/--force' flag to login anyway)")
 				return
@@ -56,7 +75,7 @@ var loginCmd = &cobra.Command{
 
 		// start the login flow
 		var err error
-		accessToken, err = magellan.Login(loginUrl, targetHost, targetPort)
+		bearer, err := magellan.Login(loginUrl, targetHost, targetPort)
 		if errors.Is(err, http.ErrServerClosed) {
 			fmt.Printf("\n=========================================\nServer closed.\n=========================================\n\n")
 		} else if err != nil {
@@ -64,8 +83,8 @@ var loginCmd = &cobra.Command{
 		}
 
 		// if we got a new token successfully, save it to the token path
-		if accessToken != "" && tokenPath != "" {
-			err := os.WriteFile(tokenPath, []byte(accessToken), os.ModePerm)
+		if bearer.AccessToken != "" && tokenPath != "" {
+			err := os.WriteFile(tokenPath, []byte(bearer.AccessToken), os.ModePerm)
 			if err != nil {
 				fmt.Printf("failed to write access token to file: %v\n", err)
 			}
@@ -74,7 +93,8 @@ var loginCmd = &cobra.Command{
 }
 
 func init() {
-	loginCmd.Flags().StringVar(&loginUrl, "url", "http://127.0.0.1:3333/login", "set the login URL")
+	loginCmd.Flags().StringVar(&loginUrl, "login-url", "http://127.0.0.1:3333/login", "set the login URL")
+	loginCmd.Flags().StringVar(&refreshUrl, "refresh-url", "http://127.0.0.1:3333/refresh", "set the refresh URL")
 	loginCmd.Flags().StringVar(&targetHost, "target-host", "127.0.0.1", "set the target host to return the access code")
 	loginCmd.Flags().IntVar(&targetPort, "target-port", 5000, "set the target host to return the access code")
 	loginCmd.Flags().BoolVarP(&forceLogin, "force", "f", false, "start the login process even with a valid token")

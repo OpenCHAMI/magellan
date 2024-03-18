@@ -1,6 +1,7 @@
 package magellan
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -8,12 +9,19 @@ import (
 	"github.com/pkg/browser"
 )
 
-func Login(loginUrl string, targetHost string, targetPort int) (string, error) {
-	var accessToken string
+type BearerToken struct {
+	AccessToken string
+	IdToken     string
+	ExpiresAt   string
+	TokenType   string
+}
+
+func Login(loginUrl string, targetHost string, targetPort int) (*BearerToken, error) {
+	var token *BearerToken
 
 	// check and make sure the login URL isn't empty
 	if loginUrl == "" {
-		return "", fmt.Errorf("no login URL provided")
+		return nil, fmt.Errorf("no login URL provided")
 	}
 
 	// if a target host and port are provided, then add to URL
@@ -24,7 +32,7 @@ func Login(loginUrl string, targetHost string, targetPort int) (string, error) {
 	// open browser with the specified URL
 	err := browser.OpenURL(loginUrl)
 	if err != nil {
-		return "", fmt.Errorf("failed to open browser: %v", err)
+		return nil, fmt.Errorf("failed to open browser: %v", err)
 	}
 
 	// start a temporary server to listen for token
@@ -34,8 +42,42 @@ func Login(loginUrl string, targetHost string, targetPort int) (string, error) {
 	r := chi.NewRouter()
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// try and extract access token from headers
-		accessToken = r.Header.Get("access_token")
+		token.AccessToken = r.Header.Get("access_token")
+		bearer := r.Header.Get("bearer")
+		if bearer != "" {
+			json.Unmarshal([]byte(bearer), &token)
+		}
 		s.Close()
 	})
-	return accessToken, s.ListenAndServe()
+	return token, s.ListenAndServe()
+}
+
+func Refresh(refreshUrl string, targetHost string, targetPort int) (*BearerToken, error) {
+	var token *BearerToken
+
+	// check and make sure the refresh URL isn't empty
+	if refreshUrl == "" {
+		return nil, fmt.Errorf("no refresh URL provided")
+	}
+
+	// if a target host and port are provided, then add to URL
+	if targetHost != "" && targetPort > 0 && targetPort < 65536 {
+		refreshUrl += fmt.Sprintf("?target=http://%s:%d", targetHost, targetPort)
+	}
+
+	// start a temporary server to listen for token
+	s := http.Server{
+		Addr: fmt.Sprintf("%s:%d", targetHost, targetPort),
+	}
+	r := chi.NewRouter()
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// try and extract access token from headers
+		token.AccessToken = r.Header.Get("access_token")
+		bearer := r.Header.Get("bearer")
+		if bearer != "" {
+			json.Unmarshal([]byte(bearer), &token)
+		}
+		s.Close()
+	})
+	return token, s.ListenAndServe()
 }
