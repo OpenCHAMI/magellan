@@ -50,6 +50,7 @@ type QueryParams struct {
 	IpmitoolPath  string
 	OutputPath    string
 	ForceUpdate   bool
+	AccessToken   string
 }
 
 func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
@@ -208,6 +209,11 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				headers := make(map[string]string)
 				headers["Content-Type"] = "application/json"
+
+				// use access token in authorization header if we have it
+				if q.AccessToken != "" {
+					headers["Authorization"] = "Bearer " + q.AccessToken
+				}
 
 				body, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
