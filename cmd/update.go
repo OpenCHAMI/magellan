@@ -28,15 +28,14 @@ var updateCmd = &cobra.Command{
 			Component:        component,
 			TransferProtocol: transferProtocol,
 			QueryParams: magellan.QueryParams{
-				Drivers:       []string{"redfish"},
-				Preferred:     "redfish",
-				Protocol:      protocol,
-				Host:          host,
-				User:          user,
-				Pass:          pass,
-				Timeout:       timeout,
-				Port:          port,
-				WithSecureTLS: withSecureTLS,
+				Drivers:   []string{"redfish"},
+				Preferred: "redfish",
+				Protocol:  protocol,
+				Host:      host,
+				User:      user,
+				Pass:      pass,
+				Timeout:   timeout,
+				Port:      port,
 			},
 		}
 
@@ -76,7 +75,6 @@ func init() {
 	updateCmd.Flags().StringVar(&firmwareUrl, "firmware-url", "", "set the path to the firmware")
 	updateCmd.Flags().StringVar(&firmwareVersion, "firmware-version", "", "set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
-	updateCmd.Flags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
 	updateCmd.Flags().BoolVar(&status, "status", false, "get the status of the update")
 	rootCmd.AddCommand(updateCmd)
 }
