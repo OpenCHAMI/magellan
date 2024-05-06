@@ -35,25 +35,25 @@ const (
 
 // NOTE: ...params were getting too long...
 type QueryParams struct {
-	Host          string
-	Port          int
-	Protocol      string
-	User          string
-	Pass          string
-	Drivers       []string
-	Threads       int
-	Preferred     string
-	Timeout       int
-	WithSecureTLS bool
-	CertPoolFile  string
-	Verbose       bool
-	IpmitoolPath  string
-	OutputPath    string
-	ForceUpdate   bool
-	AccessToken   string
+	Host         string
+	Port         int
+	Protocol     string
+	User         string
+	Pass         string
+	Drivers      []string
+	Threads      int
+	Preferred    string
+	Timeout      int
+	CaCertPath   string
+	Verbose      bool
+	IpmitoolPath string
+	OutputPath   string
+	ForceUpdate  bool
+	AccessToken  string
 }
 
 func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
+
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -75,9 +75,9 @@ func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
 	}
 
 	// only work if valid cert is provided
-	if q.WithSecureTLS && q.CertPoolFile != "" {
+	if q.CaCertPath != "" {
 		pool := x509.NewCertPool()
-		data, err := os.ReadFile(q.CertPoolFile)
+		data, err := os.ReadFile(q.CaCertPath)
 		if err != nil {
 			return nil, fmt.Errorf("could not read cert pool file: %v", err)
 		}
@@ -557,10 +557,12 @@ func CollectProcessors(q *QueryParams) ([]byte, error) {
 }
 
 func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
-	config := makeGofishConfig(q)
+	config, err := makeGofishConfig(q)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make gofish config: %v", err)
+	}
 	c, err := gofish.Connect(config)
 	if err != nil {
-
 		return nil, fmt.Errorf("could not connect to redfish endpoint: %v", err)
 	}
 	if c != nil {
@@ -574,15 +576,42 @@ func connectGofish(q *QueryParams) (*gofish.APIClient, error) {
 	return c, err
 }
 
-func makeGofishConfig(q *QueryParams) gofish.ClientConfig {
-	url := baseRedfishUrl(q)
+func makeGofishConfig(q *QueryParams) (gofish.ClientConfig, error) {
+	var (
+		client = &http.Client{}
+		url    = baseRedfishUrl(q)
+		config = gofish.ClientConfig{
+			Endpoint:            url,
+			Username:            q.User,
+			Password:            q.Pass,
+			Insecure:            q.CaCertPath == "",
+			TLSHandshakeTimeout: q.Timeout,
+			HTTPClient:          client,
+			// MaxConcurrentRequests: int64(q.Threads),  // NOTE: this was added in latest gofish
+		}
+	)
+	if q.CaCertPath != "" {
+		cacert, err := os.ReadFile(q.CaCertPath)
+		if err != nil {
+			return config, fmt.Errorf("failed to read CA cert file: %v", err)
+		}
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(cacert)
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: certPool,
+			},
+		}
+	}
 	return gofish.ClientConfig{
 		Endpoint:            url,
 		Username:            q.User,
 		Password:            q.Pass,
-		Insecure:            !q.WithSecureTLS,
+		Insecure:            q.CaCertPath == "",
 		TLSHandshakeTimeout: q.Timeout,
-	}
+		HTTPClient:          client,
+		// MaxConcurrentRequests: int64(q.Threads),  // NOTE: this was added in latest gofish
+	}, nil
 }
 
 func makeRequest[T any](client *bmclib.Client, fn func(context.Context) (T, error), timeout int) ([]byte, error) {

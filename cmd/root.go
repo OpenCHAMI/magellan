@@ -14,8 +14,7 @@ var (
 	ports           []int
 	hosts           []string
 	protocol        string
-	withSecureTLS   bool
-	certPoolFile    string
+	cacertPath      string
 	user            string
 	pass            string
 	dbpath          string
