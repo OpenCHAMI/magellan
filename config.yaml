@@ -1,12 +1,12 @@
 scan:
   hosts:
-  - "172.16.1.15"
+    - "172.16.1.15"
   subnets:
-  - "172.16.0.0"
-  - "172.16.0.0/24"
+    - "172.16.0.0"
+    - "172.16.0.0/24"
   subnet-masks:
   ports:
-  - 433
+    - 433
   disable-probing: false
 collect:
   # host: smd-host
@@ -21,7 +21,7 @@ collect:
   secure-tls: false
   cert-pool:
   drivers:
-  - "redfish"
+    - "redfish"
   ipmitool:
     path: "/usr/bin/ipmitool"
 update:

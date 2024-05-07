@@ -68,7 +68,11 @@ func LoadAccessToken() (string, error) {
 	}
 
 	// TODO: try to load token from config
-	return "", fmt.Errorf("could not load from environment variable or file")
+	testToken = viper.GetString("access_token")
+	if testToken != "" {
+		return testToken, nil
+	}
+	return "", fmt.Errorf("could not load token from environment variable, file, or config")
 }
 
 func init() {

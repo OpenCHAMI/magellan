@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/api/smd"
 	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
@@ -35,6 +37,10 @@ var collectCmd = &cobra.Command{
 			if err != nil {
 				l.Log.Errorf("failed to load access token: %v", err)
 			}
+		}
+
+		if verbose {
+			fmt.Printf("access token: %v\n", accessToken)
 		}
 
 		//

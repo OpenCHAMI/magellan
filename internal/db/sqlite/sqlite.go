@@ -18,6 +18,7 @@ func CreateProbeResultsIfNotExists(path string) (*sqlx.DB, error) {
 		PRIMARY KEY (host, port)
 	);
 	`
+	// TODO: it may help with debugging to check for file permissions here first
 	db, err := sqlx.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open database: %v", err)
