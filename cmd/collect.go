@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	magellan "github.com/bikeshack/magellan/internal"
-	"github.com/bikeshack/magellan/internal/api/smd"
-	"github.com/bikeshack/magellan/internal/db/sqlite"
-	"github.com/bikeshack/magellan/internal/log"
+	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/api/smd"
+	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
+	"github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -28,21 +28,31 @@ var collectCmd = &cobra.Command{
 			l.Log.Errorf("could not get states: %v", err)
 		}
 
+		// try to load access token either from env var, file, or config if var not set
+		if accessToken == "" {
+			var err error
+			accessToken, err = LoadAccessToken()
+			if err != nil {
+				l.Log.Errorf("failed to load access token: %v", err)
+			}
+		}
+
+		//
 		if threads <= 0 {
 			threads = mathutil.Clamp(len(probeStates), 1, 255)
 		}
 		q := &magellan.QueryParams{
-			User:          user,
-			Pass:          pass,
-			Protocol:      protocol,
-			Drivers:       drivers,
-			Preferred:     preferredDriver,
-			Timeout:       timeout,
-			Threads:       threads,
-			Verbose:       verbose,
-			WithSecureTLS: withSecureTLS,
-			OutputPath:    outputPath,
-			ForceUpdate:   forceUpdate,
+			User:        user,
+			Pass:        pass,
+			Protocol:    protocol,
+			Drivers:     drivers,
+			Preferred:   preferredDriver,
+			Timeout:     timeout,
+			Threads:     threads,
+			Verbose:     verbose,
+			CaCertPath:  cacertPath,
+			OutputPath:  outputPath,
+			ForceUpdate: forceUpdate,
 		}
 		magellan.CollectAll(&probeStates, l, q)
 
@@ -80,7 +90,6 @@ func init() {
 	viper.BindPFlag("collect.ipmitool.path", collectCmd.Flags().Lookup("ipmitool.path"))
 	viper.BindPFlag("collect.secure-tls", collectCmd.Flags().Lookup("secure-tls"))
 	viper.BindPFlag("collect.cert-pool", collectCmd.Flags().Lookup("cert-pool"))
-
 
 	rootCmd.AddCommand(collectCmd)
 }

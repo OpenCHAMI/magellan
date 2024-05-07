@@ -5,9 +5,8 @@ package smd
 //	https://github.com/alexlovelltroy/hms-smd
 import (
 	"fmt"
-	"net/http"
 
-	"github.com/bikeshack/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	// hms "github.com/alexlovelltroy/hms-smd"
 )
 
@@ -52,8 +51,9 @@ func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
 	res, body, err := util.MakeRequest(url, "POST", data, headers)
 	if res != nil {
-		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("could not add redfish endpoint")
+		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
+		if !statusOk {
+			return fmt.Errorf("returned status code %d when adding endpoint", res.StatusCode)
 		}
 		fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
@@ -69,7 +69,8 @@ func UpdateRedfishEndpoint(xname string, data []byte, headers map[string]string)
 	res, body, err := util.MakeRequest(url, "PUT", data, headers)
 	fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	if res != nil {
-		if res.StatusCode != http.StatusOK {
+		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
+		if !statusOk {
 			return fmt.Errorf("could not update redfish endpoint")
 		}
 	}

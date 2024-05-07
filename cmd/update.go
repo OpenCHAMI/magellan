@@ -1,46 +1,45 @@
 package cmd
 
 import (
-	magellan "github.com/bikeshack/magellan/internal"
-	"github.com/bikeshack/magellan/internal/log"
+	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	host string
-	port int
-	firmwareUrl string
-	firmwareVersion string
-	component string
+	host             string
+	port             int
+	firmwareUrl      string
+	firmwareVersion  string
+	component        string
 	transferProtocol string
-	status bool
+	status           bool
 )
 
 var updateCmd = &cobra.Command{
-	Use: "update",
+	Use:   "update",
 	Short: "Update BMC node firmware",
 	Run: func(cmd *cobra.Command, args []string) {
 		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
-		q := &magellan.UpdateParams {
-			FirmwarePath: firmwareUrl,
-			FirmwareVersion: firmwareVersion,
-			Component: component,
+		q := &magellan.UpdateParams{
+			FirmwarePath:     firmwareUrl,
+			FirmwareVersion:  firmwareVersion,
+			Component:        component,
 			TransferProtocol: transferProtocol,
 			QueryParams: magellan.QueryParams{
-				Drivers: []string{"redfish"},
+				Drivers:   []string{"redfish"},
 				Preferred: "redfish",
-				Protocol: protocol,
-				Host: host,
-				User: user,
-				Pass: pass,
-				Timeout: timeout,
-				Port: port,
-				WithSecureTLS: withSecureTLS,
+				Protocol:  protocol,
+				Host:      host,
+				User:      user,
+				Pass:      pass,
+				Timeout:   timeout,
+				Port:      port,
 			},
 		}
-		
+
 		// check if required params are set
 		if host == "" || user == "" || pass == "" {
 			l.Log.Fatal("requires host, user, and pass to be set")
@@ -54,7 +53,7 @@ var updateCmd = &cobra.Command{
 			}
 			return
 		}
-		
+
 		// client, err := magellan.NewClient(l, &q.QueryParams)
 		// if err != nil {
 		// 	l.Log.Errorf("could not make client: %v", err)
@@ -77,7 +76,6 @@ func init() {
 	updateCmd.Flags().StringVar(&firmwareUrl, "firmware-url", "", "set the path to the firmware")
 	updateCmd.Flags().StringVar(&firmwareVersion, "firmware-version", "", "set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
-	updateCmd.Flags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
 	updateCmd.Flags().BoolVar(&status, "status", false, "get the status of the update")
 
 	viper.BindPFlag("bmc-host", updateCmd.Flags().Lookup("bmc-host"))

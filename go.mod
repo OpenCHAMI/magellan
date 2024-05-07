@@ -1,4 +1,4 @@
-module github.com/bikeshack/magellan
+module github.com/OpenCHAMI/magellan
 
 go 1.20
 
@@ -6,9 +6,12 @@ require (
 	github.com/Cray-HPE/hms-xname v1.3.0
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230714152943-a1b87e2ff47f
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/jacobweinstock/registrar v0.4.7
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/lestrrat-go/jwx v1.2.29
 	github.com/mattn/go-sqlite3 v1.14.6
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.17.0
@@ -22,6 +25,7 @@ require (
 	github.com/bmc-toolbox/common v0.0.0-20230717121556-5eb9915a8a5a // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -30,6 +34,12 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
+	github.com/lestrrat-go/httpcc v1.0.1 // indirect
+	github.com/lestrrat-go/iter v1.0.2 // indirect
+	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect

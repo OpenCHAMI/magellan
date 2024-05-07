@@ -3,25 +3,29 @@ before:
     - go mod download
 builds:
   - env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
     goos:
-      - darwin
       - linux
-      - windows
     goarch:
       - amd64
+      - arm64
 dockers:
   - image_templates:
-      - bikeshack/{{.ProjectName}}:latest
-      - bikeshack/{{.ProjectName}}:{{ .Tag }}
-      - bikeshack/{{.ProjectName}}:{{ .Major }}
-      - bikeshack/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
+      - ghcr.io/openchami/{{.ProjectName}}:latest
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - LICENSE
+      - CHANGELOG.md
+      - README.md
+      - bin/magellan.sh
 archives:
   - format: tar.gz
     rlcp: true
@@ -34,10 +38,10 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     files:
-      - migrations/*
       - LICENSE
       - CHANGELOG.md
       - README.md
+      - bin/magellan.sh
 checksum:
   name_template: 'checksums.txt'
 snapshot:

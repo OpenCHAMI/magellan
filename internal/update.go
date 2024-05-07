@@ -10,30 +10,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bikeshack/magellan/internal/log"
-	"github.com/bikeshack/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/internal/log"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	"github.com/bmc-toolbox/bmclib/v2/constants"
 	bmclibErrs "github.com/bmc-toolbox/bmclib/v2/errors"
 	"github.com/sirupsen/logrus"
 )
 
-
 type UpdateParams struct {
 	QueryParams
-	FirmwarePath string
-	FirmwareVersion string
-	Component string
+	FirmwarePath     string
+	FirmwareVersion  string
+	Component        string
 	TransferProtocol string
 }
 
-// NOTE: Does not work since OpenBMC, whic bmclib uses underneath, does not 
+// NOTE: Does not work since OpenBMC, whic bmclib uses underneath, does not
 // support multipart updates. See issue: https://github.com/bmc-toolbox/bmclib/issues/341
 func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error {
 	if q.Component == "" {
 		return fmt.Errorf("component is required")
 	}
-	
+
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -121,20 +120,20 @@ func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error
 
 		time.Sleep(2 * time.Second)
 	}
-	
+
 	return nil
 }
 
 func UpdateFirmwareRemote(q *UpdateParams) error {
 	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService/Actions/SimpleUpdate"
-	headers := map[string]string {
-		"Content-Type": "application/json",
+	headers := map[string]string{
+		"Content-Type":  "application/json",
 		"cache-control": "no-cache",
 	}
 	b := map[string]any{
-		"UpdateComponent": q.Component, // BMC, BIOS
+		"UpdateComponent":  q.Component, // BMC, BIOS
 		"TransferProtocol": q.TransferProtocol,
-		"ImageURI": q.FirmwarePath,
+		"ImageURI":         q.FirmwarePath,
 	}
 	data, err := json.Marshal(b)
 	if err != nil {
@@ -183,8 +182,6 @@ func GetUpdateStatus(q *UpdateParams) error {
 // 	if err != nil {
 // 		return fmt.Errorf("could not read file: %v", err)
 // 	}
-
-
 
 // 	switch q.TransferProtocol {
 // 	case "HTTP":

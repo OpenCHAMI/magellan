@@ -12,21 +12,21 @@ import (
 )
 
 var (
+	accessToken     string
 	timeout         int
 	threads         int
 	ports           []int
 	hosts           []string
 	protocol        string
-	withSecureTLS   bool
-	certPoolFile    string
+	cacertPath      string
 	user            string
 	pass            string
 	dbpath          string
 	drivers         []string
 	preferredDriver string
 	ipmitoolPath    string
-	outputPath		string
-	configPath		string
+	outputPath      string
+	configPath      string
 	verbose         bool
 )
 
@@ -54,14 +54,32 @@ func Execute() {
 	}
 }
 
+func LoadAccessToken() (string, error) {
+	// try to load token from env var
+	testToken := os.Getenv("OCHAMI_ACCESS_TOKEN")
+	if testToken != "" {
+		return testToken, nil
+	}
+
+	// try reading access token from a file
+	b, err := os.ReadFile(tokenPath)
+	if err == nil {
+		return string(b), nil
+	}
+
+	// TODO: try to load token from config
+	return "", fmt.Errorf("could not load from environment variable or file")
+}
+
 func init() {
 	cobra.OnInitialize(InitializeConfig)
 	rootCmd.PersistentFlags().IntVar(&threads, "threads", -1, "set the number of threads")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "set the timeout")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "set the config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", true, "set verbose flag")
+	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
 	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", "/tmp/magellan/magellan.db", "set the probe storage path")
-	
+
 	// bind viper config flags with cobra
 	viper.BindPFlag("threads", rootCmd.Flags().Lookup("threads"))
 	viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout"))

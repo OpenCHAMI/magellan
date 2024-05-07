@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 
-	magellan "github.com/bikeshack/magellan/internal"
-	"github.com/bikeshack/magellan/internal/db/sqlite"
+	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
 
 	"github.com/cznic/mathutil"
 	"github.com/spf13/cobra"
@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	begin   uint8
-	end     uint8
-	subnets []string
-	subnetMasks []net.IP
+	begin          uint8
+	end            uint8
+	subnets        []string
+	subnetMasks    []net.IP
 	disableProbing bool
 )
 
@@ -37,10 +37,10 @@ var scanCmd = &cobra.Command{
 					return
 				}
 
-				if len(subnetMasks) < i + 1 {
+				if len(subnetMasks) < i+1 {
 					subnetMasks = append(subnetMasks, net.IP{255, 255, 255, 0})
 				}
-				
+
 				hostsToScan = append(hostsToScan, magellan.GenerateHosts(subnet, &subnetMasks[i])...)
 			}
 		}
