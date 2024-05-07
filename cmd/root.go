@@ -5,8 +5,8 @@ import (
 	"net"
 	"os"
 
-	magellan "github.com/bikeshack/magellan/internal"
-	"github.com/bikeshack/magellan/internal/api/smd"
+	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/api/smd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
