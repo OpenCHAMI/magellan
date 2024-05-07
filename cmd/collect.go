@@ -59,6 +59,7 @@ var collectCmd = &cobra.Command{
 			CaCertPath:  cacertPath,
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
+			AccessToken: accessToken,
 		}
 		magellan.CollectAll(&probeStates, l, q)
 
