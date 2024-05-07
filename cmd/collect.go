@@ -75,8 +75,7 @@ func init() {
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD ")
 	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
 	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
-	collectCmd.PersistentFlags().BoolVar(&withSecureTLS, "secure-tls", false, "enable secure TLS")
-	collectCmd.PersistentFlags().StringVar(&certPoolFile, "cert-pool", "", "path to CA cert. (defaults to system CAs; used with --secure-tls=true)")
+	collectCmd.PersistentFlags().StringVar(&cacertPath, "ca-cert", "", "path to CA cert. (defaults to system CAs)")
 
 	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
 	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
