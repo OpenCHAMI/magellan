@@ -5,6 +5,7 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -76,5 +77,18 @@ func init() {
 	updateCmd.Flags().StringVar(&firmwareVersion, "firmware-version", "", "set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
 	updateCmd.Flags().BoolVar(&status, "status", false, "get the status of the update")
+
+	viper.BindPFlag("bmc-host", updateCmd.Flags().Lookup("bmc-host"))
+	viper.BindPFlag("bmc-port", updateCmd.Flags().Lookup("bmc-port"))
+	viper.BindPFlag("user", updateCmd.Flags().Lookup("user"))
+	viper.BindPFlag("pass", updateCmd.Flags().Lookup("pass"))
+	viper.BindPFlag("transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol"))
+	viper.BindPFlag("protocol", updateCmd.Flags().Lookup("protocol"))
+	viper.BindPFlag("firmware-url", updateCmd.Flags().Lookup("firmware-url"))
+	viper.BindPFlag("firmware-version", updateCmd.Flags().Lookup("firmware-version"))
+	viper.BindPFlag("component", updateCmd.Flags().Lookup("component"))
+	viper.BindPFlag("secure-tls", updateCmd.Flags().Lookup("secure-tls"))
+	viper.BindPFlag("status", updateCmd.Flags().Lookup("status"))
+
 	rootCmd.AddCommand(updateCmd)
 }

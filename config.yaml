@@ -1,0 +1,43 @@
+scan:
+  hosts:
+    - "172.16.1.15"
+  subnets:
+    - "172.16.0.0"
+    - "172.16.0.0/24"
+  subnet-masks:
+  ports:
+    - 433
+  disable-probing: false
+collect:
+  # host: smd-host
+  # port: smd-port
+  user: "admin"
+  pass: "password"
+  protocol: "https"
+  output: "/tmp/magellan/data/"
+  threads: 1
+  force-update: false
+  preferred-driver: "redfish"
+  secure-tls: false
+  cert-pool:
+  drivers:
+    - "redfish"
+  ipmitool:
+    path: "/usr/bin/ipmitool"
+update:
+  bmc-host:
+  bmc-port: 443
+  user: "admin"
+  pass: "password"
+  transfer-protocol: "HTTP"
+  protocol: "https"
+  firmware-url:
+  firmware-version:
+  component:
+  secure-tls: false
+  status: false
+threads: 1
+timeout: 30
+verbose: true
+db:
+  path: "/tmp/magellan/magellan.db"

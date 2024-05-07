@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/api/smd"
 	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
@@ -8,6 +10,7 @@ import (
 	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -34,6 +37,10 @@ var collectCmd = &cobra.Command{
 			if err != nil {
 				l.Log.Errorf("failed to load access token: %v", err)
 			}
+		}
+
+		if verbose {
+			fmt.Printf("access token: %v\n", accessToken)
 		}
 
 		//
@@ -74,6 +81,20 @@ func init() {
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD ")
 	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
 	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
-	collectCmd.PersistentFlags().StringVar(&cacertPath, "ca-cert", "", "path to CA cert. (defaults to system CAs; used with --secure-tls=true)")
+	collectCmd.PersistentFlags().StringVar(&cacertPath, "ca-cert", "", "path to CA cert. (defaults to system CAs)")
+
+	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
+	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
+	viper.BindPFlag("collect.port", collectCmd.Flags().Lookup("port"))
+	viper.BindPFlag("collect.user", collectCmd.Flags().Lookup("user"))
+	viper.BindPFlag("collect.pass", collectCmd.Flags().Lookup("pass"))
+	viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol"))
+	viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output"))
+	viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update"))
+	viper.BindPFlag("collect.preferred-driver", collectCmd.Flags().Lookup("preferred-driver"))
+	viper.BindPFlag("collect.ipmitool.path", collectCmd.Flags().Lookup("ipmitool.path"))
+	viper.BindPFlag("collect.secure-tls", collectCmd.Flags().Lookup("secure-tls"))
+	viper.BindPFlag("collect.cert-pool", collectCmd.Flags().Lookup("cert-pool"))
+
 	rootCmd.AddCommand(collectCmd)
 }
