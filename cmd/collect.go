@@ -63,10 +63,10 @@ var collectCmd = &cobra.Command{
 		}
 		magellan.CollectAll(&probeStates, l, q)
 
-		// confirm the inventories were added
-		err = smd.GetRedfishEndpoints()
-		if err != nil {
-			l.Log.Errorf("could not get redfish endpoints: %v", err)
+		// add necessary headers for final request (like token)
+		headers := make(map[string]string)
+		if q.AccessToken != "" {
+			headers["Authorization"] = "Bearer " + q.AccessToken
 		}
 	},
 }
@@ -77,7 +77,7 @@ func init() {
 	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the smd API")
 	collectCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC password")
-	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the Redfish protocol")
+	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the protocol used to query")
 	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", "/tmp/magellan/data/", "set the path to store collection data")
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD ")
 	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")

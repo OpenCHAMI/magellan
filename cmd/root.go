@@ -56,7 +56,7 @@ func Execute() {
 
 func LoadAccessToken() (string, error) {
 	// try to load token from env var
-	testToken := os.Getenv("OCHAMI_ACCESS_TOKEN")
+	testToken := os.Getenv("MAGELLAN_ACCESS_TOKEN")
 	if testToken != "" {
 		return testToken, nil
 	}
@@ -80,7 +80,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&threads, "threads", -1, "set the number of threads")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "set the timeout")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "set the config file path")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", true, "set verbose flag")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set verbose flag")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
 	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", "/tmp/magellan/magellan.db", "set the probe storage path")
 
@@ -103,7 +103,7 @@ func SetDefaults() {
 	viper.SetDefault("threads", 1)
 	viper.SetDefault("timeout", 30)
 	viper.SetDefault("config", "")
-	viper.SetDefault("verbose", true)
+	viper.SetDefault("verbose", false)
 	viper.SetDefault("db.path", "/tmp/magellan/magellan.db")
 	viper.SetDefault("scan.hosts", []string{})
 	viper.SetDefault("scan.ports", []int{})
