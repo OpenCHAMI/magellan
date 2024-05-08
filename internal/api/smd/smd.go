@@ -1,13 +1,18 @@
 package smd
 
 // See ref for API docs:
-//	https://github.com/Cray-HPE/hms-smd/blob/master/docs/examples.adoc
-//	https://github.com/alexlovelltroy/hms-smd
+//	https://github.com/OpenCHAMI/hms-smd/blob/master/docs/examples.adoc
+//	https://github.com/OpenCHAMI/hms-smd
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/util"
-	// hms "github.com/alexlovelltroy/hms-smd"
 )
 
 var (
@@ -16,13 +21,63 @@ var (
 	Port         = 27779
 )
 
-func makeEndpointUrl(endpoint string) string {
-	return Host + ":" + fmt.Sprint(Port) + BaseEndpoint + endpoint
+type Option func(*Client)
+
+type Client struct {
+	*http.Client
+	CACertPool *x509.CertPool
 }
 
-func GetRedfishEndpoints() error {
+func NewClient(opts ...Option) *Client {
+	client := &Client{
+		Client: http.DefaultClient,
+	}
+	for _, opt := range opts {
+		opt(client)
+	}
+	return client
+}
+
+func WithHttpClient(httpClient *http.Client) Option {
+	return func(c *Client) {
+		c.Client = httpClient
+	}
+}
+
+// This MakeRequest function is a wrapper around the util.MakeRequest function
+// with a couple of niceties with using a smd.Client
+func (c *Client) MakeRequest(url string, method string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+	return util.MakeRequest(c.Client, url, method, body, headers)
+}
+
+func WithCertPool(certPool *x509.CertPool) Option {
+	return func(c *Client) {
+		c.Client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:            certPool,
+				InsecureSkipVerify: true,
+			},
+			DisableKeepAlives: true,
+			Dial: (&net.Dialer{
+				Timeout:   120 * time.Second,
+				KeepAlive: 120 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout:   120 * time.Second,
+			ResponseHeaderTimeout: 120 * time.Second,
+		}
+	}
+}
+
+func WithSecureTLS(certPath string) Option {
+	cacert, _ := os.ReadFile(certPath)
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(cacert)
+	return WithCertPool(certPool)
+}
+
+func (c *Client) GetRedfishEndpoints(headers map[string]string, opts ...Option) error {
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	_, body, err := util.MakeRequest(url, "GET", nil, nil)
+	_, body, err := c.MakeRequest(url, "GET", nil, headers)
 	if err != nil {
 		return fmt.Errorf("could not get endpoint: %v", err)
 	}
@@ -31,9 +86,9 @@ func GetRedfishEndpoints() error {
 	return nil
 }
 
-func GetComponentEndpoint(xname string) error {
+func (c *Client) GetComponentEndpoint(xname string) error {
 	url := makeEndpointUrl("/Inventory/ComponentsEndpoints/" + xname)
-	res, body, err := util.MakeRequest(url, "GET", nil, nil)
+	res, body, err := c.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("could not get endpoint: %v", err)
 	}
@@ -42,14 +97,14 @@ func GetComponentEndpoint(xname string) error {
 	return nil
 }
 
-func AddRedfishEndpoint(data []byte, headers map[string]string) error {
+func (c *Client) AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	if data == nil {
 		return fmt.Errorf("could not add redfish endpoint: no data found")
 	}
 
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	res, body, err := util.MakeRequest(url, "POST", data, headers)
+	res, body, err := c.MakeRequest(url, "POST", data, headers)
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
@@ -60,13 +115,13 @@ func AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	return err
 }
 
-func UpdateRedfishEndpoint(xname string, data []byte, headers map[string]string) error {
+func (c *Client) UpdateRedfishEndpoint(xname string, data []byte, headers map[string]string) error {
 	if data == nil {
 		return fmt.Errorf("could not add redfish endpoint: no data found")
 	}
 	// Update redfish endpoint via PUT `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints/" + xname)
-	res, body, err := util.MakeRequest(url, "PUT", data, headers)
+	res, body, err := c.MakeRequest(url, "PUT", data, headers)
 	fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
@@ -75,4 +130,8 @@ func UpdateRedfishEndpoint(xname string, data []byte, headers map[string]string)
 		}
 	}
 	return err
+}
+
+func makeEndpointUrl(endpoint string) string {
+	return Host + ":" + fmt.Sprint(Port) + BaseEndpoint + endpoint
 }
