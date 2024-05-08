@@ -15,7 +15,7 @@ var listCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		probeResults, err := sqlite.GetProbeResults(dbpath)
 		if err != nil {
-			logrus.Errorf("could not get probe results: %v\n", err)
+			logrus.Errorf("failed toget probe results: %v\n", err)
 		}
 		for _, r := range probeResults {
 			fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)

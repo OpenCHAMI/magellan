@@ -116,7 +116,7 @@ func ScanForAssets(hosts []string, ports []int, threads int, timeout int, disabl
 					probeResults := []ScannedResult{}
 					for _, result := range scannedResults {
 						url := fmt.Sprintf("https://%s:%d/redfish/v1/", result.Host, result.Port)
-						res, _, err := util.MakeRequest(url, "GET", nil, nil)
+						res, _, err := util.MakeRequest(nil, url, "GET", nil, nil)
 						if err != nil || res == nil {
 							continue
 						} else if res.StatusCode != http.StatusOK {

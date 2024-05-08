@@ -21,7 +21,7 @@ func LoadConfig(path string) error {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			return fmt.Errorf("config file not found: %w", err)
 		} else {
-			return fmt.Errorf("could not load config file: %w", err)
+			return fmt.Errorf("failed toload config file: %w", err)
 		}
 	}
 
