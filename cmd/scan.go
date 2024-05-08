@@ -58,8 +58,11 @@ var scanCmd = &cobra.Command{
 			threads = mathutil.Clamp(len(hostsToScan), 1, 255)
 		}
 		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, threads, timeout, disableProbing)
-		for _, r := range probeStates {
-			fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
+		if verbose {
+
+			for _, r := range probeStates {
+				fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
+			}
 		}
 
 		// make the dbpath dir if needed
@@ -86,6 +89,6 @@ func init() {
 	viper.BindPFlag("scan.subnets", scanCmd.Flags().Lookup("subnet"))
 	viper.BindPFlag("scan.subnet-masks", scanCmd.Flags().Lookup("subnet-mask"))
 	viper.BindPFlag("scan.disable-probing", scanCmd.Flags().Lookup("disable-probing"))
-	
+
 	rootCmd.AddCommand(scanCmd)
 }
