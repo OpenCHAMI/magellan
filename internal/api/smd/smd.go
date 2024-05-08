@@ -117,7 +117,7 @@ func (c *Client) AddRedfishEndpoint(data []byte, headers map[string]string) erro
 
 func (c *Client) UpdateRedfishEndpoint(xname string, data []byte, headers map[string]string) error {
 	if data == nil {
-		return fmt.Errorf("could not add redfish endpoint: no data found")
+		return fmt.Errorf("failed to add redfish endpoint: no data found")
 	}
 	// Update redfish endpoint via PUT `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints/" + xname)
@@ -126,7 +126,7 @@ func (c *Client) UpdateRedfishEndpoint(xname string, data []byte, headers map[st
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
-			return fmt.Errorf("could not update redfish endpoint")
+			return fmt.Errorf("failed to update redfish endpoint (returned %s)", res.Status)
 		}
 	}
 	return err
