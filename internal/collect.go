@@ -2,8 +2,6 @@ package magellan
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,7 +17,6 @@ import (
 
 	"github.com/Cray-HPE/hms-xname/xnames"
 	bmclib "github.com/bmc-toolbox/bmclib/v2"
-	"github.com/jacobweinstock/registrar"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish"
 	_ "github.com/stmcginnis/gofish"
@@ -52,56 +49,6 @@ type QueryParams struct {
 	AccessToken  string
 }
 
-func NewClient(l *log.Logger, q *QueryParams) (*bmclib.Client, error) {
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	httpClient := http.Client{
-		Transport: tr,
-	}
-
-	// init client
-	clientOpts := []bmclib.Option{
-		// bmclib.WithSecureTLS(nil),
-		bmclib.WithHTTPClient(&httpClient),
-		// bmclib.WithLogger(),
-		bmclib.WithRedfishHTTPClient(&httpClient),
-		// bmclib.WithDellRedfishUseBasicAuth(true),
-		bmclib.WithRedfishPort(fmt.Sprint(q.Port)),
-		bmclib.WithRedfishUseBasicAuth(true),
-		bmclib.WithIpmitoolPort(fmt.Sprint(IPMI_PORT)),
-		bmclib.WithIpmitoolPath(q.IpmitoolPath),
-	}
-
-	// only work if valid cert is provided
-	if q.CaCertPath != "" {
-		pool := x509.NewCertPool()
-		data, err := os.ReadFile(q.CaCertPath)
-		if err != nil {
-			return nil, fmt.Errorf("could not read cert pool file: %v", err)
-		}
-		pool.AppendCertsFromPEM(data)
-		// a nil pool uses the system certs
-		clientOpts = append(clientOpts, bmclib.WithSecureTLS(pool))
-	}
-	url := ""
-	fmt.Println(url)
-	if q.User != "" && q.Pass != "" {
-		url += fmt.Sprintf("%s://%s:%s@%s", q.Protocol, q.User, q.Pass, q.Host)
-	} else {
-		url += q.Host
-	}
-	client := bmclib.NewClient(url, q.User, q.Pass, clientOpts...)
-	ds := registrar.Drivers{}
-	for _, driver := range q.Drivers {
-		ds = append(ds, client.Registry.Using(driver)...) // ipmi, gofish, redfish
-	}
-	client.Registry.Drivers = ds
-
-	return client, nil
-}
-
 func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) error {
 	// check for available probe states
 	if probeStates == nil {
@@ -118,13 +65,17 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 		l.Log.Errorf("could not make output directory: %v", err)
 	}
 
-	found := make([]string, 0, len(*probeStates))
-	done := make(chan struct{}, q.Threads+1)
-	chanProbeState := make(chan ScannedResult, q.Threads+1)
-
 	// collect bmc information asynchronously
-	var offset = 0
-	var wg sync.WaitGroup
+	var (
+		offset         = 0
+		wg             sync.WaitGroup
+		found          = make([]string, 0, len(*probeStates))
+		done           = make(chan struct{}, q.Threads+1)
+		chanProbeState = make(chan ScannedResult, q.Threads+1)
+		client         = smd.NewClient(
+			smd.WithSecureTLS(q.CaCertPath),
+		)
+	)
 	wg.Add(q.Threads)
 	for i := 0; i < q.Threads; i++ {
 		go func() {
@@ -224,20 +175,22 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					fmt.Printf("%v\n", string(body))
 				}
 
-				// write JSON data to file
-				err = os.WriteFile(path.Clean(outputPath+"/"+q.Host+".json"), body, os.ModePerm)
-				if err != nil {
-					l.Log.Errorf("could not write data to file: %v", err)
+				// write JSON data to file if output path is set
+				if outputPath != "" {
+					err = os.WriteFile(path.Clean(outputPath+"/"+q.Host+".json"), body, os.ModePerm)
+					if err != nil {
+						l.Log.Errorf("could not write data to file: %v", err)
+					}
 				}
 
 				// add all endpoints to smd
-				err = smd.AddRedfishEndpoint(body, headers)
+				err = client.AddRedfishEndpoint(body, headers)
 				if err != nil {
 					l.Log.Error(err)
 
 					// try updating instead
 					if q.ForceUpdate {
-						err = smd.UpdateRedfishEndpoint(data["ID"].(string), body, headers)
+						err = client.UpdateRedfishEndpoint(data["ID"].(string), body, headers)
 						if err != nil {
 							l.Log.Error(err)
 						}
@@ -274,6 +227,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 	close(chanProbeState)
 	wg.Wait()
 	close(done)
+
 	return nil
 }
 
@@ -518,7 +472,7 @@ func CollectRegisteries(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 
 func CollectProcessors(q *QueryParams) ([]byte, error) {
 	url := baseRedfishUrl(q) + "/Systems"
-	res, body, err := util.MakeRequest(url, "GET", nil, nil)
+	res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {
@@ -537,7 +491,7 @@ func CollectProcessors(q *QueryParams) ([]byte, error) {
 	for _, member := range members {
 		var oid = member["@odata.id"].(string)
 		var infoUrl = url + oid
-		res, _, err := util.MakeRequest(infoUrl, "GET", nil, nil)
+		res, _, err := util.MakeRequest(nil, infoUrl, "GET", nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("something went wrong: %v", err)
 		} else if res == nil {
@@ -580,29 +534,22 @@ func makeGofishConfig(q *QueryParams) (gofish.ClientConfig, error) {
 	var (
 		client = &http.Client{}
 		url    = baseRedfishUrl(q)
-		config = gofish.ClientConfig{
-			Endpoint:            url,
-			Username:            q.User,
-			Password:            q.Pass,
-			Insecure:            q.CaCertPath == "",
-			TLSHandshakeTimeout: q.Timeout,
-			HTTPClient:          client,
-			// MaxConcurrentRequests: int64(q.Threads),  // NOTE: this was added in latest gofish
-		}
 	)
-	if q.CaCertPath != "" {
-		cacert, err := os.ReadFile(q.CaCertPath)
-		if err != nil {
-			return config, fmt.Errorf("failed to read CA cert file: %v", err)
-		}
-		certPool := x509.NewCertPool()
-		certPool.AppendCertsFromPEM(cacert)
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: certPool,
-			},
-		}
-	}
+	// NOTE: CA certs are not used for BMCs as far as I know
+	// if q.CaCertPath != "" {
+	// 	cacert, err := os.ReadFile(q.CaCertPath)
+	// 	if err != nil {
+	// 		return config, fmt.Errorf("failed to read CA cert file: %v", err)
+	// 	}
+	// 	certPool := x509.NewCertPool()
+	// 	certPool.AppendCertsFromPEM(cacert)
+	// 	client.Transport = &http.Transport{
+	// 		TLSClientConfig: &tls.Config{
+	// 			RootCAs:            certPool,
+	// 			InsecureSkipVerify: false,
+	// 		},
+	// 	}
+	// }
 	return gofish.ClientConfig{
 		Endpoint:            url,
 		Username:            q.User,
@@ -610,7 +557,7 @@ func makeGofishConfig(q *QueryParams) (gofish.ClientConfig, error) {
 		Insecure:            q.CaCertPath == "",
 		TLSHandshakeTimeout: q.Timeout,
 		HTTPClient:          client,
-		// MaxConcurrentRequests: int64(q.Threads),  // NOTE: this was added in latest gofish
+		// MaxConcurrentRequests: int64(q.Threads),  // NOTE: this was added in latest version of gofish
 	}, nil
 }
 
