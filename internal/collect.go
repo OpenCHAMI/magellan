@@ -529,7 +529,7 @@ func makeGofishConfig(q *QueryParams) (gofish.ClientConfig, error) {
 		Endpoint:            url,
 		Username:            q.User,
 		Password:            q.Pass,
-		Insecure:            q.CaCertPath == "",
+		Insecure:            true,
 		TLSHandshakeTimeout: q.Timeout,
 		HTTPClient:          client,
 		// MaxConcurrentRequests: int64(q.Threads),  // NOTE: this was added in latest version of gofish

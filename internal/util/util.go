@@ -45,11 +45,13 @@ func MakeRequest(client *http.Client, url string, httpMethod string, body []byte
 	// use defaults if no client provided
 	if client == nil {
 		client = http.DefaultClient
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
 	}
 	req, err := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed tocreate new HTTP request: %v", err)
+		return nil, nil, fmt.Errorf("failed to create new HTTP request: %v", err)
 	}
 	req.Header.Add("User-Agent", "magellan")
 	for k, v := range headers {
@@ -57,12 +59,12 @@ func MakeRequest(client *http.Client, url string, httpMethod string, body []byte
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed tomake request: %v", err)
+		return nil, nil, fmt.Errorf("failed to make request: %v", err)
 	}
 	b, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed toread response body: %v", err)
+		return nil, nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 	return res, b, err
 }
@@ -76,7 +78,7 @@ func MakeOutputDirectory(path string) (string, error) {
 	// check if path is valid and directory
 	pathExists, err := PathExists(final)
 	if err != nil {
-		return final, fmt.Errorf("failed tocheck for existing path: %v", err)
+		return final, fmt.Errorf("failed to check for existing path: %v", err)
 	}
 	if pathExists {
 		// make sure it is directory with 0o644 permissions
@@ -86,7 +88,7 @@ func MakeOutputDirectory(path string) (string, error) {
 	// create directory with data + time
 	err = os.MkdirAll(final, 0766)
 	if err != nil {
-		return final, fmt.Errorf("failed tomake directory: %v", err)
+		return final, fmt.Errorf("failed to make directory: %v", err)
 	}
 	return final, nil
 }
