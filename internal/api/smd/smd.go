@@ -79,7 +79,7 @@ func (c *Client) GetRedfishEndpoints(headers map[string]string, opts ...Option) 
 	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
 	_, body, err := c.MakeRequest(url, "GET", nil, headers)
 	if err != nil {
-		return fmt.Errorf("could not get endpoint: %v", err)
+		return fmt.Errorf("failed toget endpoint: %v", err)
 	}
 	// fmt.Println(res)
 	fmt.Println(string(body))
@@ -90,7 +90,7 @@ func (c *Client) GetComponentEndpoint(xname string) error {
 	url := makeEndpointUrl("/Inventory/ComponentsEndpoints/" + xname)
 	res, body, err := c.MakeRequest(url, "GET", nil, nil)
 	if err != nil {
-		return fmt.Errorf("could not get endpoint: %v", err)
+		return fmt.Errorf("failed toget endpoint: %v", err)
 	}
 	fmt.Println(res)
 	fmt.Println(string(body))
@@ -99,7 +99,7 @@ func (c *Client) GetComponentEndpoint(xname string) error {
 
 func (c *Client) AddRedfishEndpoint(data []byte, headers map[string]string) error {
 	if data == nil {
-		return fmt.Errorf("could not add redfish endpoint: no data found")
+		return fmt.Errorf("failed toadd redfish endpoint: no data found")
 	}
 
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint

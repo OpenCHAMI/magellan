@@ -27,7 +27,7 @@ var collectCmd = &cobra.Command{
 		// get probe states stored in db from scan
 		probeStates, err := sqlite.GetProbeResults(dbpath)
 		if err != nil {
-			l.Log.Errorf("could not get states: %v", err)
+			l.Log.Errorf("failed toget states: %v", err)
 		}
 
 		// try to load access token either from env var, file, or config if var not set

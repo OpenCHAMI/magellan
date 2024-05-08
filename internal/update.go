@@ -39,7 +39,7 @@ func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error
 	err := client.Open(ctx)
 	if err != nil {
 		ctxCancel()
-		return fmt.Errorf("could not connect to bmc: %v", err)
+		return fmt.Errorf("failed toconnect to bmc: %v", err)
 	}
 
 	defer client.Close(ctx)
@@ -47,7 +47,7 @@ func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error
 	file, err := os.Open(q.FirmwarePath)
 	if err != nil {
 		ctxCancel()
-		return fmt.Errorf("could not open firmware path: %v", err)
+		return fmt.Errorf("failed toopen firmware path: %v", err)
 	}
 
 	defer file.Close()
@@ -55,7 +55,7 @@ func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error
 	taskId, err := client.FirmwareInstall(ctx, q.Component, constants.FirmwareApplyOnReset, true, file)
 	if err != nil {
 		ctxCancel()
-		return fmt.Errorf("could not install firmware: %v", err)
+		return fmt.Errorf("failed toinstall firmware: %v", err)
 	}
 
 	for {
@@ -137,7 +137,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 	}
 	data, err := json.Marshal(b)
 	if err != nil {
-		return fmt.Errorf("could not marshal data: %v", err)
+		return fmt.Errorf("failed tomarshal data: %v", err)
 	}
 	res, body, err := util.MakeRequest(nil, url, "POST", data, headers)
 	if err != nil {
@@ -180,7 +180,7 @@ func GetUpdateStatus(q *UpdateParams) error {
 // 	// load file from disk
 // 	file, err := os.ReadFile(q.FirmwarePath)
 // 	if err != nil {
-// 		return fmt.Errorf("could not read file: %v", err)
+// 		return fmt.Errorf("failed toread file: %v", err)
 // 	}
 
 // 	switch q.TransferProtocol {

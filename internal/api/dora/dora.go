@@ -45,13 +45,13 @@ func QueryScannedPorts() error {
 	url := makeEndpointUrl("/scanned_ports")
 	_, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 	if err != nil {
-		return fmt.Errorf("could not discover assets: %v", err)
+		return fmt.Errorf("failed todiscover assets: %v", err)
 	}
 
 	// get data from JSON
 	var res map[string]any
 	if err := json.Unmarshal(body, &res); err != nil {
-		return fmt.Errorf("could not unmarshal response body: %v", err)
+		return fmt.Errorf("failed tounmarshal response body: %v", err)
 	}
 	data := res["data"]
 

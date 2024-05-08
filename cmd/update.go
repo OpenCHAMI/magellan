@@ -49,19 +49,19 @@ var updateCmd = &cobra.Command{
 		if status {
 			err := magellan.GetUpdateStatus(q)
 			if err != nil {
-				l.Log.Errorf("could not get update status: %v", err)
+				l.Log.Errorf("failed toget update status: %v", err)
 			}
 			return
 		}
 
 		// client, err := magellan.NewClient(l, &q.QueryParams)
 		// if err != nil {
-		// 	l.Log.Errorf("could not make client: %v", err)
+		// 	l.Log.Errorf("failed tomake client: %v", err)
 		// }
 		// err = magellan.UpdateFirmware(client, l, q)
 		err := magellan.UpdateFirmwareRemote(q)
 		if err != nil {
-			l.Log.Errorf("could not update firmware: %v", err)
+			l.Log.Errorf("failed toupdate firmware: %v", err)
 		}
 	},
 }

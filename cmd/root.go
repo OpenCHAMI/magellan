@@ -72,7 +72,7 @@ func LoadAccessToken() (string, error) {
 	if testToken != "" {
 		return testToken, nil
 	}
-	return "", fmt.Errorf("could not load token from environment variable, file, or config")
+	return "", fmt.Errorf("failed toload token from environment variable, file, or config")
 }
 
 func init() {
