@@ -15,8 +15,12 @@ import (
 
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
-	if err == nil { return true, nil }
-	if os.IsNotExist(err) { return false, nil }
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
 	return false, err
 }
 
@@ -36,8 +40,13 @@ func GetNextIP(ip *net.IP, inc uint) *net.IP {
 	return &r
 }
 
-func MakeRequest(url string, httpMethod string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+// Generic convenience function used to make HTTP requests.
+func MakeRequest(client *http.Client, url string, httpMethod string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+	// use defaults if no client provided
+	if client == nil {
+		client = http.DefaultClient
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 	req, err := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create new HTTP request: %v", err)
@@ -46,7 +55,7 @@ func MakeRequest(url string, httpMethod string, body []byte, headers map[string]
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not make request: %v", err)
 	}
@@ -65,15 +74,15 @@ func MakeOutputDirectory(path string) (string, error) {
 	final := path + "/" + dirname
 
 	// check if path is valid and directory
-	pathExists, err := PathExists(final); 
+	pathExists, err := PathExists(final)
 	if err != nil {
-		return final, fmt.Errorf("could not check for existing path: %v", err) 
+		return final, fmt.Errorf("could not check for existing path: %v", err)
 	}
 	if pathExists {
 		// make sure it is directory with 0o644 permissions
 		return final, fmt.Errorf("found existing path: %v", final)
 	}
-	
+
 	// create directory with data + time
 	err = os.MkdirAll(final, 0766)
 	if err != nil {

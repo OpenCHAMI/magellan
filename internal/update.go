@@ -139,7 +139,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 	if err != nil {
 		return fmt.Errorf("could not marshal data: %v", err)
 	}
-	res, body, err := util.MakeRequest(url, "POST", data, headers)
+	res, body, err := util.MakeRequest(nil, url, "POST", data, headers)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {
@@ -153,7 +153,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 
 func GetUpdateStatus(q *UpdateParams) error {
 	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService"
-	res, body, err := util.MakeRequest(url, "GET", nil, nil)
+	res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {

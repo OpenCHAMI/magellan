@@ -43,7 +43,7 @@ func ScanForAssets() error {
 func QueryScannedPorts() error {
 	// Perform scan and collect from dora server
 	url := makeEndpointUrl("/scanned_ports")
-	_, body, err := util.MakeRequest(url, "GET", nil, nil)
+	_, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("could not discover assets: %v", err)
 	}
