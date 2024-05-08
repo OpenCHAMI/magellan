@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -522,13 +521,6 @@ func makeGofishConfig(q *QueryParams) (gofish.ClientConfig, error) {
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
 				},
-				DisableKeepAlives: true,
-				Dial: (&net.Dialer{
-					Timeout:   120 * time.Second,
-					KeepAlive: 120 * time.Second,
-				}).Dial,
-				TLSHandshakeTimeout:   120 * time.Second,
-				ResponseHeaderTimeout: 120 * time.Second,
 			},
 		}
 		url = baseRedfishUrl(q)
