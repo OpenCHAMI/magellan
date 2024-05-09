@@ -57,7 +57,7 @@ var scanCmd = &cobra.Command{
 		if threads <= 0 {
 			threads = mathutil.Clamp(len(hostsToScan), 1, 255)
 		}
-		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, threads, timeout, disableProbing)
+		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, threads, timeout, disableProbing, verbose)
 		if verbose {
 			for _, r := range probeStates {
 				fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)

@@ -95,11 +95,12 @@ func generateHosts(ip *net.IP, mask *net.IPMask) []string {
 	return hosts
 }
 
-func ScanForAssets(hosts []string, ports []int, threads int, timeout int, disableProbing bool) []ScannedResult {
-	results := make([]ScannedResult, 0, len(hosts))
-	done := make(chan struct{}, threads+1)
-	chanHost := make(chan string, threads+1)
-	// chanPort := make(chan int, threads+1)
+func ScanForAssets(hosts []string, ports []int, threads int, timeout int, disableProbing bool, verbose bool) []ScannedResult {
+	var (
+		results  = make([]ScannedResult, 0, len(hosts))
+		done     = make(chan struct{}, threads+1)
+		chanHost = make(chan string, threads+1)
+	)
 
 	var wg sync.WaitGroup
 	wg.Add(threads)
@@ -118,8 +119,14 @@ func ScanForAssets(hosts []string, ports []int, threads int, timeout int, disabl
 						url := fmt.Sprintf("https://%s:%d/redfish/v1/", result.Host, result.Port)
 						res, _, err := util.MakeRequest(nil, url, "GET", nil, nil)
 						if err != nil || res == nil {
+							if verbose {
+								fmt.Printf("failed to make request: %v\n", err)
+							}
 							continue
 						} else if res.StatusCode != http.StatusOK {
+							if verbose {
+								fmt.Printf("request returned code: %v\n", res.StatusCode)
+							}
 							continue
 						} else {
 							probeResults = append(probeResults, result)

@@ -125,7 +125,10 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 						l.Log.Errorf("failed to query chassis: %v", err)
 						continue
 					}
-					json.Unmarshal(chassis, &rm)
+					err = json.Unmarshal(chassis, &rm)
+					if err != nil {
+						l.Log.Errorf("failed to unmarshal chassis JSON: %v", err)
+					}
 					data["Chassis"] = rm["Chassis"]
 
 					// systems
@@ -133,7 +136,10 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					if err != nil {
 						l.Log.Errorf("failed to query systems: %v", err)
 					}
-					json.Unmarshal(systems, &rm)
+					err = json.Unmarshal(systems, &rm)
+					if err != nil {
+						l.Log.Errorf("failed to unmarshal system JSON: %v", err)
+					}
 					data["Systems"] = rm["Systems"]
 
 					// add other fields from systems
