@@ -48,8 +48,8 @@ var collectCmd = &cobra.Command{
 			threads = mathutil.Clamp(len(probeStates), 1, 255)
 		}
 		q := &magellan.QueryParams{
-			User:        user,
-			Pass:        pass,
+			User:        username,
+			Pass:        password,
 			Protocol:    protocol,
 			Drivers:     drivers,
 			Preferred:   preferredDriver,
@@ -75,8 +75,8 @@ func init() {
 	collectCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the driver(s) and fallback drivers to use")
 	collectCmd.PersistentFlags().StringVar(&smd.Host, "host", smd.Host, "set the host to the smd API")
 	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the smd API")
-	collectCmd.PersistentFlags().StringVar(&user, "user", "", "set the BMC user")
-	collectCmd.PersistentFlags().StringVar(&pass, "pass", "", "set the BMC password")
+	collectCmd.PersistentFlags().StringVar(&username, "user", "", "set the BMC user")
+	collectCmd.PersistentFlags().StringVar(&password, "pass", "", "set the BMC password")
 	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the protocol used to query")
 	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", "/tmp/magellan/data/", "set the path to store collection data")
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD ")

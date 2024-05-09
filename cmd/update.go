@@ -33,15 +33,15 @@ var updateCmd = &cobra.Command{
 				Preferred: "redfish",
 				Protocol:  protocol,
 				Host:      host,
-				User:      user,
-				Pass:      pass,
+				User:      username,
+				Pass:      password,
 				Timeout:   timeout,
 				Port:      port,
 			},
 		}
 
 		// check if required params are set
-		if host == "" || user == "" || pass == "" {
+		if host == "" || username == "" || password == "" {
 			l.Log.Fatal("requires host, user, and pass to be set")
 		}
 
@@ -69,8 +69,8 @@ var updateCmd = &cobra.Command{
 func init() {
 	updateCmd.Flags().StringVar(&host, "bmc-host", "", "set the BMC host")
 	updateCmd.Flags().IntVar(&port, "bmc-port", 443, "set the BMC port")
-	updateCmd.Flags().StringVar(&user, "user", "", "set the BMC user")
-	updateCmd.Flags().StringVar(&pass, "pass", "", "set the BMC password")
+	updateCmd.Flags().StringVar(&username, "user", "", "set the BMC user")
+	updateCmd.Flags().StringVar(&password, "pass", "", "set the BMC password")
 	updateCmd.Flags().StringVar(&transferProtocol, "transfer-protocol", "HTTP", "set the transfer protocol")
 	updateCmd.Flags().StringVar(&protocol, "protocol", "https", "set the Redfish protocol")
 	updateCmd.Flags().StringVar(&firmwareUrl, "firmware-url", "", "set the path to the firmware")
