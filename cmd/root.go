@@ -15,6 +15,7 @@ import (
 var (
 	currentUser *user.User
 	accessToken string
+	format      string
 	timeout     int
 	concurrency int
 	ports       []int
