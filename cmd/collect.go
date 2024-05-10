@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/api/smd"
@@ -44,17 +45,15 @@ var collectCmd = &cobra.Command{
 		}
 
 		//
-		if threads <= 0 {
-			threads = mathutil.Clamp(len(probeStates), 1, 255)
+		if concurrency <= 0 {
+			concurrency = mathutil.Clamp(len(probeStates), 1, 255)
 		}
 		q := &magellan.QueryParams{
 			User:        username,
 			Pass:        password,
 			Protocol:    protocol,
-			Drivers:     drivers,
-			Preferred:   preferredDriver,
 			Timeout:     timeout,
-			Threads:     threads,
+			Concurrency: concurrency,
 			Verbose:     verbose,
 			CaCertPath:  cacertPath,
 			OutputPath:  outputPath,
@@ -72,16 +71,14 @@ var collectCmd = &cobra.Command{
 }
 
 func init() {
-	collectCmd.PersistentFlags().StringSliceVar(&drivers, "driver", []string{"redfish"}, "set the driver(s) and fallback drivers to use")
-	collectCmd.PersistentFlags().StringVar(&smd.Host, "host", smd.Host, "set the host to the smd API")
-	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the smd API")
+	currentUser, _ = user.Current()
+	collectCmd.PersistentFlags().StringVar(&smd.Host, "host", smd.Host, "set the host to the SMD API")
+	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the SMD API")
 	collectCmd.PersistentFlags().StringVar(&username, "user", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&password, "pass", "", "set the BMC password")
 	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the protocol used to query")
-	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", "/tmp/magellan/data/", "set the path to store collection data")
-	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD ")
-	collectCmd.PersistentFlags().StringVar(&preferredDriver, "preferred-driver", "ipmi", "set the preferred driver to use")
-	collectCmd.PersistentFlags().StringVar(&ipmitoolPath, "ipmitool.path", "/usr/bin/ipmitool", "set the path for ipmitool")
+	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/data/", currentUser.Username), "set the path to store collection data")
+	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD")
 	collectCmd.PersistentFlags().StringVar(&cacertPath, "ca-cert", "", "path to CA cert. (defaults to system CAs)")
 
 	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
@@ -92,10 +89,8 @@ func init() {
 	viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol"))
 	viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output"))
 	viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update"))
-	viper.BindPFlag("collect.preferred-driver", collectCmd.Flags().Lookup("preferred-driver"))
-	viper.BindPFlag("collect.ipmitool.path", collectCmd.Flags().Lookup("ipmitool.path"))
-	viper.BindPFlag("collect.secure-tls", collectCmd.Flags().Lookup("secure-tls"))
-	viper.BindPFlag("collect.cert-pool", collectCmd.Flags().Lookup("cert-pool"))
+	viper.BindPFlag("collect.ca-cert", collectCmd.Flags().Lookup("secure-tls"))
+	viper.BindPFlags(collectCmd.Flags())
 
 	rootCmd.AddCommand(collectCmd)
 }

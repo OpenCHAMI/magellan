@@ -54,10 +54,10 @@ var scanCmd = &cobra.Command{
 		}
 
 		// scan and store probe data in dbPath
-		if threads <= 0 {
-			threads = mathutil.Clamp(len(hostsToScan), 1, 255)
+		if concurrency <= 0 {
+			concurrency = mathutil.Clamp(len(hostsToScan), 1, 255)
 		}
-		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, threads, timeout, disableProbing, verbose)
+		probeStates := magellan.ScanForAssets(hostsToScan, portsToScan, concurrency, timeout, disableProbing, verbose)
 		if verbose {
 			for _, r := range probeStates {
 				fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)

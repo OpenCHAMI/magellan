@@ -13,22 +13,20 @@ import (
 )
 
 var (
-	accessToken     string
-	timeout         int
-	threads         int
-	ports           []int
-	hosts           []string
-	protocol        string
-	cacertPath      string
-	username        string
-	password        string
-	dbpath          string
-	drivers         []string
-	preferredDriver string
-	ipmitoolPath    string
-	outputPath      string
-	configPath      string
-	verbose         bool
+	currentUser *user.User
+	accessToken string
+	timeout     int
+	concurrency int
+	ports       []int
+	hosts       []string
+	protocol    string
+	cacertPath  string
+	username    string
+	password    string
+	dbpath      string
+	outputPath  string
+	configPath  string
+	verbose     bool
 )
 
 // TODO: discover bmc's on network (dora)
@@ -77,28 +75,26 @@ func LoadAccessToken() (string, error) {
 }
 
 func init() {
-	// get the current user
-	currentUser, _ := user.Current()
+	currentUser, _ = user.Current()
 	cobra.OnInitialize(InitializeConfig)
-	rootCmd.PersistentFlags().IntVar(&threads, "threads", -1, "set the number of threads")
+	rootCmd.PersistentFlags().IntVar(&concurrency, "concurrency", -1, "set the number of concurrent processes")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "set the timeout")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "set the config file path")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set verbose flag")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set output verbosity")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
-	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", fmt.Sprintf("/tmp/%smagellan/magellan.db", currentUser.Name+"/"), "set the probe storage path")
+	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", fmt.Sprintf("/tmp/%smagellan/magellan.db", currentUser.Username+"/"), "set the probe storage path")
 
 	// bind viper config flags with cobra
-	viper.BindPFlag("threads", rootCmd.Flags().Lookup("threads"))
+	viper.BindPFlag("concurrency", rootCmd.Flags().Lookup("concurrency"))
 	viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout"))
 	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
 	viper.BindPFlag("db.path", rootCmd.Flags().Lookup("db.path"))
-	// viper.BindPFlags(rootCmd.Flags())
+	viper.BindPFlags(rootCmd.Flags())
 }
 
 func InitializeConfig() {
 	if configPath != "" {
 		magellan.LoadConfig(configPath)
-		fmt.Printf("subnets: %v\n", viper.Get("scan.subnets"))
 	}
 }
 
