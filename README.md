@@ -100,18 +100,19 @@ There are three main commands to use with the tool: `scan`, `list`, and `collect
 ./magellan scan \
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
+    --format json \
     --db.path data/assets.db --port 443
 ```
 
-This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `host` to add more hosts to scan not included on the subnet, `timeout` to set how long to wait for a response from the BMC node, or `threads` to set the number of requests to make concurrently. Try using `./magellan help scan` for a complete set of options this subcommand.
+This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently. Setting the `--format=json` will format the output in JSON. Try using `./magellan help scan` for a complete set of options this subcommand.
 
 To inspect the cache, use the `list` command. Make sure to point to the same database used before:
 
 ```bash
-./magellan list --db.path data/assets.db
+./magellan list --db.path data/assets.db --format json
 ```
 
-This will print a list of node info found and stored from the scan.
+This will print a list of node info found and stored from the scan. Like the `scan` subcommand, the output format can be set using the `--format` flag.
 
 Finally, set the `MAGELLAN_ACCESS_TOKEN`run the `collect` command to query the node from cache and send the info to be stored into SMD:
 
@@ -123,10 +124,11 @@ Finally, set the `MAGELLAN_ACCESS_TOKEN`run the `collect` command to query the n
     --pass password \
     --host https://example.openchami.cluster \
     --port 27779 \
+    --output logs/
     --ca-cert cacert.pem
 ```
 
-This uses the info stored in cache to request information about each BMC node if possible. Like with the scan, the time to wait for a response can be set with the `timeout` flag as well. This command also requires the `user` and `pass/password` flag to be set if access the Redfish service requires basic authentication. Additionally, it may be necessary to set the `host` and `port` flags for `magellan` to find the SMD API (not the root API endpoint /hsm/v2).
+This uses the info stored in cache to request information about each BMC node if possible. Like with the scan, the time to wait for a response can be set with the `--timeout` flag as well. This command also requires the `--user` and `--pass` flags to be set if access the Redfish service requires basic authentication. Additionally, it may be necessary to set the `--host` and `--port` flags for `magellan` to find the SMD API (not the root API endpoint "/hsm/v2"). The output of the `collect` can be saved by using the `--output`
 
 Note: If the `db.path` flag is not set, `magellan` will use "/tmp/$USER/magellan.db" by default.
 
@@ -135,10 +137,11 @@ Note: If the `db.path` flag is not set, `magellan` will use "/tmp/$USER/magellan
 The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `MAGELLAN_ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
 
 ```bash
+# must have a running OPAAL instance
 ./magellan login --url https://opaal:4444/login
 
-# ...complete login flow
-export MAGELLAN_ACCESS_TOKEN=
+# ...complete login flow to get token
+export MAGELLAN_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
 ```
 
 Alternatively, if you are running the OpenCHAMI quickstart, you can run the provided script to generate a token and set the environment variable that way.
