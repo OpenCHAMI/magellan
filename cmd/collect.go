@@ -26,7 +26,7 @@ var collectCmd = &cobra.Command{
 		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
 
 		// get probe states stored in db from scan
-		probeStates, err := sqlite.GetProbeResults(dbpath)
+		probeStates, err := sqlite.GetProbeResults(cachePath)
 		if err != nil {
 			l.Log.Errorf("failed toget states: %v", err)
 		}

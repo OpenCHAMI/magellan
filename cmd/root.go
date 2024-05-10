@@ -24,7 +24,7 @@ var (
 	cacertPath  string
 	username    string
 	password    string
-	dbpath      string
+	cachePath   string
 	outputPath  string
 	configPath  string
 	verbose     bool
@@ -83,13 +83,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "set the config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set output verbosity")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
-	rootCmd.PersistentFlags().StringVar(&dbpath, "db.path", fmt.Sprintf("/tmp/%smagellan/magellan.db", currentUser.Username+"/"), "set the probe storage path")
+	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%smagellan/magellan.db", currentUser.Username+"/"), "set the scanning result cache path")
 
 	// bind viper config flags with cobra
 	viper.BindPFlag("concurrency", rootCmd.Flags().Lookup("concurrency"))
 	viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout"))
 	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
-	viper.BindPFlag("db.path", rootCmd.Flags().Lookup("db.path"))
+	viper.BindPFlag("cache", rootCmd.Flags().Lookup("cache"))
 	viper.BindPFlags(rootCmd.Flags())
 }
 
@@ -104,7 +104,7 @@ func SetDefaults() {
 	viper.SetDefault("timeout", 30)
 	viper.SetDefault("config", "")
 	viper.SetDefault("verbose", false)
-	viper.SetDefault("db.path", "/tmp/magellan/magellan.db")
+	viper.SetDefault("cache", "/tmp/magellan/magellan.db")
 	viper.SetDefault("scan.hosts", []string{})
 	viper.SetDefault("scan.ports", []int{})
 	viper.SetDefault("scan.subnets", []string{})

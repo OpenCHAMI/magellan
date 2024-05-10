@@ -15,7 +15,7 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List information from scan",
 	Run: func(cmd *cobra.Command, args []string) {
-		probeResults, err := sqlite.GetProbeResults(dbpath)
+		probeResults, err := sqlite.GetProbeResults(cachePath)
 		if err != nil {
 			logrus.Errorf("failed toget probe results: %v\n", err)
 		}

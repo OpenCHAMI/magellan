@@ -82,12 +82,12 @@ var scanCmd = &cobra.Command{
 		}
 
 		// make the dbpath dir if needed
-		err := os.MkdirAll(path.Dir(dbpath), 0766)
+		err := os.MkdirAll(path.Dir(cachePath), 0766)
 		if err != nil {
 			fmt.Printf("failed tomake database directory: %v", err)
 		}
 
-		sqlite.InsertProbeResults(dbpath, &probeStates)
+		sqlite.InsertProbeResults(cachePath, &probeStates)
 	},
 }
 

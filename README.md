@@ -83,7 +83,7 @@ Available Commands:
 Flags:
       --access-token string   set the access token
   -c, --config string         set the config file path
-      --db.path string        set the probe storage path (default "/tmp/magellan/magellan.db")
+      --cache string        set the probe storage path (default "/tmp/magellan/magellan.db")
   -h, --help                  help for magellan
       --threads int           set the number of threads (default -1)
       --timeout int           set the timeout (default 30)
@@ -101,7 +101,7 @@ There are three main commands to use with the tool: `scan`, `list`, and `collect
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
     --format json \
-    --db.path data/assets.db --port 443
+    --cache data/assets.db --port 443
 ```
 
 This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently. Setting the `--format=json` will format the output in JSON. Try using `./magellan help scan` for a complete set of options this subcommand.
@@ -109,7 +109,7 @@ This will scan the `172.16.0.0` subnet returning the host and port that return a
 To inspect the cache, use the `list` command. Make sure to point to the same database used before:
 
 ```bash
-./magellan list --db.path data/assets.db --format json
+./magellan list --cache data/assets.db --format json
 ```
 
 This will print a list of node info found and stored from the scan. Like the `scan` subcommand, the output format can be set using the `--format` flag.
@@ -118,7 +118,7 @@ Finally, set the `MAGELLAN_ACCESS_TOKEN`run the `collect` command to query the n
 
 ```bash
 ./magellan collect \
-    --db.path data/assets.db \
+    --cache data/assets.db \
     --timeout 5 \
     --user admin \
     --pass password \
@@ -130,7 +130,7 @@ Finally, set the `MAGELLAN_ACCESS_TOKEN`run the `collect` command to query the n
 
 This uses the info stored in cache to request information about each BMC node if possible. Like with the scan, the time to wait for a response can be set with the `--timeout` flag as well. This command also requires the `--user` and `--pass` flags to be set if access the Redfish service requires basic authentication. Additionally, it may be necessary to set the `--host` and `--port` flags for `magellan` to find the SMD API (not the root API endpoint "/hsm/v2"). The output of the `collect` can be saved by using the `--output`
 
-Note: If the `db.path` flag is not set, `magellan` will use "/tmp/$USER/magellan.db" by default.
+Note: If the `cache` flag is not set, `magellan` will use "/tmp/$USER/magellan.db" by default.
 
 ### Getting an Access Token (WIP)
 
