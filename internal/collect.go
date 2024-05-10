@@ -39,7 +39,7 @@ type QueryParams struct {
 	User         string
 	Pass         string
 	Drivers      []string
-	Threads      int
+	Concurrency  int
 	Preferred    string
 	Timeout      int
 	CaCertPath   string
@@ -71,14 +71,14 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 		offset         = 0
 		wg             sync.WaitGroup
 		found          = make([]string, 0, len(*probeStates))
-		done           = make(chan struct{}, q.Threads+1)
-		chanProbeState = make(chan ScannedResult, q.Threads+1)
+		done           = make(chan struct{}, q.Concurrency+1)
+		chanProbeState = make(chan ScannedResult, q.Concurrency+1)
 		client         = smd.NewClient(
 			smd.WithSecureTLS(q.CaCertPath),
 		)
 	)
-	wg.Add(q.Threads)
-	for i := 0; i < q.Threads; i++ {
+	wg.Add(q.Concurrency)
+	for i := 0; i < q.Concurrency; i++ {
 		go func() {
 			for {
 				ps, ok := <-chanProbeState
