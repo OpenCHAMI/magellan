@@ -77,7 +77,7 @@ func init() {
 	collectCmd.PersistentFlags().StringVar(&username, "user", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&password, "pass", "", "set the BMC password")
 	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the protocol used to query")
-	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/data/", currentUser.Username), "set the path to store collection data")
+	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/data/", currentUser.Username+"/"), "set the path to store collection data")
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD")
 	collectCmd.PersistentFlags().StringVar(&cacertPath, "ca-cert", "", "path to CA cert. (defaults to system CAs)")
 
