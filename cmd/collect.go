@@ -80,6 +80,7 @@ func init() {
 	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/data/", currentUser.Username+"/"), "set the path to store collection data")
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD")
 	collectCmd.PersistentFlags().StringVar(&cacertPath, "ca-cert", "", "path to CA cert. (defaults to system CAs)")
+	collectCmd.MarkFlagsRequiredTogether("user", "pass")
 
 	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
 	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
