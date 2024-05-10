@@ -339,10 +339,6 @@ func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 }
 
 func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	// client, err := NewClient(l, q)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to make query: %v", err)
-	// }
 	b, err := makeRequest(client, client.GetBiosConfiguration, q.Timeout)
 	return b, err
 }
