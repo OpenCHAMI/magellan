@@ -132,6 +132,27 @@ This uses the info stored in cache to request information about each BMC node if
 
 Note: If the `cache` flag is not set, `magellan` will use "/tmp/$USER/magellan.db" by default.
 
+### Updating Firmware
+
+The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessbile URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag with all the other usual arguments like in the example below:
+
+```bash
+./magellan update \
+  --host 172.16.0.108 \
+  --port 443 \
+  --user username \ --pass password \
+  --firmware-path http://172.16.0.255:8005/firmware/bios/image.RBU \
+  --component BIOS
+```
+
+Then, the update status can be viewed by including the `--status` flag along with the other usual arguments or with the `watch` command:
+
+```bash
+./magellan update --status --host 172.16.0.110 --user admin --pass password | jq '.'
+# ...or...
+watch -n 1 "./magellan update --status --host 172.16.0.110 --user admin --pass password | jq '.'"
+```
+
 ### Getting an Access Token (WIP)
 
 The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `MAGELLAN_ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
