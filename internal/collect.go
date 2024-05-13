@@ -39,7 +39,7 @@ type QueryParams struct {
 	User         string
 	Pass         string
 	Drivers      []string
-	Threads      int
+	Concurrency  int
 	Preferred    string
 	Timeout      int
 	CaCertPath   string
@@ -71,14 +71,14 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 		offset         = 0
 		wg             sync.WaitGroup
 		found          = make([]string, 0, len(*probeStates))
-		done           = make(chan struct{}, q.Threads+1)
-		chanProbeState = make(chan ScannedResult, q.Threads+1)
+		done           = make(chan struct{}, q.Concurrency+1)
+		chanProbeState = make(chan ScannedResult, q.Concurrency+1)
 		client         = smd.NewClient(
 			smd.WithSecureTLS(q.CaCertPath),
 		)
 	)
-	wg.Add(q.Threads)
-	for i := 0; i < q.Threads; i++ {
+	wg.Add(q.Concurrency)
+	for i := 0; i < q.Concurrency; i++ {
 		go func() {
 			for {
 				ps, ok := <-chanProbeState
@@ -100,7 +100,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				gofishClient, err := connectGofish(q)
 				if err != nil {
-					l.Log.Errorf("failed to connect to bmc (%v:%v): %v", q.Host, q.Port, err)
+					l.Log.Errorf("failed to connect to BMC (%v:%v): %v", q.Host, q.Port, err)
 				}
 
 				// data to be sent to smd
@@ -125,7 +125,10 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 						l.Log.Errorf("failed to query chassis: %v", err)
 						continue
 					}
-					json.Unmarshal(chassis, &rm)
+					err = json.Unmarshal(chassis, &rm)
+					if err != nil {
+						l.Log.Errorf("failed to unmarshal chassis JSON: %v", err)
+					}
 					data["Chassis"] = rm["Chassis"]
 
 					// systems
@@ -133,15 +136,24 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					if err != nil {
 						l.Log.Errorf("failed to query systems: %v", err)
 					}
-					json.Unmarshal(systems, &rm)
+					err = json.Unmarshal(systems, &rm)
+					if err != nil {
+						l.Log.Errorf("failed to unmarshal system JSON: %v", err)
+					}
 					data["Systems"] = rm["Systems"]
 
 					// add other fields from systems
 					if len(rm["Systems"]) > 0 {
 						var s map[string][]interface{}
-						json.Unmarshal(rm["Systems"], &s)
+						err = json.Unmarshal(rm["Systems"], &s)
+						if err != nil {
+							l.Log.Errorf("failed to unmarshal systems JSON: %v", err)
+						}
 						data["Name"] = s["Name"]
 					}
+				} else {
+					l.Log.Errorf("invalid client (client is nil)")
+					continue
 				}
 
 				headers := make(map[string]string)
@@ -333,10 +345,6 @@ func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 }
 
 func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	// client, err := NewClient(l, q)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to make query: %v", err)
-	// }
 	b, err := makeRequest(client, client.GetBiosConfiguration, q.Timeout)
 	return b, err
 }
@@ -347,17 +355,29 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 		return nil, fmt.Errorf("failed to query storage systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	var interfaces []*redfish.EthernetInterface
+	var (
+		interfaces []*redfish.EthernetInterface
+		errList    []error
+	)
+
+	// get all of the ethernet interfaces in our systems
 	for _, system := range systems {
 		i, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/"+system.ID+"/EthernetInterfaces/")
 		if err != nil {
+			errList = append(errList, err)
 			continue
 		}
 		interfaces = append(interfaces, i...)
 	}
 
-	if len(interfaces) <= 0 {
-		return nil, fmt.Errorf("failed to get ethernet interfaces: %v", err)
+	// format the error message for printing
+	for i, e := range errList {
+		err = fmt.Errorf("\t[%d] %v\n", i, e)
+	}
+
+	// print any report errors
+	if len(errList) > 0 {
+		return nil, fmt.Errorf("failed to get ethernet interfaces with %d errors: \n%v", len(errList), err)
 	}
 
 	data := map[string]any{"EthernetInterfaces": interfaces}
@@ -423,7 +443,10 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 			continue
 		}
 		var i map[string]any
-		json.Unmarshal(interfaces, &i)
+		err = json.Unmarshal(interfaces, &i)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal interface: %v", err)
+		}
 		temp = append(temp, map[string]any{
 			"Data":               system,
 			"EthernetInterfaces": i["EthernetInterfaces"],

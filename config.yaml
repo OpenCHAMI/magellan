@@ -17,13 +17,7 @@ collect:
   output: "/tmp/magellan/data/"
   threads: 1
   force-update: false
-  preferred-driver: "redfish"
-  secure-tls: false
-  cert-pool:
-  drivers:
-    - "redfish"
-  ipmitool:
-    path: "/usr/bin/ipmitool"
+  ca-cert: "cacert.pem"
 update:
   bmc-host:
   bmc-port: 443
@@ -36,7 +30,7 @@ update:
   component:
   secure-tls: false
   status: false
-threads: 1
+concurrency: 1
 timeout: 30
 verbose: true
 db:
