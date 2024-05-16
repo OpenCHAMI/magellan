@@ -105,12 +105,12 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				// data to be sent to smd
 				data := map[string]any{
-					"ID":                 fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
-					"Type":               "",
-					"Name":               "",
-					"FQDN":               ps.Host,
-					"User":               q.User,
-					"Password":           q.Pass,
+					"ID":   fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
+					"Type": "",
+					"Name": "",
+					"FQDN": ps.Host,
+					"User": q.User,
+					// "Password":           q.Pass,
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
 				}
@@ -122,7 +122,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				if gofishClient != nil {
 					chassis, err := CollectChassis(gofishClient, q)
 					if err != nil {
-						l.Log.Errorf("failed to query chassis: %v", err)
+						l.Log.Errorf("failed to collect chassis: %v", err)
 						continue
 					}
 					err = json.Unmarshal(chassis, &rm)
@@ -134,7 +134,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					// systems
 					systems, err := CollectSystems(gofishClient, q)
 					if err != nil {
-						l.Log.Errorf("failed to query systems: %v", err)
+						l.Log.Errorf("failed to collect systems: %v", err)
 					}
 					err = json.Unmarshal(systems, &rm)
 					if err != nil {
