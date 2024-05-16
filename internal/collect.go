@@ -370,13 +370,9 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 		interfaces = append(interfaces, i...)
 	}
 
-	// format the error message for printing
-	for i, e := range errList {
-		err = fmt.Errorf("\t[%d] %v\n", i, e)
-	}
-
 	// print any report errors
-	if len(errList) > 0 {
+	err = util.FormatErrorList(errList)
+	if util.HasErrors(errList) {
 		return nil, fmt.Errorf("failed to get ethernet interfaces with %d errors: \n%v", len(errList), err)
 	}
 
@@ -493,6 +489,9 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 				} else {
 					return nil, fmt.Errorf("no ID found for member")
 				}
+				if util.HasErrors(errList) {
+					return nil, util.FormatErrorList(errList)
+				}
 			}
 			i, err := json.Marshal(interfaces)
 			if err != nil {
@@ -564,8 +563,14 @@ func CollectProcessors(q *QueryParams) ([]byte, error) {
 	// convert to not get base64 string
 	var procs map[string]json.RawMessage
 	var members []map[string]any
-	json.Unmarshal(body, &procs)
-	json.Unmarshal(procs["Members"], &members)
+	err = json.Unmarshal(body, &procs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal processors: %v", err)
+	}
+	err = json.Unmarshal(procs["Members"], &members)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal processor members: %v", err)
+	}
 
 	// request data about each processor member on node
 	for _, member := range members {
