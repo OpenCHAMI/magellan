@@ -487,6 +487,8 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 						continue
 					}
 					interfaces = append(interfaces, ethernetInterface...)
+				} else {
+					return nil, fmt.Errorf("no ID found for member")
 				}
 			}
 			i, err := json.Marshal(interfaces)
@@ -497,6 +499,8 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 				"Data":               nil,
 				"EthernetInterfaces": string(i),
 			})
+		} else {
+			return nil, fmt.Errorf("no members found in systems")
 		}
 
 	} else {
