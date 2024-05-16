@@ -436,7 +436,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	// /redfish/v1/Systems/Members
 	// /redfish/v1/Systems/
 	var temp []map[string]any
-	if systems == nil {
+	if len(systems) == 0 {
 		url := baseRedfishUrl(q) + "/Systems"
 		if q.Verbose {
 			fmt.Printf("%s\n", url)
