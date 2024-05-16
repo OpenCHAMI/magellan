@@ -442,6 +442,9 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	var temp []map[string]any
 	if systems == nil {
 		url := baseRedfishUrl(q) + "/Systems"
+		if q.Verbose {
+			fmt.Printf("%s\n", url)
+		}
 		res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %v", err)
