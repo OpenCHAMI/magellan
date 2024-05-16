@@ -435,22 +435,88 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 		return nil, fmt.Errorf("failed to query systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	// query the system's ethernet interfaces
+	// do manual requests if systems is empty to only get necessary info as last resort
+	// /redfish/v1/Systems
+	// /redfish/v1/Systems/Members
+	// /redfish/v1/Systems/
 	var temp []map[string]any
-	for _, system := range systems {
-		interfaces, err := CollectEthernetInterfaces(c, q, system.ID)
+	if systems == nil {
+		url := baseRedfishUrl(q) + "/Systems"
+		res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("failed to make request: %v", err)
+		} else if res.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("request returned status code %d", res.StatusCode)
 		}
-		var i map[string]any
-		err = json.Unmarshal(interfaces, &i)
+
+		// sweet syntatic sugar type aliases
+		type System = map[string]any
+		type Member = map[string]string
+
+		// get all the systems
+		var (
+			tempSystems System
+			interfaces  []*redfish.EthernetInterface
+			errList     []error
+		)
+		err = json.Unmarshal(body, &tempSystems)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal interface: %v", err)
+			return nil, fmt.Errorf("failed to unmarshal systems: %v", err)
 		}
-		temp = append(temp, map[string]any{
-			"Data":               system,
-			"EthernetInterfaces": i["EthernetInterfaces"],
-		})
+
+		// then, get all the members within a system
+		members, ok := tempSystems["Members"]
+		if ok {
+			for _, member := range members.([]Member) {
+				id, ok := member["@odata.id"]
+				if ok {
+					// /redfish/v1/Systems/Self (or whatever)
+					// memberEndpoint := fmt.Sprintf("%s%s", url, id)
+					// res, body, err := util.MakeRequest(nil, baseRedfishUrl(q)+memberEndpoint, http.MethodGet, nil, nil)
+					// if err != nil {
+					// 	continue
+					// } else if res.StatusCode != http.StatusOK {
+					// 	continue
+					// }
+					// TODO: extract EthernetInterfaces from Systems then query
+
+					// get all of the ethernet interfaces in our systems
+					ethernetInterface, err := redfish.ListReferencedEthernetInterfaces(c, id+"/EthernetInterfaces/")
+					if err != nil {
+						errList = append(errList, err)
+						continue
+					}
+					interfaces = append(interfaces, ethernetInterface...)
+				}
+			}
+			i, err := json.Marshal(interfaces)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal interface: %v", err)
+			}
+			temp = append(temp, map[string]any{
+				"Data":               nil,
+				"EthernetInterfaces": string(i),
+			})
+		}
+
+	} else {
+		// query the system's ethernet interfaces
+		// var temp []map[string]any
+		for _, system := range systems {
+			interfaces, err := CollectEthernetInterfaces(c, q, system.ID)
+			if err != nil {
+				continue
+			}
+			var i map[string]any
+			err = json.Unmarshal(interfaces, &i)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal interface: %v", err)
+			}
+			temp = append(temp, map[string]any{
+				"Data":               system,
+				"EthernetInterfaces": i["EthernetInterfaces"],
+			})
+		}
 	}
 
 	data := map[string]any{"Systems": temp}
