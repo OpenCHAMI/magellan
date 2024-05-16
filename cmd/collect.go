@@ -60,7 +60,10 @@ var collectCmd = &cobra.Command{
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
 		}
-		magellan.CollectAll(&probeStates, l, q)
+		err = magellan.CollectAll(&probeStates, l, q)
+		if err != nil {
+			l.Log.Errorf("failed to collect data: %v", err)
+		}
 
 		// add necessary headers for final request (like token)
 		headers := make(map[string]string)
