@@ -509,9 +509,11 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	} else {
 		// query the system's ethernet interfaces
 		// var temp []map[string]any
+		var errList []error
 		for _, system := range systems {
 			interfaces, err := CollectEthernetInterfaces(c, q, system.ID)
 			if err != nil {
+				errList = append(errList, fmt.Errorf("failed to collect ethernet interface: %v", err))
 				continue
 			}
 			var i map[string]any
@@ -524,6 +526,13 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 				"EthernetInterfaces": i["EthernetInterfaces"],
 			})
 		}
+		if util.HasErrors(errList) {
+			err = util.FormatErrorList(errList)
+			if err != nil {
+				return nil, fmt.Errorf("multiple errors occurred: %v", err)
+			}
+		}
+
 	}
 
 	data := map[string]any{"Systems": temp}
