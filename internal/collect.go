@@ -352,7 +352,7 @@ func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID string) ([]byte, error) {
 	systems, err := c.Service.Systems()
 	if err != nil {
-		return nil, fmt.Errorf("failed to query storage systems (%v:%v): %v", q.Host, q.Port, err)
+		return nil, fmt.Errorf("failed to collect ethernet interfaces: (%v:%v): %v", q.Host, q.Port, err)
 	}
 
 	var (
@@ -507,6 +507,12 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 		}
 
 	} else {
+		b, err := json.Marshal(systems)
+		if err != nil {
+			fmt.Printf("failed to marshal systems: %v", err)
+		}
+		fmt.Printf("systems: %v\n", string(b))
+
 		// query the system's ethernet interfaces
 		// var temp []map[string]any
 		var errList []error
