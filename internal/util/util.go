@@ -103,6 +103,7 @@ func FormatErrorList(errList []error) error {
 	var err error
 	for i, e := range errList {
 		err = fmt.Errorf("\t[%d] %v\n", i, e)
+		i += 1
 	}
 	return err
 }
