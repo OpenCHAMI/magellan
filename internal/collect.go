@@ -462,7 +462,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 				if err != nil {
 					return nil, fmt.Errorf("failed to get system manager references: %v", err)
 				}
-				if len(managers) <= 0 {
+				if len(managers) >= 0 {
 					manager := managers[0]
 					eths, err = manager.EthernetInterfaces()
 					if err != nil {
