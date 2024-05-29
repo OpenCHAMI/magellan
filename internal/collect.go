@@ -462,7 +462,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 			}
 			for _, managerLink := range system.ManagedBy {
 				// try getting ethernet interface from all managers until one is found
-				eths, err = redfish.ListReferencedEthernetInterfaces(c, managerLink)
+				eths, err = redfish.ListReferencedEthernetInterfaces(c, managerLink+"/EthernetInterfaces")
 				if err != nil {
 					return nil, fmt.Errorf("failed to get system manager ethernet interfaces: %v", err)
 				}
