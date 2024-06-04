@@ -138,7 +138,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					}
 					err = json.Unmarshal(systems, &rm)
 					if err != nil {
-						l.Log.Errorf("failed to unmarshal system JSON: %v", err)
+						l.Log.Errorf("failed to unmarshal system JSON after collect: %v", err)
 					}
 					data["Systems"] = rm["Systems"]
 
@@ -166,7 +166,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				body, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
-					l.Log.Errorf("failed to marshal JSON: %v", err)
+					l.Log.Errorf("failed to marshal output to JSON: %v", err)
 				}
 
 				if q.Verbose {
@@ -458,7 +458,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 		// try and get ethernet interfaces through manager if empty
 		if len(eths) <= 0 {
 			if q.Verbose {
-				fmt.Printf("no system ethernet interfaces found...trying to get from managers interface")
+				fmt.Printf("no system ethernet interfaces found...trying to get from managers interface\n")
 			}
 			for _, managerLink := range system.ManagedBy {
 				// try getting ethernet interface from all managers until one is found
