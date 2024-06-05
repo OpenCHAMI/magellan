@@ -144,7 +144,8 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 					// add other fields from systems
 					if len(rm["Systems"]) > 0 {
-						var s map[string][]interface{}
+						var s map[string][]any
+						fmt.Printf("Systems before unmarshaling: %v\n", string(rm["Systems"]))
 						err = json.Unmarshal(rm["Systems"], &s)
 						if err != nil {
 							l.Log.Errorf("failed to unmarshal systems JSON: %v", err)
