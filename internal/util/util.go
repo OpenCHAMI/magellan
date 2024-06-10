@@ -98,3 +98,16 @@ func SplitPathForViper(path string) (string, string, string) {
 	ext := filepath.Ext(filename)
 	return filepath.Dir(path), strings.TrimSuffix(filename, ext), strings.TrimPrefix(ext, ".")
 }
+
+func FormatErrorList(errList []error) error {
+	var err error
+	for i, e := range errList {
+		err = fmt.Errorf("\t[%d] %v\n", i, e)
+		i += 1
+	}
+	return err
+}
+
+func HasErrors(errList []error) bool {
+	return len(errList) > 0
+}

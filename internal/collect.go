@@ -105,12 +105,12 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				// data to be sent to smd
 				data := map[string]any{
-					"ID":                 fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
-					"Type":               "",
-					"Name":               "",
-					"FQDN":               ps.Host,
-					"User":               q.User,
-					"Password":           q.Pass,
+					"ID":   fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
+					"Type": "",
+					"Name": "",
+					"FQDN": ps.Host,
+					"User": q.User,
+					// "Password":           q.Pass,
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
 				}
@@ -122,7 +122,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				if gofishClient != nil {
 					chassis, err := CollectChassis(gofishClient, q)
 					if err != nil {
-						l.Log.Errorf("failed to query chassis: %v", err)
+						l.Log.Errorf("failed to collect chassis: %v", err)
 						continue
 					}
 					err = json.Unmarshal(chassis, &rm)
@@ -134,17 +134,18 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					// systems
 					systems, err := CollectSystems(gofishClient, q)
 					if err != nil {
-						l.Log.Errorf("failed to query systems: %v", err)
+						l.Log.Errorf("failed to collect systems: %v", err)
 					}
 					err = json.Unmarshal(systems, &rm)
 					if err != nil {
-						l.Log.Errorf("failed to unmarshal system JSON: %v", err)
+						l.Log.Errorf("failed to unmarshal system JSON after collect: %v", err)
 					}
 					data["Systems"] = rm["Systems"]
 
 					// add other fields from systems
 					if len(rm["Systems"]) > 0 {
-						var s map[string][]interface{}
+						var s map[string][]any
+						fmt.Printf("Systems before unmarshaling: %v\n", string(rm["Systems"]))
 						err = json.Unmarshal(rm["Systems"], &s)
 						if err != nil {
 							l.Log.Errorf("failed to unmarshal systems JSON: %v", err)
@@ -166,7 +167,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 
 				body, err := json.MarshalIndent(data, "", "    ")
 				if err != nil {
-					l.Log.Errorf("failed to marshal JSON: %v", err)
+					l.Log.Errorf("failed to marshal output to JSON: %v", err)
 				}
 
 				if q.Verbose {
@@ -350,9 +351,14 @@ func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 }
 
 func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID string) ([]byte, error) {
+	// TODO: add more endpoints to test for ethernet interfaces
+	// /redfish/v1/Chassis/{ChassisID}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions/{NetworkDeviceFunctionId}/EthernetInterfaces/{EthernetInterfaceId}
+	// /redfish/v1/Managers/{ManagerId}/EthernetInterfaces/{EthernetInterfaceId}
+	// /redfish/v1/Systems/{ComputerSystemId}/EthernetInterfaces/{EthernetInterfaceId}
+	// /redfish/v1/Systems/{ComputerSystemId}/OperatingSystem/Containers/EthernetInterfaces/{EthernetInterfaceId}
 	systems, err := c.Service.Systems()
 	if err != nil {
-		return nil, fmt.Errorf("failed to query storage systems (%v:%v): %v", q.Host, q.Port, err)
+		return nil, fmt.Errorf("failed to get systems: (%v:%v): %v", q.Host, q.Port, err)
 	}
 
 	var (
@@ -362,22 +368,19 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 
 	// get all of the ethernet interfaces in our systems
 	for _, system := range systems {
-		i, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/"+system.ID+"/EthernetInterfaces/")
+		system.EthernetInterfaces()
+		eth, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/"+system.ID+"/EthernetInterfaces")
 		if err != nil {
 			errList = append(errList, err)
-			continue
 		}
-		interfaces = append(interfaces, i...)
-	}
 
-	// format the error message for printing
-	for i, e := range errList {
-		err = fmt.Errorf("\t[%d] %v\n", i, e)
+		interfaces = append(interfaces, eth...)
 	}
 
 	// print any report errors
-	if len(errList) > 0 {
-		return nil, fmt.Errorf("failed to get ethernet interfaces with %d errors: \n%v", len(errList), err)
+	err = util.FormatErrorList(errList)
+	if util.HasErrors(errList) {
+		return nil, fmt.Errorf("failed to get ethernet interfaces with %d error(s): \n%v", len(errList), err)
 	}
 
 	data := map[string]any{"EthernetInterfaces": interfaces}
@@ -432,26 +435,159 @@ func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	systems, err := c.Service.Systems()
 	if err != nil {
-		return nil, fmt.Errorf("failed to query systems (%v:%v): %v", q.Host, q.Port, err)
+		return nil, fmt.Errorf("failed to get systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	// query the system's ethernet interfaces
-	var temp []map[string]any
+	// 1. check if system has ethernet interfaces
+	// 1.a. if yes, create system data and ethernet interfaces JSON
+	// 1.b. if no, try to get data using manager instead
+	// 2. check if manager has "ManagerForServices" and "EthernetInterfaces" properties
+	// 2.a. if yes, query both properties to use in next step
+	// 2.b. for each service, query its data and add the ethernet interfaces
+	// 2.c. add the system to list of systems to marshal and return
+	var (
+		temp []map[string]any
+		eths []*redfish.EthernetInterface
+	)
+
 	for _, system := range systems {
-		interfaces, err := CollectEthernetInterfaces(c, q, system.ID)
+		eths, err = system.EthernetInterfaces()
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("failed to get system ethernet interfaces: %v", err)
 		}
-		var i map[string]any
-		err = json.Unmarshal(interfaces, &i)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal interface: %v", err)
+
+		// try and get ethernet interfaces through manager if empty
+		if len(eths) <= 0 {
+			if q.Verbose {
+				fmt.Printf("no system ethernet interfaces found...trying to get from managers interface\n")
+			}
+			for _, managerLink := range system.ManagedBy {
+				// try getting ethernet interface from all managers until one is found
+				eths, err = redfish.ListReferencedEthernetInterfaces(c, managerLink+"/EthernetInterfaces")
+				if err != nil {
+					return nil, fmt.Errorf("failed to get system manager ethernet interfaces: %v", err)
+				}
+				if len(eths) > 0 {
+					break
+				}
+			}
 		}
+
+		// add system to collection of systems
 		temp = append(temp, map[string]any{
 			"Data":               system,
-			"EthernetInterfaces": i["EthernetInterfaces"],
+			"EthernetInterfaces": eths,
 		})
 	}
+
+	// do manual requests if systems is empty to only get necessary info as last resort
+	// /redfish/v1/Systems
+
+	// /redfish/v1/Systems/Members
+	// /redfish/v1/Systems/
+	// fmt.Printf("system count: %d\n", len(systems))
+	// if len(systems) == 0 {
+	// 	url := baseRedfishUrl(q) + "/Systems"
+	// 	if q.Verbose {
+	// 		fmt.Printf("%s\n", url)
+	// 	}
+	// 	res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to make request: %v", err)
+	// 	} else if res.StatusCode != http.StatusOK {
+	// 		return nil, fmt.Errorf("request returned status code %d", res.StatusCode)
+	// 	}
+
+	// 	// sweet syntatic sugar type aliases
+	// 	type System = map[string]any
+	// 	type Member = map[string]string
+
+	// 	// get all the systems
+	// 	var (
+	// 		tempSystems System
+	// 		interfaces  []*redfish.EthernetInterface
+	// 		errList     []error
+	// 	)
+	// 	err = json.Unmarshal(body, &tempSystems)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to unmarshal systems: %v", err)
+	// 	}
+
+	// 	// then, get all the members within a system
+	// 	members, ok := tempSystems["Members"]
+	// 	if ok {
+	// 		for _, member := range members.([]Member) {
+	// 			id, ok := member["@odata.id"]
+	// 			if ok {
+	// 				// /redfish/v1/Systems/Self (or whatever)
+	// 				// memberEndpoint := fmt.Sprintf("%s%s", url, id)
+	// 				// res, body, err := util.MakeRequest(nil, baseRedfishUrl(q)+memberEndpoint, http.MethodGet, nil, nil)
+	// 				// if err != nil {
+	// 				// 	continue
+	// 				// } else if res.StatusCode != http.StatusOK {
+	// 				// 	continue
+	// 				// }
+	// 				// TODO: extract EthernetInterfaces from Systems then query
+
+	// 				// get all of the ethernet interfaces in our systems
+	// 				ethernetInterface, err := redfish.ListReferencedEthernetInterfaces(c, id+"/EthernetInterfaces/")
+	// 				if err != nil {
+	// 					errList = append(errList, err)
+	// 					continue
+	// 				}
+	// 				interfaces = append(interfaces, ethernetInterface...)
+	// 			} else {
+	// 				return nil, fmt.Errorf("no ID found for member")
+	// 			}
+	// 			if util.HasErrors(errList) {
+	// 				return nil, util.FormatErrorList(errList)
+	// 			}
+	// 		}
+	// 		i, err := json.Marshal(interfaces)
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("failed to unmarshal interface: %v", err)
+	// 		}
+	// 		temp = append(temp, map[string]any{
+	// 			"Data":               nil,
+	// 			"EthernetInterfaces": string(i),
+	// 		})
+	// 	} else {
+	// 		return nil, fmt.Errorf("no members found in systems")
+	// 	}
+
+	// } else {
+	// 	b, err := json.Marshal(systems)
+	// 	if err != nil {
+	// 		fmt.Printf("failed to marshal systems: %v", err)
+	// 	}
+	// 	fmt.Printf("systems: %v\n", string(b))
+
+	// 	// query the system's ethernet interfaces
+	// 	// var temp []map[string]any
+	// 	var errList []error
+	// 	for _, system := range systems {
+	// 		interfaces, err := CollectEthernetInterfaces(c, q, system.ID)
+	// 		if err != nil {
+	// 			errList = append(errList, fmt.Errorf("failed to collect ethernet interface: %v", err))
+	// 			continue
+	// 		}
+	// 		var i map[string]any
+	// 		err = json.Unmarshal(interfaces, &i)
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("failed to unmarshal interface: %v", err)
+	// 		}
+	// 		temp = append(temp, map[string]any{
+	// 			"Data":               system,
+	// 			"EthernetInterfaces": i["EthernetInterfaces"],
+	// 		})
+	// 	}
+	// 	if util.HasErrors(errList) {
+	// 		err = util.FormatErrorList(errList)
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("multiple errors occurred: %v", err)
+	// 		}
+	// 	}
+	// }
 
 	data := map[string]any{"Systems": temp}
 	b, err := json.MarshalIndent(data, "", "    ")
@@ -491,8 +627,14 @@ func CollectProcessors(q *QueryParams) ([]byte, error) {
 	// convert to not get base64 string
 	var procs map[string]json.RawMessage
 	var members []map[string]any
-	json.Unmarshal(body, &procs)
-	json.Unmarshal(procs["Members"], &members)
+	err = json.Unmarshal(body, &procs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal processors: %v", err)
+	}
+	err = json.Unmarshal(procs["Members"], &members)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal processor members: %v", err)
+	}
 
 	// request data about each processor member on node
 	for _, member := range members {

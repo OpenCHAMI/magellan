@@ -160,5 +160,5 @@ func ScanForAssets(hosts []string, ports []int, threads int, timeout int, disabl
 }
 
 func GetDefaultPorts() []int {
-	return []int{HTTPS_PORT, IPMI_PORT}
+	return []int{HTTPS_PORT}
 }
