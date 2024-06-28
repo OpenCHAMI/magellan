@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
@@ -76,7 +77,7 @@ var scanCmd = &cobra.Command{
 				fmt.Printf("%s\n", string(b))
 			} else {
 				for _, r := range probeStates {
-					fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
+					fmt.Printf("%s:%d (%s) @ %s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate))
 				}
 			}
 		}
