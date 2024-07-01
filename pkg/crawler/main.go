@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
@@ -56,6 +57,12 @@ func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
 		BasicAuth: true,
 	})
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "404:") {
+			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
+		}
+		if strings.HasPrefix(err.Error(), "401:") {
+			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
+		}
 		event := log.Error()
 		event.Err(err)
 		event.Msg("failed to connect to BMC")
