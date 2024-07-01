@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -31,7 +32,7 @@ var crawlCmd = &cobra.Command{
 			Insecure: cmd.Flag("insecure").Value.String() == "true",
 		})
 		if err != nil {
-			panic(err)
+			log.Fatalf("Error crawling BMC: %v", err)
 		}
 		// Marshal the inventory details to JSON
 		jsonData, err := json.MarshalIndent(systems, "", "  ")
