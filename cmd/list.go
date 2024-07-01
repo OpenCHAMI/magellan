@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
 
@@ -25,7 +26,7 @@ var listCmd = &cobra.Command{
 			fmt.Printf("%s\n", string(b))
 		} else {
 			for _, r := range probeResults {
-				fmt.Printf("%s:%d (%s)\n", r.Host, r.Port, r.Protocol)
+				fmt.Printf("%s:%d (%s) @ %s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate))
 			}
 		}
 	},

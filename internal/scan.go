@@ -12,20 +12,22 @@ import (
 )
 
 type ScannedResult struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Protocol string `json:"protocol"`
-	State    bool   `json:"state"`
+	Host      string    `json:"host"`
+	Port      int       `json:"port"`
+	Protocol  string    `json:"protocol"`
+	State     bool      `json:"state"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []ScannedResult {
 	results := []ScannedResult{}
 	for _, p := range ports {
 		result := ScannedResult{
-			Host:     host,
-			Port:     p,
-			Protocol: "tcp",
-			State:    false,
+			Host:      host,
+			Port:      p,
+			Protocol:  "tcp",
+			State:     false,
+			Timestamp: time.Now(),
 		}
 		t := time.Second * time.Duration(timeout)
 		port := fmt.Sprint(p)

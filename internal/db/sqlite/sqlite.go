@@ -15,6 +15,7 @@ func CreateProbeResultsIfNotExists(path string) (*sqlx.DB, error) {
 		port INTEGER NOT NULL,
 		protocol TEXT,
 		state INTEGER,
+		timestamp TIMESTAMP,
 		PRIMARY KEY (host, port)
 	);
 	`
@@ -41,8 +42,8 @@ func InsertProbeResults(path string, states *[]magellan.ScannedResult) error {
 	// insert all probe states into db
 	tx := db.MustBegin()
 	for _, state := range *states {
-		sql := `INSERT OR REPLACE INTO magellan_scanned_ports (host, port, protocol, state) 
-		VALUES (:host, :port, :protocol, :state);`
+		sql := `INSERT OR REPLACE INTO magellan_scanned_ports (host, port, protocol, state, timestamp)
+		VALUES (:host, :port, :protocol, :state, :timestamp);`
 		_, err := tx.NamedExec(sql, &state)
 		if err != nil {
 			fmt.Printf("failed toexecute transaction: %v\n", err)
