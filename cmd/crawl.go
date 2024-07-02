@@ -11,7 +11,7 @@ import (
 )
 
 var crawlCmd = &cobra.Command{
-	Use:   "crawl [uri]",
+	Use:   "crawl [uri] e.g. magellan crawl https://bmc.example.com",
 	Short: "Crawl a single BMC for inventory information",
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Validate that the only argument is a valid URI

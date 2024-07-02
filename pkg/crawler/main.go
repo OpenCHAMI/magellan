@@ -72,6 +72,7 @@ func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
 
 	// Obtain the ServiceRoot
 	rf_service := client.GetService()
+	log.Info().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
 	var rf_systems []*redfish.ComputerSystem
 
