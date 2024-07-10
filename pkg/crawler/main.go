@@ -24,6 +24,22 @@ type EthernetInterface struct {
 	Description string `json:"description,omitempty"` // Description of the interface
 }
 
+type NetworkAdapter struct {
+	URI          string `json:"uri,omitempty"`          // URI of the adapter
+	Manufacturer string `json:"manufacturer,omitempty"` // Manufacturer of the adapter
+	Name         string `json:"name,omitempty"`         // Name of the adapter
+	Model        string `json:"model,omitempty"`        // Model of the adapter
+	Serial       string `json:"serial,omitempty"`       // Serial number of the adapter
+	Description  string `json:"description,omitempty"`  // Description of the adapter
+}
+
+type NetworkInterface struct {
+	URI         string         `json:"uri,omitempty"`         // URI of the interface
+	Name        string         `json:"name,omitempty"`        // Name of the interface
+	Description string         `json:"description,omitempty"` // Description of the interface
+	Adapter     NetworkAdapter `json:"adapter,omitempty"`     // Adapter of the interface
+}
+
 type InventoryDetail struct {
 	URI                  string              `json:"uri,omitempty"`                  // URI of the BMC
 	Manufacturer         string              `json:"manufacturer,omitempty"`         // Manufacturer of the Node
@@ -32,6 +48,7 @@ type InventoryDetail struct {
 	Serial               string              `json:"serial,omitempty"`               // Serial number of the Node
 	BiosVersion          string              `json:"bios_version,omitempty"`         // Version of the BIOS
 	EthernetInterfaces   []EthernetInterface `json:"ethernet_interfaces,omitempty"`  // Ethernet interfaces of the Node
+	NetworkInterfaces    []NetworkInterface  `json:"network_interfaces,omitempty"`   // Network interfaces of the Node
 	PowerState           string              `json:"power_state,omitempty"`          // Power state of the Node
 	ProcessorCount       int                 `json:"processor_count,omitempty"`      // Processors of the Node
 	ProcessorType        string              `json:"processor_type,omitempty"`       // Processor type of the Node
@@ -129,6 +146,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 		}
 		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
 			ethernetinterface := EthernetInterface{
+				URI:         baseURI + rf_ethernetinterface.ODataID,
 				MAC:         rf_ethernetinterface.MACAddress,
 				Name:        rf_ethernetinterface.Name,
 				Description: rf_ethernetinterface.Description,
@@ -138,6 +156,41 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			}
 			system.EthernetInterfaces = append(system.EthernetInterfaces, ethernetinterface)
 		}
+
+		rf_networkInterfaces, err := rf_computersystem.NetworkInterfaces()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get network interfaces from computer system")
+			return systems, err
+		}
+
+		for _, rf_networkInterface := range rf_networkInterfaces {
+			rf_networkAdapter, err := rf_networkInterface.NetworkAdapter()
+			if err != nil {
+				log.Error().Err(err).Msg("failed to get network adapter from network interface")
+				return systems, err
+			}
+
+			var networkAdapter NetworkAdapter
+			if rf_networkAdapter != nil {
+				networkAdapter = NetworkAdapter{
+					URI:          baseURI + rf_networkAdapter.ODataID,
+					Name:         rf_networkAdapter.Name,
+					Manufacturer: rf_networkAdapter.Manufacturer,
+					Model:        rf_networkAdapter.Model,
+					Serial:       rf_networkAdapter.SerialNumber,
+					Description:  rf_networkAdapter.Description,
+				}
+			}
+
+			networkInterface := NetworkInterface{
+				URI:         baseURI + rf_networkInterface.ODataID,
+				Name:        rf_networkInterface.Name,
+				Description: rf_networkInterface.Description,
+				Adapter:     networkAdapter,
+			}
+			system.NetworkInterfaces = append(system.NetworkInterfaces, networkInterface)
+		}
+
 		for _, rf_trustedmodule := range rf_computersystem.TrustedModules {
 			system.TrustedModules = append(system.TrustedModules, fmt.Sprintf("%s %s", rf_trustedmodule.InterfaceType, rf_trustedmodule.FirmwareVersion))
 		}
