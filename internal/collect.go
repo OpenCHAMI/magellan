@@ -140,7 +140,6 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 							data["Name"] = system.Name
 						}
 					}
-
 				} else {
 					l.Log.Errorf("invalid client (client is nil)")
 					continue
@@ -381,10 +380,23 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 	return b, nil
 }
 
-func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]*redfish.Chassis, error) {
-	chassis, err := c.Service.Chassis()
+func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]map[string]any, error) {
+	rfChassis, err := c.Service.Chassis()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query chassis (%v:%v): %v", q.Host, q.Port, err)
+	}
+
+	var chassis []map[string]any
+	for _, ch := range rfChassis {
+		networkAdapters, err := ch.NetworkAdapters()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get network adapters: %v", err)
+		}
+
+		chassis = append(chassis, map[string]any{
+			"Data":            ch,
+			"NetworkAdapters": networkAdapters,
+		})
 	}
 
 	return chassis, nil
@@ -416,7 +428,7 @@ func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 }
 
 func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, error) {
-	systems, err := c.Service.Systems()
+	rfSystems, err := c.Service.Systems()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get systems (%v:%v): %v", q.Host, q.Port, err)
 	}
@@ -428,9 +440,9 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, erro
 	// 2.a. if yes, query both properties to use in next step
 	// 2.b. for each service, query its data and add the ethernet interfaces
 	// 2.c. add the system to list of systems to marshal and return
-	var temp []map[string]any
+	var systems []map[string]any
 
-	for _, system := range systems {
+	for _, system := range rfSystems {
 		eths, err := system.EthernetInterfaces()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get system ethernet interfaces: %v", err)
@@ -453,10 +465,31 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, erro
 			}
 		}
 
+		// add network interfaces to system
+		rfNetworkInterfaces, err := system.NetworkInterfaces()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get system network interfaces: %v", err)
+		}
+
+		// get the network adapter ID for each network interface
+		var networkInterfaces []map[string]any
+		for _, rfNetworkInterface := range rfNetworkInterfaces {
+			networkAdapter, err := rfNetworkInterface.NetworkAdapter()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get network adapter: %v", err)
+			}
+
+			networkInterfaces = append(networkInterfaces, map[string]any{
+				"Data":             rfNetworkInterface,
+				"NetworkAdapterId": networkAdapter.ID,
+			})
+		}
+
 		// add system to collection of systems
-		temp = append(temp, map[string]any{
+		systems = append(systems, map[string]any{
 			"Data":               system,
 			"EthernetInterfaces": eths,
+			"NetworkInterfaces":  networkInterfaces,
 		})
 	}
 
@@ -569,7 +602,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, erro
 	// 	}
 	// }
 
-	return temp, nil
+	return systems, nil
 }
 
 func CollectRegisteries(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
