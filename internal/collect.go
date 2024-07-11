@@ -115,9 +115,6 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					"RediscoverOnUpdate": false,
 				}
 
-				// unmarshal json to send in correct format
-				var rm map[string]json.RawMessage
-
 				// chassis
 				if gofishClient != nil {
 					chassis, err := CollectChassis(gofishClient, q)
@@ -125,32 +122,23 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 						l.Log.Errorf("failed to collect chassis: %v", err)
 						continue
 					}
-					err = json.Unmarshal(chassis, &rm)
-					if err != nil {
-						l.Log.Errorf("failed to unmarshal chassis JSON: %v", err)
-					}
-					data["Chassis"] = rm["Chassis"]
+					data["Chassis"] = chassis
 
 					// systems
 					systems, err := CollectSystems(gofishClient, q)
 					if err != nil {
 						l.Log.Errorf("failed to collect systems: %v", err)
 					}
-					err = json.Unmarshal(systems, &rm)
-					if err != nil {
-						l.Log.Errorf("failed to unmarshal system JSON after collect: %v", err)
-					}
-					data["Systems"] = rm["Systems"]
+					data["Systems"] = systems
 
 					// add other fields from systems
-					if len(rm["Systems"]) > 0 {
-						var s map[string][]any
-						fmt.Printf("Systems before unmarshaling: %v\n", string(rm["Systems"]))
-						err = json.Unmarshal(rm["Systems"], &s)
-						if err != nil {
-							l.Log.Errorf("failed to unmarshal systems JSON: %v", err)
+					if len(systems) > 0 {
+						system := systems[0]["Data"].(*redfish.ComputerSystem)
+						if system == nil {
+							l.Log.Errorf("invalid system data (data is nil)")
+						} else {
+							data["Name"] = system.Name
 						}
-						data["Name"] = s["Name"]
 					}
 				} else {
 					l.Log.Errorf("invalid client (client is nil)")
@@ -392,19 +380,26 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 	return b, nil
 }
 
-func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
-	chassis, err := c.Service.Chassis()
+func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]map[string]any, error) {
+	rfChassis, err := c.Service.Chassis()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query chassis (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	data := map[string]any{"Chassis": chassis}
-	b, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
+	var chassis []map[string]any
+	for _, ch := range rfChassis {
+		networkAdapters, err := ch.NetworkAdapters()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get network adapters: %v", err)
+		}
+
+		chassis = append(chassis, map[string]any{
+			"Data":            ch,
+			"NetworkAdapters": networkAdapters,
+		})
 	}
 
-	return b, nil
+	return chassis, nil
 }
 
 func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
@@ -432,8 +427,8 @@ func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
-	systems, err := c.Service.Systems()
+func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, error) {
+	rfSystems, err := c.Service.Systems()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get systems (%v:%v): %v", q.Host, q.Port, err)
 	}
@@ -445,13 +440,10 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	// 2.a. if yes, query both properties to use in next step
 	// 2.b. for each service, query its data and add the ethernet interfaces
 	// 2.c. add the system to list of systems to marshal and return
-	var (
-		temp []map[string]any
-		eths []*redfish.EthernetInterface
-	)
+	var systems []map[string]any
 
-	for _, system := range systems {
-		eths, err = system.EthernetInterfaces()
+	for _, system := range rfSystems {
+		eths, err := system.EthernetInterfaces()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get system ethernet interfaces: %v", err)
 		}
@@ -473,10 +465,31 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 			}
 		}
 
+		// add network interfaces to system
+		rfNetworkInterfaces, err := system.NetworkInterfaces()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get system network interfaces: %v", err)
+		}
+
+		// get the network adapter ID for each network interface
+		var networkInterfaces []map[string]any
+		for _, rfNetworkInterface := range rfNetworkInterfaces {
+			networkAdapter, err := rfNetworkInterface.NetworkAdapter()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get network adapter: %v", err)
+			}
+
+			networkInterfaces = append(networkInterfaces, map[string]any{
+				"Data":             rfNetworkInterface,
+				"NetworkAdapterId": networkAdapter.ID,
+			})
+		}
+
 		// add system to collection of systems
-		temp = append(temp, map[string]any{
+		systems = append(systems, map[string]any{
 			"Data":               system,
 			"EthernetInterfaces": eths,
+			"NetworkInterfaces":  networkInterfaces,
 		})
 	}
 
@@ -589,13 +602,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	// 	}
 	// }
 
-	data := map[string]any{"Systems": temp}
-	b, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	return b, nil
+	return systems, nil
 }
 
 func CollectRegisteries(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
