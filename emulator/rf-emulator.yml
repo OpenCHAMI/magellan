@@ -1,0 +1,26 @@
+networks:
+  internal:
+
+volumes:
+  emulator:
+
+services:
+  emulator:
+    image: openchami-rie:latest
+    container_name: rf-emulator
+    environment:
+      BMC_PORT: 5000
+      MOCKUPFOLDER: EX235a
+      AUTH_CONFIG: "root:root_password:Administrator"
+    volumes:
+      - ./rf-emulator/mockups:/mockups
+    ports:
+      - 5000:443
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:5000"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+

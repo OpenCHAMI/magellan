@@ -4,7 +4,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 
 ## Getting Started
 
-[Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker).
+[Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be ran by executing the `emulator/setup.sh` script or running `make emulator`.
 
 ## Building
 
