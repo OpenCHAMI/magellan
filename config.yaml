@@ -11,22 +11,23 @@ scan:
 collect:
   # host: smd-host
   # port: smd-port
-  user: "admin"
-  pass: "password"
+  username: "admin"
+  password: "password"
   protocol: "https"
   output: "/tmp/magellan/data/"
   threads: 1
   force-update: false
-  ca-cert: "cacert.pem"
+  cacert: "cacert.pem"
 update:
-  bmc-host:
-  bmc-port: 443
-  user: "admin"
-  pass: "password"
+  host:
+  port: 443
+  username: "admin"
+  password: "password"
   transfer-protocol: "HTTP"
   protocol: "https"
-  firmware-url:
-  firmware-version:
+  firmware:
+    url:
+    version:
   component:
   secure-tls: false
   status: false
