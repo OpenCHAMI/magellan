@@ -26,7 +26,7 @@ jobs:
           fetch-tags: 1
           fetch-depth: 0
       - name: Release with goreleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
@@ -47,9 +47,3 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: magellan
-      - name: generate build provenance
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ghcr.io/openchami/magellan
-          subject-digest: ${{ steps.process_goreleaser_output.outputs.digest }}
-          push-to-registry: true
