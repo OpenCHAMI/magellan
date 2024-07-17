@@ -1,13 +1,12 @@
 module github.com/OpenCHAMI/magellan
 
-go 1.20
+go 1.21
 
 require (
 	github.com/Cray-HPE/hms-xname v1.3.0
 	github.com/bmc-toolbox/bmclib/v2 v2.0.1-0.20230714152943-a1b87e2ff47f
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/go-chi/chi/v5 v5.0.12
-	github.com/jacobweinstock/registrar v0.4.7
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lestrrat-go/jwx v1.2.29
 	github.com/mattn/go-sqlite3 v1.14.6
@@ -20,6 +19,7 @@ require (
 )
 
 require (
+	github.com/jacobweinstock/registrar v0.4.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 )
@@ -59,7 +59,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
