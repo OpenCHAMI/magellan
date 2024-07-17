@@ -33,16 +33,6 @@ jobs:
           version: latest
           args: release --clean
         id: goreleaser
-      - name: Process goreleaser output
-        id: process_goreleaser_output
-        run: |
-          echo "const fs = require('fs');" > process.js
-          echo 'const artifacts = ${{ steps.goreleaser.outputs.artifacts }}' >> process.js
-          echo "const firstNonNullDigest = artifacts.find(artifact => artifact.extra && artifact.extra.Digest != null)?.extra.Digest;" >> process.js
-          echo "console.log(firstNonNullDigest);" >> process.js
-          echo "fs.writeFileSync('digest.txt', firstNonNullDigest);" >> process.js
-          node process.js
-          echo "digest=$(cat digest.txt)" >> $GITHUB_OUTPUT
       - name: Attest Binaries
         uses: actions/attest-build-provenance@v1
         with:
