@@ -1,0 +1,50 @@
+name: Release with goreleaser
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - v*
+
+permissions: write-all # Necessary for the generate-build-provenance action with containers
+
+jobs:
+
+  build:
+
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+      - name: Release with goreleaser
+        uses: goreleaser/goreleaser-action@v5
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          version: latest
+          args: release --clean
+        id: goreleaser
+      - name: Process goreleaser output
+        id: process_goreleaser_output
+        run: |
+          echo "const fs = require('fs');" > process.js
+          echo 'const artifacts = ${{ steps.goreleaser.outputs.artifacts }}' >> process.js
+          echo "const firstNonNullDigest = artifacts.find(artifact => artifact.extra && artifact.extra.Digest != null)?.extra.Digest;" >> process.js
+          echo "console.log(firstNonNullDigest);" >> process.js
+          echo "fs.writeFileSync('digest.txt', firstNonNullDigest);" >> process.js
+          node process.js
+          echo "digest=$(cat digest.txt)" >> $GITHUB_OUTPUT
+      - name: Attest Binaries
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: magellan
+      - name: generate build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/openchami/magellan
+          subject-digest: ${{ steps.process_goreleaser_output.outputs.digest }}
+          push-to-registry: true
