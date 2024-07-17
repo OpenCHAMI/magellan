@@ -36,4 +36,4 @@ jobs:
       - name: Attest Binaries
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: magellan
+	  subject-path: '${{ github.workspace }}/dist/magellan_linux_amd64_v1/magellan'
