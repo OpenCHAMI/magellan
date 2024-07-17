@@ -8,7 +8,6 @@ builds:
       - linux
     goarch:
       - amd64
-      - arm64
 dockers:
   - image_templates:
       - ghcr.io/openchami/{{.ProjectName}}:latest
