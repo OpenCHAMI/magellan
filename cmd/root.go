@@ -1,3 +1,17 @@
+// The cmd package implements the interface for the magellan CLI. The files
+// contained in this package only contains implementations for handling CLI
+// arguments and passing them to functions within magellan's internal API.
+//
+// Each CLI subcommand will have at least one corresponding internal file
+// with an API routine that implements the command's functionality. The main
+// API routine will usually be the first function defined in the fill.
+//
+// For example:
+//
+//	cmd/scan.go    --> internal/scan.go ( magellan.ScanForAssets() )
+//	cmd/collect.go --> internal/collect.go ( magellan.CollectAll() )
+//	cmd/list.go    --> none (doesn't have API call since it's simple)
+//	cmd/update.go  --> internal/update.go ( magellan.UpdateFirmware() )
 package cmd
 
 import (
@@ -30,11 +44,8 @@ var (
 	verbose     bool
 )
 
-// TODO: discover bmc's on network (dora)
-// TODO: query bmc component information and store in db (?)
-// TODO: send bmc component information to smd
-// TODO: set ports to scan automatically with set driver
-
+// The `root` command doesn't do anything on it's own except display
+// a help message and then exits.
 var rootCmd = &cobra.Command{
 	Use:   "magellan",
 	Short: "Tool for BMC discovery",
@@ -47,6 +58,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// This Execute() function is called from main to run the CLI.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -54,6 +66,14 @@ func Execute() {
 	}
 }
 
+// LoadAccessToken() tries to load a JWT string from an environment
+// variable, file, or config in that order. If loading the token
+// fails with one options, it will fallback to the next option until
+// all options are exhausted.
+//
+// Returns a token as a string with no error if successful.
+// Alternatively, returns an empty string with an error if a token is
+// not able to be loaded.
 func LoadAccessToken() (string, error) {
 	// try to load token from env var
 	testToken := os.Getenv("MAGELLAN_ACCESS_TOKEN")
@@ -93,12 +113,21 @@ func init() {
 	viper.BindPFlags(rootCmd.Flags())
 }
 
+// InitializeConfig() initializes a new config object by loading it
+// from a file given a non-empty string.
+//
+// See the 'LoadConfig' function in 'internal/config' for details.
 func InitializeConfig() {
 	if configPath != "" {
 		magellan.LoadConfig(configPath)
 	}
 }
 
+// SetDefaults() resets all of the viper properties back to their
+// default values.
+//
+// TODO: This function should probably be moved to 'internal/config.go'
+// instead of in this file.
 func SetDefaults() {
 	viper.SetDefault("threads", 1)
 	viper.SetDefault("timeout", 30)

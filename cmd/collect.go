@@ -18,6 +18,9 @@ var (
 	forceUpdate bool
 )
 
+// The `collect` command fetches data from a collection of BMC nodes.
+// This command should be ran after the `scan` to find available hosts
+// on a subnet.
 var collectCmd = &cobra.Command{
 	Use:   "collect",
 	Short: "Query information about BMC",

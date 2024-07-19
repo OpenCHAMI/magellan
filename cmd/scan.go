@@ -25,6 +25,12 @@ var (
 	disableProbing bool
 )
 
+// The `scan` command is usually the first step to using the CLI tool.
+// This command will perform a network scan over a subnet by supplying
+// a list of subnets, subnet masks, and additional IP address to probe.
+//
+// See the `ScanForAssets()` function in 'internal/scan.go' for details
+// related to the implementation.
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan for BMC nodes on a network",

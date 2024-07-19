@@ -1,3 +1,4 @@
+// Package magellan implements the core routines for the tools.
 package magellan
 
 import (
@@ -50,6 +51,11 @@ type QueryParams struct {
 	AccessToken  string
 }
 
+// This is the main function used to collect information from the BMC nodes via Redfish.
+// The function expects a list of hosts found using the `ScanForAssets()` function.
+//
+// Requests can be made to several of the nodes using a goroutine by setting the q.Concurrency
+// property value between 1 and 255.
 func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) error {
 	// check for available probe states
 	if probeStates == nil {
@@ -102,6 +108,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 				if err != nil {
 					l.Log.Errorf("failed to connect to BMC (%v:%v): %v", q.Host, q.Port, err)
 				}
+				defer gofishClient.Logout()
 
 				// data to be sent to smd
 				data := map[string]any{
@@ -218,6 +225,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 	return nil
 }
 
+// TODO: DELETE ME!!!
 func CollectMetadata(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
@@ -275,6 +283,7 @@ func CollectInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
+// TODO: DELETE ME!!!
 func CollectPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
 	client.Registry.FilterForCompatible(ctx)
@@ -303,6 +312,7 @@ func CollectPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 
 }
 
+// TODO: DELETE ME!!!
 func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
@@ -333,11 +343,18 @@ func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
+// TODO: DELETE ME!!!q
+
 func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	b, err := makeRequest(client, client.GetBiosConfiguration, q.Timeout)
 	return b, err
 }
 
+// CollectEthernetInterfaces() collects all of the ethernet interfaces found
+// from all systems from under the "/redfish/v1/Systems" endpoint.
+//
+// TODO: This function needs to be refactored entirely...if not deleted
+// in favor of using crawler.CrawlBM() instead.
 func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID string) ([]byte, error) {
 	// TODO: add more endpoints to test for ethernet interfaces
 	// /redfish/v1/Chassis/{ChassisID}/NetworkAdapters/{NetworkAdapterId}/NetworkDeviceFunctions/{NetworkDeviceFunctionId}/EthernetInterfaces/{EthernetInterfaceId}
@@ -380,6 +397,7 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 	return b, nil
 }
 
+// TODO: DELETE ME!!!
 func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]map[string]any, error) {
 	rfChassis, err := c.Service.Chassis()
 	if err != nil {
@@ -402,6 +420,7 @@ func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]map[string]any, erro
 	return chassis, nil
 }
 
+// TODO: DELETE ME!!!
 func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	systems, err := c.Service.StorageSystems()
 	if err != nil {
@@ -427,19 +446,23 @@ func CollectStorage(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
+// CollectSystems pulls system information from each BMC node via Redfish using the
+// `gofish` library.
+//
+// The process of collecting this info is as follows:
+// 1. check if system has ethernet interfaces
+// 1.a. if yes, create system data and ethernet interfaces JSON
+// 1.b. if no, try to get data using manager instead
+// 2. check if manager has "ManagerForServices" and "EthernetInterfaces" properties
+// 2.a. if yes, query both properties to use in next step
+// 2.b. for each service, query its data and add the ethernet interfaces
+// 2.c. add the system to list of systems to marshal and return
 func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, error) {
 	rfSystems, err := c.Service.Systems()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get systems (%v:%v): %v", q.Host, q.Port, err)
 	}
 
-	// 1. check if system has ethernet interfaces
-	// 1.a. if yes, create system data and ethernet interfaces JSON
-	// 1.b. if no, try to get data using manager instead
-	// 2. check if manager has "ManagerForServices" and "EthernetInterfaces" properties
-	// 2.a. if yes, query both properties to use in next step
-	// 2.b. for each service, query its data and add the ethernet interfaces
-	// 2.c. add the system to list of systems to marshal and return
 	var systems []map[string]any
 
 	for _, system := range rfSystems {
@@ -605,6 +628,7 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, erro
 	return systems, nil
 }
 
+// TODO: DELETE ME!!!
 func CollectRegisteries(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	registries, err := c.Service.Registries()
 	if err != nil {
@@ -620,6 +644,7 @@ func CollectRegisteries(c *gofish.APIClient, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
+// TODO: MAYBE DELETE???
 func CollectProcessors(q *QueryParams) ([]byte, error) {
 	url := baseRedfishUrl(q) + "/Systems"
 	res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
