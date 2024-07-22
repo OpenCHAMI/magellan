@@ -23,7 +23,12 @@ var (
 // on a subnet.
 var collectCmd = &cobra.Command{
 	Use:   "collect",
-	Short: "Query information about BMC",
+	Short: "Collect system information by interrogating BMC node",
+	Long: "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\n" +
+		"See the 'scan' command on how to perform a scan.\n\n" +
+		"Examples:\n" +
+		"  magellan collect --cache ./assets.db --output ./logs --timeout 30 --cacert cecert.pem\n" +
+		"  magellan collect --host smd.example.com --port 27779 --username username --password password",
 	Run: func(cmd *cobra.Command, args []string) {
 		// make application logger
 		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
@@ -52,8 +57,8 @@ var collectCmd = &cobra.Command{
 			concurrency = mathutil.Clamp(len(probeStates), 1, 255)
 		}
 		q := &magellan.QueryParams{
-			User:        username,
-			Pass:        password,
+			Username:    username,
+			Password:    password,
 			Protocol:    protocol,
 			Timeout:     timeout,
 			Concurrency: concurrency,
@@ -88,7 +93,7 @@ func init() {
 	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "path to CA cert. (defaults to system CAs)")
 
 	// set flags to only be used together
-	collectCmd.MarkFlagsRequiredTogether("user", "pass")
+	collectCmd.MarkFlagsRequiredTogether("username", "password")
 
 	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
 	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
