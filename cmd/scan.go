@@ -34,6 +34,12 @@ var (
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan for BMC nodes on a network",
+	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response. " +
+		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available " +
+		"Redfish services.\n\n" +
+		"Example:\n" +
+		"  magellan scan --subnet 172.16.0.0/24 --add-host 10.0.0.101\n" +
+		"  magellan scan --subnet 172.16.0.0 --subnet-mask 255.255.255.0 --cache ./assets.db",
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			hostsToScan []string

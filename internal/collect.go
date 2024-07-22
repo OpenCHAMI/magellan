@@ -32,23 +32,26 @@ const (
 	HTTPS_PORT = 443
 )
 
-// NOTE: ...params were getting too long...
+// QueryParams is a collections of common parameters passed to the CLI.
+// Each CLI subcommand has a corresponding implementation function that
+// takes an object as an argument. However, the implementation may not
+// use all of the properties within the object.
 type QueryParams struct {
-	Host         string
-	Port         int
-	Protocol     string
-	User         string
-	Pass         string
-	Drivers      []string
-	Concurrency  int
-	Preferred    string
-	Timeout      int
-	CaCertPath   string
-	Verbose      bool
-	IpmitoolPath string
-	OutputPath   string
-	ForceUpdate  bool
-	AccessToken  string
+	Host         string   // set by the 'host' flag
+	Port         int      // set by the 'port' flag
+	Protocol     string   // set by the 'protocol' flag
+	Username     string   // set the BMC username with the 'username' flag
+	Password     string   // set the BMC password with the 'password' flag
+	Drivers      []string // DEPRECATED: TO BE REMOVED!!!
+	Concurrency  int      // set the of concurrent jobs with the 'concurrency' flag
+	Preferred    string   // DEPRECATED: TO BE REMOVED!!!
+	Timeout      int      // set the timeout with the 'timeout' flag
+	CaCertPath   string   // set the cert path with the 'cacert' flag
+	Verbose      bool     // set whether to include verbose output with 'verbose' flag
+	IpmitoolPath string   // DEPRECATED: TO BE REMOVE!!!
+	OutputPath   string   // set the path to save output with 'output' flag
+	ForceUpdate  bool     // set whether to force updating SMD with 'force-update' flag
+	AccessToken  string   // set the access token to include in request with 'access-token' flag
 }
 
 // This is the main function used to collect information from the BMC nodes via Redfish.
@@ -116,7 +119,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 					"Type": "",
 					"Name": "",
 					"FQDN": ps.Host,
-					"User": q.User,
+					"User": q.Username,
 					// "Password":           q.Pass,
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
@@ -225,36 +228,7 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 	return nil
 }
 
-// TODO: DELETE ME!!!
-func CollectMetadata(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	// open BMC session and update driver registry
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
-	client.Registry.FilterForCompatible(ctx)
-	err := client.Open(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to connect to bmc: %v", err)
-	}
-
-	defer client.Close(ctx)
-
-	metadata := client.GetMetadata()
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to get metadata: %v", err)
-	}
-
-	// retrieve inventory data
-	b, err := json.MarshalIndent(metadata, "", "    ")
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	ctxCancel()
-	return b, nil
-}
-
+// CollectInventory() fetches inventory data from all of the BMC hosts provided.
 func CollectInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	// open BMC session and update driver registry
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
@@ -343,8 +317,7 @@ func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	return b, nil
 }
 
-// TODO: DELETE ME!!!q
-
+// TODO: DELETE ME!!!
 func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
 	b, err := makeRequest(client, client.GetBiosConfiguration, q.Timeout)
 	return b, err
@@ -397,7 +370,12 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 	return b, nil
 }
 
-// TODO: DELETE ME!!!
+// CollectChassis() fetches all chassis related information from each node specified
+// via the Redfish API. Like the other collect functions, this function uses the gofish
+// library to make requests to each node. Additionally, all of the network adapters found
+// are added to the output as well.
+//
+// Returns a map that represents a Chassis object with NetworkAdapters.
 func CollectChassis(c *gofish.APIClient, q *QueryParams) ([]map[string]any, error) {
 	rfChassis, err := c.Service.Chassis()
 	if err != nil {
@@ -724,8 +702,8 @@ func makeGofishConfig(q *QueryParams) (gofish.ClientConfig, error) {
 	)
 	return gofish.ClientConfig{
 		Endpoint:            url,
-		Username:            q.User,
-		Password:            q.Pass,
+		Username:            q.Username,
+		Password:            q.Password,
 		Insecure:            true,
 		TLSHandshakeTimeout: q.Timeout,
 		HTTPClient:          client,
@@ -764,8 +742,8 @@ func makeJson(object any) ([]byte, error) {
 
 func baseRedfishUrl(q *QueryParams) string {
 	url := fmt.Sprintf("%s://", q.Protocol)
-	if q.User != "" && q.Pass != "" {
-		url += fmt.Sprintf("%s:%s@", q.User, q.Pass)
+	if q.Username != "" && q.Password != "" {
+		url += fmt.Sprintf("%s:%s@", q.Username, q.Password)
 	}
 	return fmt.Sprintf("%s%s:%d", url, q.Host, q.Port)
 }
