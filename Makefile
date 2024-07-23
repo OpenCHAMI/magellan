@@ -81,6 +81,12 @@ diff: ## git diff
 	git diff --exit-code
 	RES=$$(git status --porcelain) ; if [ -n "$$RES" ]; then echo $$RES && exit 1 ; fi
 
+.PHONY: docs
+docs: ## go docs
+	$(call print-target)
+	go doc github.com/OpenCHAMI/magellan/cmd
+	go doc github.com/OpenCHAMI/magellan/internal
+	go doc github.com/OpenCHAMI/magellan/pkg/crawler
 
 define print-target
     @printf "Executing target: \033[36m$@\033[0m\n"

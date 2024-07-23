@@ -10,6 +10,6 @@ COPY  magellan  /magellan
 COPY  /bin/magellan.sh /magellan.sh
 
 
-CMD [ "/magellan.sh" ]
+CMD [ "/magellan" ]
 
 ENTRYPOINT [ "/sbin/tini", "--" ]

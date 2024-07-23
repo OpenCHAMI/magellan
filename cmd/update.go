@@ -18,9 +18,16 @@ var (
 	status           bool
 )
 
+// The `update` command provides an interface to easily update firmware
+// using Redfish. It also provides a simple way to check the status of
+// an update in-progress.
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update BMC node firmware",
+	Long: "Perform an firmware update using Redfish by providing a remote firmware URL and component.\n" +
+		"Examples:\n" +
+		"  magellan update --host 172.16.0.108 --port 443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
+		"  magellan update --status --host 172.16.0.108 --port 443 --username bmc_username --password bmc_password",
 	Run: func(cmd *cobra.Command, args []string) {
 		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
 		q := &magellan.UpdateParams{
@@ -33,8 +40,8 @@ var updateCmd = &cobra.Command{
 				Preferred: "redfish",
 				Protocol:  protocol,
 				Host:      host,
-				User:      username,
-				Pass:      password,
+				Username:  username,
+				Password:  password,
 				Timeout:   timeout,
 				Port:      port,
 			},
@@ -78,14 +85,14 @@ func init() {
 	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
 	updateCmd.Flags().BoolVar(&status, "status", false, "get the status of the update")
 
-	viper.BindPFlag("bmc-host", updateCmd.Flags().Lookup("bmc-host"))
-	viper.BindPFlag("bmc-port", updateCmd.Flags().Lookup("bmc-port"))
-	viper.BindPFlag("user", updateCmd.Flags().Lookup("user"))
-	viper.BindPFlag("pass", updateCmd.Flags().Lookup("pass"))
+	viper.BindPFlag("host", updateCmd.Flags().Lookup("host"))
+	viper.BindPFlag("port", updateCmd.Flags().Lookup("port"))
+	viper.BindPFlag("username", updateCmd.Flags().Lookup("user"))
+	viper.BindPFlag("password", updateCmd.Flags().Lookup("pass"))
 	viper.BindPFlag("transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol"))
 	viper.BindPFlag("protocol", updateCmd.Flags().Lookup("protocol"))
-	viper.BindPFlag("firmware-url", updateCmd.Flags().Lookup("firmware-url"))
-	viper.BindPFlag("firmware-version", updateCmd.Flags().Lookup("firmware-version"))
+	viper.BindPFlag("firmware.url", updateCmd.Flags().Lookup("firmware.url"))
+	viper.BindPFlag("firmware.version", updateCmd.Flags().Lookup("firmware.version"))
 	viper.BindPFlag("component", updateCmd.Flags().Lookup("component"))
 	viper.BindPFlag("secure-tls", updateCmd.Flags().Lookup("secure-tls"))
 	viper.BindPFlag("status", updateCmd.Flags().Lookup("status"))

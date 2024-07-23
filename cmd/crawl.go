@@ -11,13 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// The `crawl` command walks a collection of Redfish endpoints to collect
+// specfic inventory detail. This command only expects host names and does
+// not require a scan to be performed beforehand.
 var crawlCmd = &cobra.Command{
-	Use: "crawl [uri]",
+	Use:   "crawl [uri]",
+	Short: "Crawl a single BMC for inventory information",
 	Long: "Crawl a single BMC for inventory information\n" +
 		"\n" +
 		"Example:\n" +
 		"  magellan crawl https://bmc.example.com",
-	Short: "Crawl a single BMC for inventory information",
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Validate that the only argument is a valid URI
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {

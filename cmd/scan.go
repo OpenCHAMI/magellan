@@ -25,9 +25,21 @@ var (
 	disableProbing bool
 )
 
+// The `scan` command is usually the first step to using the CLI tool.
+// This command will perform a network scan over a subnet by supplying
+// a list of subnets, subnet masks, and additional IP address to probe.
+//
+// See the `ScanForAssets()` function in 'internal/scan.go' for details
+// related to the implementation.
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan for BMC nodes on a network",
+	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response. " +
+		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available " +
+		"Redfish services.\n\n" +
+		"Example:\n" +
+		"  magellan scan --subnet 172.16.0.0/24 --add-host 10.0.0.101\n" +
+		"  magellan scan --subnet 172.16.0.0 --subnet-mask 255.255.255.0 --cache ./assets.db",
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			hostsToScan []string
