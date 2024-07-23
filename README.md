@@ -6,7 +6,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 
 [Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be ran by executing the `emulator/setup.sh` script or running `make emulator`.
 
-## Building
+## Building the Executable
 
 The `magellan` tool can be built to run on bare metal. Install the required Go tools, clone the repo, and then build the binary in the root directory with the following:
 
@@ -18,6 +18,30 @@ go mod tidy && go build
 
 And that's it. The last line should find and download all of the required dependencies to build the project. Although other versions of Go may work, the project has been tested to work with versions v1.20 and later on MacOS and Linux.
 
+### Building on Debian 12 (Bookworm)
+
+Getting the `magellan` tool to work with Go 1.21 on Debian 12 may require installing the `golang-1.21` meta-package from `bookworm-backports` through `apt` along with GCC for comping the `go-sqlite3` driver.
+
+```bash
+apt install gcc golang-1.21/bookworm-backport
+```
+
+The binary executable for the `golang-1.21` executable can then be found using `dpkg`.
+
+```bash
+dpkg -L golang-1.21-go
+```
+
+Using the correct binary, set the `CGO_ENABLED` environment variable and build the executable with `cgo` enabled:
+
+```bash
+export GOBIN=/usr/bin/golang-1.21/bin/go 
+go env -w CGO_ENABLED=1
+go mod tidy && go build
+```
+
+This might take some time to complete initially because of the `go-sqlite3` driver, but should be much faster after subsequent builds.
+
 ### Docker
 
 The tool can also run using Docker. To build the Docker container, run `docker build -t magellan:testing .` in the project's directory. This is useful if you to run `magellan` on a different system through Docker desktop without having to install and build with Go (or if you can't do so for some reason). [Prebuilt images](https://github.com/OpenCHAMI/magellan/pkgs/container/magellan) are available as well on `ghcr`. Images can be pulled directly from the repository:
@@ -27,6 +51,10 @@ docker pull ghcr.io/openchami/magellan:latest
 ```
 
 See the ["Running with Docker"](#running-with-docker) section below about running with the Docker container.
+
+
+
+
 
 ## Usage
 
