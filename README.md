@@ -142,7 +142,7 @@ To inspect the cache, use the `list` command. Make sure to point to the same dat
 
 This will print a list of node info found and stored from the scan. Like the `scan` subcommand, the output format can be set using the `--format` flag.
 
-Finally, set the `MAGELLAN_ACCESS_TOKEN`run the `collect` command to query the node from cache and send the info to be stored into SMD:
+Finally, set the `ACCESS_TOKEN`run the `collect` command to query the node from cache and send the info to be stored into SMD:
 
 ```bash
 ./magellan collect \
@@ -183,14 +183,14 @@ watch -n 1 "./magellan update --status --host 172.16.0.110 --user admin --pass p
 
 ### Getting an Access Token (WIP)
 
-The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `MAGELLAN_ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
+The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
 
 ```bash
 # must have a running OPAAL instance
 ./magellan login --url https://opaal:4444/login
 
 # ...complete login flow to get token
-export MAGELLAN_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+export ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIs...
 ```
 
 Alternatively, if you are running the OpenCHAMI quickstart in the [deployment recipes](https://github.com/OpenCHAMI/deployment-recipes), you can run the provided script to generate a token and set the environment variable that way.
@@ -198,7 +198,7 @@ Alternatively, if you are running the OpenCHAMI quickstart in the [deployment re
 ```bash
 quickstart_dir=path/to/deployment/recipes/quickstart
 source $quickstart_dir/bash_functions.sh
-export MAGELLAN_ACCESS_TOKEN=$(gen_access_token)
+export ACCESS_TOKEN=$(gen_access_token)
 ```
 
 ### Running with Docker
