@@ -40,7 +40,7 @@ go env -w CGO_ENABLED=1
 go mod tidy && go build
 ```
 
-This might take some time to complete initially because of the `go-sqlite3` driver, but should be much faster after subsequent builds.
+This might take some time to complete initially because of the `go-sqlite3` driver, but should be much faster for subsequent builds.
 
 ### Docker
 
