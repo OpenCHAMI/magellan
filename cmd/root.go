@@ -76,7 +76,7 @@ func Execute() {
 // not able to be loaded.
 func LoadAccessToken() (string, error) {
 	// try to load token from env var
-	testToken := os.Getenv("MAGELLAN_ACCESS_TOKEN")
+	testToken := os.Getenv("ACCESS_TOKEN")
 	if testToken != "" {
 		return testToken, nil
 	}

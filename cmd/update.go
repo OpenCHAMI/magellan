@@ -18,9 +18,16 @@ var (
 	status           bool
 )
 
+// The `update` command provides an interface to easily update firmware
+// using Redfish. It also provides a simple way to check the status of
+// an update in-progress.
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update BMC node firmware",
+	Long: "Perform an firmware update using Redfish by providing a remote firmware URL and component.\n" +
+		"Examples:\n" +
+		"  magellan update --host 172.16.0.108 --port 443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
+		"  magellan update --status --host 172.16.0.108 --port 443 --username bmc_username --password bmc_password",
 	Run: func(cmd *cobra.Command, args []string) {
 		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
 		q := &magellan.UpdateParams{

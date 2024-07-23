@@ -95,6 +95,7 @@ func init() {
 	// set flags to only be used together
 	collectCmd.MarkFlagsRequiredTogether("username", "password")
 
+	// bind flags to config properties
 	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
 	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
 	viper.BindPFlag("collect.port", collectCmd.Flags().Lookup("port"))

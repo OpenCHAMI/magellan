@@ -26,8 +26,14 @@ type UpdateParams struct {
 	TransferProtocol string
 }
 
-// NOTE: Does not work since OpenBMC, whic bmclib uses underneath, does not
-// support multipart updates. See issue: https://github.com/bmc-toolbox/bmclib/issues/341
+// UpdateFirmware() uses 'bmc-toolbox/bmclib' to update the firmware of a BMC node.
+// The function expects the firmware URL, firmware version, and component flags to be
+// set from the CLI to perform a firmware update.
+//
+// NOTE: Multipart HTTP updating may not work since older verions of OpenBMC, which bmclib
+// uses underneath, did not support support multipart updates. This was changed with the
+// inclusion of support for MultipartHttpPushUri in OpenBMC (https://gerrit.openbmc.org/c/openbmc/bmcweb/+/32174).
+// Also, related to bmclib: https://github.com/bmc-toolbox/bmclib/issues/341
 func UpdateFirmware(client *bmclib.Client, l *log.Logger, q *UpdateParams) error {
 	if q.Component == "" {
 		return fmt.Errorf("component is required")

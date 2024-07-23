@@ -12,9 +12,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// The `list` command provides an easy way to show what was found
+// and stored in a cache database from a scan. The data that's stored
+// is what is consumed by the `collect` command with the --cache flag.
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List information from scan",
+	Short: "List information stored in cache from a scan",
+	Long: "Prints all of the host and associated data found from performing a scan.\n" +
+	"See the 'scan' command on how to perform a scan.\n\n" + 
+	"Examples:\n" +
+	"  magellan list\n" +
+	"  magellan list "
 	Run: func(cmd *cobra.Command, args []string) {
 		probeResults, err := sqlite.GetProbeResults(cachePath)
 		if err != nil {
