@@ -21,7 +21,7 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/api/smd"
+	"github.com/OpenCHAMI/magellan/pkg/smd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

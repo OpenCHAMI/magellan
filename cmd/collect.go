@@ -5,9 +5,9 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/api/smd"
 	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
 	"github.com/OpenCHAMI/magellan/internal/log"
+	"github.com/OpenCHAMI/magellan/pkg/smd"
 	"github.com/cznic/mathutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

@@ -36,14 +36,12 @@ var updateCmd = &cobra.Command{
 			Component:        component,
 			TransferProtocol: transferProtocol,
 			QueryParams: magellan.QueryParams{
-				Drivers:   []string{"redfish"},
-				Preferred: "redfish",
-				Protocol:  protocol,
-				Host:      host,
-				Username:  username,
-				Password:  password,
-				Timeout:   timeout,
-				Port:      port,
+				Protocol: protocol,
+				Host:     host,
+				Username: username,
+				Password: password,
+				Timeout:  timeout,
+				Port:     port,
 			},
 		}
 
