@@ -37,21 +37,18 @@ const (
 // takes an object as an argument. However, the implementation may not
 // use all of the properties within the object.
 type QueryParams struct {
-	Host         string   // set by the 'host' flag
-	Port         int      // set by the 'port' flag
-	Protocol     string   // set by the 'protocol' flag
-	Username     string   // set the BMC username with the 'username' flag
-	Password     string   // set the BMC password with the 'password' flag
-	Drivers      []string // DEPRECATED: TO BE REMOVED!!!
-	Concurrency  int      // set the of concurrent jobs with the 'concurrency' flag
-	Preferred    string   // DEPRECATED: TO BE REMOVED!!!
-	Timeout      int      // set the timeout with the 'timeout' flag
-	CaCertPath   string   // set the cert path with the 'cacert' flag
-	Verbose      bool     // set whether to include verbose output with 'verbose' flag
-	IpmitoolPath string   // DEPRECATED: TO BE REMOVE!!!
-	OutputPath   string   // set the path to save output with 'output' flag
-	ForceUpdate  bool     // set whether to force updating SMD with 'force-update' flag
-	AccessToken  string   // set the access token to include in request with 'access-token' flag
+	Host        string // set by the 'host' flag
+	Port        int    // set by the 'port' flag
+	Protocol    string // set by the 'protocol' flag
+	Username    string // set the BMC username with the 'username' flag
+	Password    string // set the BMC password with the 'password' flag
+	Concurrency int    // set the of concurrent jobs with the 'concurrency' flag
+	Timeout     int    // set the timeout with the 'timeout' flag
+	CaCertPath  string // set the cert path with the 'cacert' flag
+	Verbose     bool   // set whether to include verbose output with 'verbose' flag
+	OutputPath  string // set the path to save output with 'output' flag
+	ForceUpdate bool   // set whether to force updating SMD with 'force-update' flag
+	AccessToken string // set the access token to include in request with 'access-token' flag
 }
 
 // This is the main function used to collect information from the BMC nodes via Redfish.
