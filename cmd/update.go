@@ -74,8 +74,8 @@ var updateCmd = &cobra.Command{
 func init() {
 	updateCmd.Flags().StringVar(&host, "bmc-host", "", "set the BMC host")
 	updateCmd.Flags().IntVar(&port, "bmc-port", 443, "set the BMC port")
-	updateCmd.Flags().StringVar(&username, "user", "", "set the BMC user")
-	updateCmd.Flags().StringVar(&password, "pass", "", "set the BMC password")
+	updateCmd.Flags().StringVar(&username, "username", "", "set the BMC user")
+	updateCmd.Flags().StringVar(&password, "password", "", "set the BMC password")
 	updateCmd.Flags().StringVar(&transferProtocol, "transfer-protocol", "HTTP", "set the transfer protocol")
 	updateCmd.Flags().StringVar(&protocol, "protocol", "https", "set the Redfish protocol")
 	updateCmd.Flags().StringVar(&firmwareUrl, "firmware-url", "", "set the path to the firmware")
@@ -85,8 +85,8 @@ func init() {
 
 	viper.BindPFlag("host", updateCmd.Flags().Lookup("host"))
 	viper.BindPFlag("port", updateCmd.Flags().Lookup("port"))
-	viper.BindPFlag("username", updateCmd.Flags().Lookup("user"))
-	viper.BindPFlag("password", updateCmd.Flags().Lookup("pass"))
+	viper.BindPFlag("username", updateCmd.Flags().Lookup("username"))
+	viper.BindPFlag("password", updateCmd.Flags().Lookup("password"))
 	viper.BindPFlag("transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol"))
 	viper.BindPFlag("protocol", updateCmd.Flags().Lookup("protocol"))
 	viper.BindPFlag("firmware.url", updateCmd.Flags().Lookup("firmware.url"))
