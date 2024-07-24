@@ -19,10 +19,10 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List information stored in cache from a scan",
 	Long: "Prints all of the host and associated data found from performing a scan.\n" +
-	"See the 'scan' command on how to perform a scan.\n\n" + 
-	"Examples:\n" +
-	"  magellan list\n" +
-	"  magellan list "
+		"See the 'scan' command on how to perform a scan.\n\n" +
+		"Examples:\n" +
+		"  magellan list\n" +
+		"  magellan list --cache ./assets.db",
 	Run: func(cmd *cobra.Command, args []string) {
 		probeResults, err := sqlite.GetProbeResults(cachePath)
 		if err != nil {
