@@ -29,9 +29,9 @@ func LoadAccessToken(path string) (string, error) {
 	}
 
 	// TODO: try to load token from config
-	testToken = viper.GetString("access_token")
+	testToken = viper.GetString("access-token")
 	if testToken != "" {
 		return testToken, nil
 	}
-	return "", fmt.Errorf("failed toload token from environment variable, file, or config")
+	return "", fmt.Errorf("failed to load token from environment variable, file, or config")
 }

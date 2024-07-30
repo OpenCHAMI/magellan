@@ -9,6 +9,22 @@ import (
 	"net/http"
 )
 
+// HTTP aliases for readibility
+type HTTPHeader map[string]string
+type HTTPBody []byte
+
+func (h HTTPHeader) Authorization(accessToken string) HTTPHeader {
+	if accessToken != "" {
+		h["Authorization"] = fmt.Sprintf("Bearer %s", accessToken)
+	}
+	return h
+}
+
+func (h HTTPHeader) ContentType(contentType string) HTTPHeader {
+	h["Content-Type"] = contentType
+	return h
+}
+
 // GetNextIP() returns the next IP address, but does not account
 // for net masks.
 func GetNextIP(ip *net.IP, inc uint) *net.IP {
@@ -35,7 +51,7 @@ func GetNextIP(ip *net.IP, inc uint) *net.IP {
 //
 // Returns a HTTP response object, response body as byte array, and any
 // error that may have occurred with making the request.
-func MakeRequest(client *http.Client, url string, httpMethod string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+func MakeRequest(client *http.Client, url string, httpMethod string, body HTTPBody, header HTTPHeader) (*http.Response, HTTPBody, error) {
 	// use defaults if no client provided
 	if client == nil {
 		client = http.DefaultClient
@@ -48,7 +64,7 @@ func MakeRequest(client *http.Client, url string, httpMethod string, body []byte
 		return nil, nil, fmt.Errorf("failed to create new HTTP request: %v", err)
 	}
 	req.Header.Add("User-Agent", "magellan")
-	for k, v := range headers {
+	for k, v := range header {
 		req.Header.Add(k, v)
 	}
 	res, err := client.Do(req)

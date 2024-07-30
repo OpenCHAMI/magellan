@@ -40,31 +40,34 @@ func SplitPathForViper(path string) (string, string, string) {
 }
 
 // MakeOutputDirectory() creates a new directory at the path argument if
-// the path does not exist
+// the path does not exist.
+//
+// Returns the final path that was created if no errors occurred. Otherwise,
+// it returns an empty string with an error.
 //
 // TODO: Refactor this function for hive partitioning or possibly move into
 // the logging package.
 // TODO: Add an option to force overwriting the path.
-func MakeOutputDirectory(path string) (string, error) {
+func MakeOutputDirectory(path string, overwrite bool) (string, error) {
 	// get the current data + time using Go's stupid formatting
 	t := time.Now()
-	dirname := t.Format("2006-01-01 15:04:05")
+	dirname := t.Format("2006-01-01")
 	final := path + "/" + dirname
 
 	// check if path is valid and directory
 	pathExists, err := PathExists(final)
 	if err != nil {
-		return final, fmt.Errorf("failed to check for existing path: %v", err)
+		return "", fmt.Errorf("failed to check for existing path: %v", err)
 	}
-	if pathExists {
+	if pathExists && !overwrite {
 		// make sure it is directory with 0o644 permissions
-		return final, fmt.Errorf("found existing path: %v", final)
+		return "", fmt.Errorf("found existing path: %v", final)
 	}
 
 	// create directory with data + time
 	err = os.MkdirAll(final, 0766)
 	if err != nil {
-		return final, fmt.Errorf("failed to make directory: %v", err)
+		return "", fmt.Errorf("failed to make directory: %v", err)
 	}
 	return final, nil
 }

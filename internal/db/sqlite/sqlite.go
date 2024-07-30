@@ -80,7 +80,7 @@ func DeleteProbeResults(path string, results *[]magellan.ScannedResult) error {
 	return nil
 }
 
-func GetProbeResults(path string) ([]magellan.ScannedResult, error) {
+func GetScannedResults(path string) ([]magellan.ScannedResult, error) {
 	db, err := sqlx.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed toopen database: %v", err)
