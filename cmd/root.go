@@ -48,7 +48,7 @@ var (
 // a help message and then exits.
 var rootCmd = &cobra.Command{
 	Use:   "magellan",
-	Short: "Tool for BMC discovery",
+	Short: "Redfish-based BMC discovery tool",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
