@@ -21,7 +21,7 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/pkg/smd"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -64,35 +64,6 @@ func Execute() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-}
-
-// LoadAccessToken() tries to load a JWT string from an environment
-// variable, file, or config in that order. If loading the token
-// fails with one options, it will fallback to the next option until
-// all options are exhausted.
-//
-// Returns a token as a string with no error if successful.
-// Alternatively, returns an empty string with an error if a token is
-// not able to be loaded.
-func LoadAccessToken() (string, error) {
-	// try to load token from env var
-	testToken := os.Getenv("ACCESS_TOKEN")
-	if testToken != "" {
-		return testToken, nil
-	}
-
-	// try reading access token from a file
-	b, err := os.ReadFile(tokenPath)
-	if err == nil {
-		return string(b), nil
-	}
-
-	// TODO: try to load token from config
-	testToken = viper.GetString("access_token")
-	if testToken != "" {
-		return testToken, nil
-	}
-	return "", fmt.Errorf("failed toload token from environment variable, file, or config")
 }
 
 func init() {
@@ -140,8 +111,8 @@ func SetDefaults() {
 	viper.SetDefault("scan.subnet-masks", []net.IP{})
 	viper.SetDefault("scan.disable-probing", false)
 	viper.SetDefault("collect.driver", []string{"redfish"})
-	viper.SetDefault("collect.host", smd.Host)
-	viper.SetDefault("collect.port", smd.Port)
+	viper.SetDefault("collect.host", client.Host)
+	viper.SetDefault("collect.port", client.Port)
 	viper.SetDefault("collect.user", "")
 	viper.SetDefault("collect.pass", "")
 	viper.SetDefault("collect.protocol", "https")

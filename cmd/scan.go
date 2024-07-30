@@ -18,8 +18,6 @@ import (
 )
 
 var (
-	begin          uint8
-	end            uint8
 	subnets        []string
 	subnetMasks    []net.IP
 	disableProbing bool
@@ -38,7 +36,7 @@ var scanCmd = &cobra.Command{
 		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available " +
 		"Redfish services.\n\n" +
 		"Example:\n" +
-		"  magellan scan --subnet 172.16.0.0/24 --add-host 10.0.0.101\n" +
+		"  magellan scan --subnet 172.16.0.0/24 --host 10.0.0.101\n" +
 		"  magellan scan --subnet 172.16.0.0 --subnet-mask 255.255.255.0 --cache ./assets.db",
 	Run: func(cmd *cobra.Command, args []string) {
 		var (

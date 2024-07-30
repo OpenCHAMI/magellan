@@ -2,8 +2,7 @@ package cmd
 
 import (
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/log"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -26,17 +25,16 @@ var updateCmd = &cobra.Command{
 	Short: "Update BMC node firmware",
 	Long: "Perform an firmware update using Redfish by providing a remote firmware URL and component.\n" +
 		"Examples:\n" +
-		"  magellan update --host 172.16.0.108 --port 443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
-		"  magellan update --status --host 172.16.0.108 --port 443 --username bmc_username --password bmc_password",
+		"  magellan update --bmc.host 172.16.0.108 --bmc.port 443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
+		"  magellan update --status --bmc.host 172.16.0.108 --bmc.port 443 --username bmc_username --password bmc_password",
 	Run: func(cmd *cobra.Command, args []string) {
-		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
+		// set up update parameters
 		q := &magellan.UpdateParams{
 			FirmwarePath:     firmwareUrl,
 			FirmwareVersion:  firmwareVersion,
 			Component:        component,
 			TransferProtocol: transferProtocol,
 			QueryParams: magellan.QueryParams{
-				Protocol: protocol,
 				Host:     host,
 				Username: username,
 				Password: password,
@@ -47,53 +45,49 @@ var updateCmd = &cobra.Command{
 
 		// check if required params are set
 		if host == "" || username == "" || password == "" {
-			l.Log.Fatal("requires host, user, and pass to be set")
+			log.Error().Msg("requires host, user, and pass to be set")
 		}
 
 		// get status if flag is set and exit
 		if status {
 			err := magellan.GetUpdateStatus(q)
 			if err != nil {
-				l.Log.Errorf("failed toget update status: %v", err)
+				log.Error().Err(err).Msgf("failed to get update status")
 			}
 			return
 		}
 
-		// client, err := magellan.NewClient(l, &q.QueryParams)
-		// if err != nil {
-		// 	l.Log.Errorf("failed tomake client: %v", err)
-		// }
-		// err = magellan.UpdateFirmware(client, l, q)
+		// initiate a remote update
 		err := magellan.UpdateFirmwareRemote(q)
 		if err != nil {
-			l.Log.Errorf("failed toupdate firmware: %v", err)
+			log.Error().Err(err).Msgf("failed to update firmware")
 		}
 	},
 }
 
 func init() {
-	updateCmd.Flags().StringVar(&host, "bmc-host", "", "set the BMC host")
-	updateCmd.Flags().IntVar(&port, "bmc-port", 443, "set the BMC port")
+	updateCmd.Flags().StringVar(&host, "bmc.host", "", "set the BMC host")
+	updateCmd.Flags().IntVar(&port, "bmc.port", 443, "set the BMC port")
 	updateCmd.Flags().StringVar(&username, "username", "", "set the BMC user")
 	updateCmd.Flags().StringVar(&password, "password", "", "set the BMC password")
 	updateCmd.Flags().StringVar(&transferProtocol, "transfer-protocol", "HTTP", "set the transfer protocol")
 	updateCmd.Flags().StringVar(&protocol, "protocol", "https", "set the Redfish protocol")
-	updateCmd.Flags().StringVar(&firmwareUrl, "firmware-url", "", "set the path to the firmware")
-	updateCmd.Flags().StringVar(&firmwareVersion, "firmware-version", "", "set the version of firmware to be installed")
+	updateCmd.Flags().StringVar(&firmwareUrl, "firmware.url", "", "set the path to the firmware")
+	updateCmd.Flags().StringVar(&firmwareVersion, "firmware.version", "", "set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
 	updateCmd.Flags().BoolVar(&status, "status", false, "get the status of the update")
 
-	viper.BindPFlag("host", updateCmd.Flags().Lookup("host"))
-	viper.BindPFlag("port", updateCmd.Flags().Lookup("port"))
-	viper.BindPFlag("username", updateCmd.Flags().Lookup("username"))
-	viper.BindPFlag("password", updateCmd.Flags().Lookup("password"))
-	viper.BindPFlag("transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol"))
-	viper.BindPFlag("protocol", updateCmd.Flags().Lookup("protocol"))
-	viper.BindPFlag("firmware.url", updateCmd.Flags().Lookup("firmware.url"))
-	viper.BindPFlag("firmware.version", updateCmd.Flags().Lookup("firmware.version"))
-	viper.BindPFlag("component", updateCmd.Flags().Lookup("component"))
-	viper.BindPFlag("secure-tls", updateCmd.Flags().Lookup("secure-tls"))
-	viper.BindPFlag("status", updateCmd.Flags().Lookup("status"))
+	viper.BindPFlag("update.bmc.host", updateCmd.Flags().Lookup("bmc.host"))
+	viper.BindPFlag("update.bmc.port", updateCmd.Flags().Lookup("bmc.port"))
+	viper.BindPFlag("update.username", updateCmd.Flags().Lookup("username"))
+	viper.BindPFlag("update.password", updateCmd.Flags().Lookup("password"))
+	viper.BindPFlag("update.transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol"))
+	viper.BindPFlag("update.protocol", updateCmd.Flags().Lookup("protocol"))
+	viper.BindPFlag("update.firmware.url", updateCmd.Flags().Lookup("firmware.url"))
+	viper.BindPFlag("update.firmware.version", updateCmd.Flags().Lookup("firmware.version"))
+	viper.BindPFlag("update.component", updateCmd.Flags().Lookup("component"))
+	viper.BindPFlag("update.secure-tls", updateCmd.Flags().Lookup("secure-tls"))
+	viper.BindPFlag("update.status", updateCmd.Flags().Lookup("status"))
 
 	rootCmd.AddCommand(updateCmd)
 }
