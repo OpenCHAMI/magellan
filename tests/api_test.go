@@ -11,15 +11,12 @@ import (
 	"testing"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/log"
-	"github.com/sirupsen/logrus"
 )
 
 func TestScanAndCollect(t *testing.T) {
 	var (
 		hosts = []string{"http://127.0.0.1"}
 		ports = []int{5000}
-		l     = log.NewLogger(logrus.New(), logrus.DebugLevel)
 	)
 	// do a scan on the emulator cluster with probing disabled and check results
 	results := magellan.ScanForAssets(hosts, ports, 1, 30, true, false)
@@ -33,7 +30,7 @@ func TestScanAndCollect(t *testing.T) {
 	}
 
 	// do a collect on the emulator cluster to collect Redfish info
-	magellan.CollectAll(results)
+	magellan.CollectInventory(&results, &magellan.QueryParams{})
 }
 
 func TestCrawlCommand(t *testing.T) {
