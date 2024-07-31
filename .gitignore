@@ -1,3 +1,4 @@
 magellan
+emulator/rf-emulator
 **/*.db
 dist/*
