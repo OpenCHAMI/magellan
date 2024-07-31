@@ -88,6 +88,11 @@ docs: ## go docs
 	go doc github.com/OpenCHAMI/magellan/internal
 	go doc github.com/OpenCHAMI/magellan/pkg/crawler
 
+.PHONY: emulator
+emulator:
+	$(call print-target)
+	./emulator/setup.sh
+
 define print-target
     @printf "Executing target: \033[36m$@\033[0m\n"
 endef
