@@ -2,7 +2,6 @@
 package magellan
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/util"
 
 	"github.com/Cray-HPE/hms-xname/xnames"
-	bmclib "github.com/bmc-toolbox/bmclib/v2"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish"
 	_ "github.com/stmcginnis/gofish"
@@ -228,101 +226,6 @@ func CollectAll(probeStates *[]ScannedResult, l *log.Logger, q *QueryParams) err
 	return nil
 }
 
-// CollectInventory() fetches inventory data from all of the BMC hosts provided.
-func CollectInventory(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	// open BMC session and update driver registry
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
-	client.Registry.FilterForCompatible(ctx)
-	err := client.PreferProvider(q.Preferred).Open(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to open client: %v", err)
-	}
-
-	inventory, err := client.Inventory(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to get inventory: %v", err)
-	}
-
-	// retrieve inventory data
-	data := map[string]any{"Inventory": inventory}
-	b, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	ctxCancel()
-	return b, nil
-}
-
-// TODO: DELETE ME!!!
-func CollectPowerState(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
-	client.Registry.FilterForCompatible(ctx)
-	err := client.PreferProvider(q.Preferred).Open(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to open client: %v", err)
-	}
-
-	powerState, err := client.GetPowerState(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to get inventory: %v", err)
-	}
-
-	// retrieve inventory data
-	data := map[string]any{"PowerState": powerState}
-	b, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	ctxCancel()
-	return b, nil
-
-}
-
-// TODO: DELETE ME!!!
-func CollectUsers(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	// open BMC session and update driver registry
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(q.Timeout))
-	client.Registry.FilterForCompatible(ctx)
-	err := client.Open(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to connect to bmc: %v", err)
-	}
-
-	defer client.Close(ctx)
-
-	users, err := client.ReadUsers(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to get users: %v", err)
-	}
-
-	// retrieve inventory data
-	data := map[string]any{"Users": users}
-	b, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	ctxCancel()
-	return b, nil
-}
-
-// TODO: DELETE ME!!!
-func CollectBios(client *bmclib.Client, q *QueryParams) ([]byte, error) {
-	b, err := makeRequest(client, client.GetBiosConfiguration, q.Timeout)
-	return b, err
-}
-
 // CollectEthernetInterfaces() collects all of the ethernet interfaces found
 // from all systems from under the "/redfish/v1/Systems" endpoint.
 //
@@ -454,9 +357,13 @@ func CollectSystems(c *gofish.APIClient, q *QueryParams) ([]map[string]any, erro
 			if q.Verbose {
 				fmt.Printf("no system ethernet interfaces found...trying to get from managers interface\n")
 			}
-			for _, managerLink := range system.ManagedBy {
+			managedBy, err := system.ManagedBy()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get system managers for '%s': %w", system.Name, err)
+			}
+			for _, manager := range managedBy {
 				// try getting ethernet interface from all managers until one is found
-				eths, err = redfish.ListReferencedEthernetInterfaces(c, managerLink+"/EthernetInterfaces")
+				eths, err = manager.EthernetInterfaces()
 				if err != nil {
 					return nil, fmt.Errorf("failed to get system manager ethernet interfaces: %v", err)
 				}
@@ -709,27 +616,6 @@ func makeGofishConfig(q *QueryParams) (gofish.ClientConfig, error) {
 		HTTPClient:          client,
 		// MaxConcurrentRequests: int64(q.Threads),  // NOTE: this was added in latest version of gofish
 	}, nil
-}
-
-func makeRequest[T any](client *bmclib.Client, fn func(context.Context) (T, error), timeout int) ([]byte, error) {
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*time.Duration(timeout))
-	client.Registry.FilterForCompatible(ctx)
-	err := client.Open(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to open client: %v", err)
-	}
-
-	defer client.Close(ctx)
-
-	response, err := fn(ctx)
-	if err != nil {
-		ctxCancel()
-		return nil, fmt.Errorf("failed to get response: %v", err)
-	}
-
-	ctxCancel()
-	return makeJson(response)
 }
 
 func makeJson(object any) ([]byte, error) {
