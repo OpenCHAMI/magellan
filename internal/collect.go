@@ -249,8 +249,7 @@ func CollectEthernetInterfaces(c *gofish.APIClient, q *QueryParams, systemID str
 
 	// get all of the ethernet interfaces in our systems
 	for _, system := range systems {
-		system.EthernetInterfaces()
-		eth, err := redfish.ListReferencedEthernetInterfaces(c, "/redfish/v1/Systems/"+system.ID+"/EthernetInterfaces")
+		eth, err := system.EthernetInterfaces()
 		if err != nil {
 			errList = append(errList, err)
 		}
