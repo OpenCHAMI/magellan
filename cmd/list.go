@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
+	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/rs/zerolog/log"
 
 	"github.com/sirupsen/logrus"
@@ -25,9 +25,9 @@ var listCmd = &cobra.Command{
 		"  magellan list\n" +
 		"  magellan list --cache ./assets.db",
 	Run: func(cmd *cobra.Command, args []string) {
-		scannedResults, err := sqlite.GetScannedResults(cachePath)
+		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
-			logrus.Errorf("failed toget probe results: %v\n", err)
+			logrus.Errorf("failed to get scanned assets: %v\n", err)
 		}
 		format = strings.ToLower(format)
 		if format == "json" {

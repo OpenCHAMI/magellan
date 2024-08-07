@@ -42,6 +42,7 @@ var (
 	outputPath  string
 	configPath  string
 	verbose     bool
+	debug       bool
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -70,9 +71,10 @@ func init() {
 	currentUser, _ = user.Current()
 	cobra.OnInitialize(InitializeConfig)
 	rootCmd.PersistentFlags().IntVar(&concurrency, "concurrency", -1, "set the number of concurrent processes")
-	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "set the timeout")
+	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 5, "set the timeout")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "set the config file path")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set output verbosity")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set to enable/disable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "set to enable/disable debug messages")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%smagellan/magellan.db", currentUser.Username+"/"), "set the scanning result cache path")
 
@@ -101,9 +103,10 @@ func InitializeConfig() {
 // instead of in this file.
 func SetDefaults() {
 	viper.SetDefault("threads", 1)
-	viper.SetDefault("timeout", 30)
+	viper.SetDefault("timeout", 5)
 	viper.SetDefault("config", "")
 	viper.SetDefault("verbose", false)
+	viper.SetDefault("debug", false)
 	viper.SetDefault("cache", "/tmp/magellan/magellan.db")
 	viper.SetDefault("scan.hosts", []string{})
 	viper.SetDefault("scan.ports", []int{})
@@ -115,7 +118,7 @@ func SetDefaults() {
 	viper.SetDefault("collect.port", client.Port)
 	viper.SetDefault("collect.user", "")
 	viper.SetDefault("collect.pass", "")
-	viper.SetDefault("collect.protocol", "https")
+	viper.SetDefault("collect.protocol", "tcp")
 	viper.SetDefault("collect.output", "/tmp/magellan/data/")
 	viper.SetDefault("collect.force-update", false)
 	viper.SetDefault("collect.ca-cert", "")
@@ -124,7 +127,7 @@ func SetDefaults() {
 	viper.SetDefault("user", "")
 	viper.SetDefault("pass", "")
 	viper.SetDefault("transfer-protocol", "HTTP")
-	viper.SetDefault("protocol", "https")
+	viper.SetDefault("protocol", "tcp")
 	viper.SetDefault("firmware-url", "")
 	viper.SetDefault("firmware-version", "")
 	viper.SetDefault("component", "")

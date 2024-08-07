@@ -5,7 +5,7 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
+	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/cznic/mathutil"
@@ -31,7 +31,7 @@ var collectCmd = &cobra.Command{
 		"  magellan collect --host smd.example.com --port 27779 --username username --password password",
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan
-		scannedResults, err := sqlite.GetScannedResults(cachePath)
+		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to get scanned results from cache")
 		}
@@ -53,7 +53,7 @@ var collectCmd = &cobra.Command{
 		if concurrency <= 0 {
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 255)
 		}
-		q := &magellan.QueryParams{
+		err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
 			Username:    username,
 			Password:    password,
 			Timeout:     timeout,
@@ -63,15 +63,10 @@ var collectCmd = &cobra.Command{
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
-		}
-		err = magellan.CollectInventory(&scannedResults, q)
+		})
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to collect data")
 		}
-
-		// add necessary headers for final request (like token)
-		header := util.HTTPHeader{}
-		header.Authorization(q.AccessToken)
 	},
 }
 
@@ -81,8 +76,9 @@ func init() {
 	collectCmd.PersistentFlags().IntVarP(&client.Port, "port", "p", client.Port, "set the port to the SMD API")
 	collectCmd.PersistentFlags().StringVar(&username, "username", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&password, "password", "", "set the BMC password")
-	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the protocol used to query")
-	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/data/", currentUser.Username+"/"), "set the path to store collection data")
+	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "set the scheme used to query")
+	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "set the protocol used to query")
+	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "set the path to store collection data")
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD")
 	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "path to CA cert. (defaults to system CAs)")
 
