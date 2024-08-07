@@ -9,7 +9,7 @@ import (
 )
 
 type UpdateParams struct {
-	QueryParams
+	CollectParams
 	FirmwarePath     string
 	FirmwareVersion  string
 	Component        string
@@ -20,7 +20,7 @@ type UpdateParams struct {
 // The function expects the firmware URL, firmware version, and component flags to be
 // set from the CLI to perform a firmware update.
 func UpdateFirmwareRemote(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService/Actions/SimpleUpdate"
+	url := baseRedfishUrl(&q.CollectParams) + "/redfish/v1/UpdateService/Actions/SimpleUpdate"
 	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"cache-control": "no-cache",
@@ -47,7 +47,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 }
 
 func GetUpdateStatus(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService"
+	url := baseRedfishUrl(&q.CollectParams) + "/redfish/v1/UpdateService"
 	res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)

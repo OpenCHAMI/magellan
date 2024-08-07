@@ -5,13 +5,16 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/rs/zerolog/log"
 )
 
-type ScannedResult struct {
+type ScannedAsset struct {
 	Host      string    `json:"host"`
 	Port      int       `json:"port"`
 	Protocol  string    `json:"protocol"`
@@ -19,9 +22,21 @@ type ScannedResult struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+// ScanParams is a collection of commom parameters passed to the CLI
+type ScanParams struct {
+	TargetHosts    [][]string
+	Scheme         string
+	Protocol       string
+	Concurrency    int
+	Timeout        int
+	DisableProbing bool
+	Verbose        bool
+	Debug          bool
+}
+
 // ScanForAssets() performs a net scan on a network to find available services
-// running. The function expects a list of hosts and ports to make requests.
-// Note that each all ports will be used per host.
+// running. The function expects a list of targets (as [][]string) to make requests.
+// The 2D list is to permit one goroutine per BMC node when making each request.
 //
 // This function runs in a goroutine with the "concurrency" flag setting the
 // number of concurrent requests. Only one request is made to each BMC node
@@ -34,54 +49,67 @@ type ScannedResult struct {
 // remove the service from being stored in the list of scanned results.
 //
 // Returns a list of scanned results to be stored in cache (but isn't doing here).
-func ScanForAssets(hosts []string, ports []int, concurrency int, timeout int, disableProbing bool, verbose bool) []ScannedResult {
+func ScanForAssets(params *ScanParams) []ScannedAsset {
 	var (
-		results  = make([]ScannedResult, 0, len(hosts))
-		done     = make(chan struct{}, concurrency+1)
-		chanHost = make(chan string, concurrency+1)
+		results   = make([]ScannedAsset, 0, len(params.TargetHosts))
+		done      = make(chan struct{}, params.Concurrency+1)
+		chanHosts = make(chan []string, params.Concurrency+1)
 	)
 
+	if params.Verbose {
+		log.Info().Msg("starting scan...")
+	}
+
 	var wg sync.WaitGroup
-	wg.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
+	wg.Add(params.Concurrency)
+	for i := 0; i < params.Concurrency; i++ {
 		go func() {
 			for {
-				host, ok := <-chanHost
+				hosts, ok := <-chanHosts
 				if !ok {
 					wg.Done()
 					return
 				}
-				scannedResults := rawConnect(host, ports, timeout, true)
-				if !disableProbing {
-					probeResults := []ScannedResult{}
-					for _, result := range scannedResults {
-						url := fmt.Sprintf("https://%s:%d/redfish/v1/", result.Host, result.Port)
-						res, _, err := util.MakeRequest(nil, url, "GET", nil, nil)
-						if err != nil || res == nil {
-							if verbose {
-								fmt.Printf("failed to make request: %v\n", err)
-							}
-							continue
-						} else if res.StatusCode != http.StatusOK {
-							if verbose {
-								fmt.Printf("request returned code: %v\n", res.StatusCode)
-							}
-							continue
-						} else {
-							probeResults = append(probeResults, result)
+				for _, host := range hosts {
+					foundAssets, err := rawConnect(host, params.Protocol, params.Timeout, true)
+					// if we failed to connect, exit from the function
+					if err != nil {
+						if params.Verbose {
+							log.Debug().Err(err).Msgf("failed to connect to host (%s)", host)
 						}
+						wg.Done()
+						return
 					}
-					results = append(results, probeResults...)
-				} else {
-					results = append(results, scannedResults...)
+					if !params.DisableProbing {
+						assetsToAdd := []ScannedAsset{}
+						for _, foundAsset := range foundAssets {
+							url := fmt.Sprintf("%s://%s/redfish/v1/", params.Scheme, foundAsset.Host)
+							res, _, err := util.MakeRequest(nil, url, http.MethodGet, nil, nil)
+							if err != nil || res == nil {
+								if params.Verbose {
+									log.Printf("failed to make request: %v\n", err)
+								}
+								continue
+							} else if res.StatusCode != http.StatusOK {
+								if params.Verbose {
+									log.Printf("request returned code: %v\n", res.StatusCode)
+								}
+								continue
+							} else {
+								assetsToAdd = append(assetsToAdd, foundAsset)
+							}
+						}
+						results = append(results, assetsToAdd...)
+					} else {
+						results = append(results, foundAssets...)
+					}
 				}
-
 			}
 		}()
 	}
 
-	for _, host := range hosts {
-		chanHost <- host
+	for _, hosts := range params.TargetHosts {
+		chanHosts <- hosts
 	}
 	go func() {
 		select {
@@ -92,13 +120,17 @@ func ScanForAssets(hosts []string, ports []int, concurrency int, timeout int, di
 			time.Sleep(1000)
 		}
 	}()
-	close(chanHost)
+	close(chanHosts)
 	wg.Wait()
 	close(done)
+
+	if params.Verbose {
+		log.Info().Msg("scan complete")
+	}
 	return results
 }
 
-// GenerateHosts() builds a list of hosts to scan using the "subnet"
+// GenerateHostsWithSubnet() builds a list of hosts to scan using the "subnet"
 // and "subnetMask" arguments passed. The function is capable of
 // distinguishing between IP formats: a subnet with just an IP address (172.16.0.0) and
 // a subnet with IP address and CIDR (172.16.0.0/24).
@@ -106,83 +138,111 @@ func ScanForAssets(hosts []string, ports []int, concurrency int, timeout int, di
 // NOTE: If a IP address is provided with CIDR, then the "subnetMask"
 // parameter will be ignored. If neither is provided, then the default
 // subnet mask will be used instead.
-func GenerateHosts(subnet string, subnetMask *net.IP) []string {
+func GenerateHostsWithSubnet(subnet string, subnetMask *net.IPMask, additionalPorts []int, defaultScheme string) [][]string {
 	if subnet == "" || subnetMask == nil {
 		return nil
 	}
 
-	// convert subnets from string to net.IP
+	// convert subnets from string to net.IP to test if CIDR is included
 	subnetIp := net.ParseIP(subnet)
 	if subnetIp == nil {
-		// try parse CIDR instead
+		// not a valid IP so try again with CIDR
 		ip, network, err := net.ParseCIDR(subnet)
 		if err != nil {
 			return nil
 		}
 		subnetIp = ip
-		if network != nil {
-			t := net.IP(network.Mask)
-			subnetMask = &t
+		if network == nil {
+			// use the default subnet mask if a valid one is not provided
+			network = &net.IPNet{
+				IP:   subnetIp,
+				Mask: net.IPv4Mask(255, 255, 255, 0),
+			}
 		}
+		subnetMask = &network.Mask
 	}
 
-	mask := net.IPMask(subnetMask.To4())
-
-	// if no subnet mask, use a default 24-bit mask (for now)
-	return generateHosts(&subnetIp, &mask)
+	// generate new IPs from subnet and format to full URL
+	subnetIps := generateIPsWithSubnet(&subnetIp, subnetMask)
+	return util.FormatIPUrls(subnetIps, additionalPorts, defaultScheme, false)
 }
 
+// GetDefaultPorts() returns a list of default ports. The only reason to have
+// this function is to add/remove ports without affecting usage.
 func GetDefaultPorts() []int {
 	return []int{HTTPS_PORT}
 }
 
-func rawConnect(host string, ports []int, timeout int, keepOpenOnly bool) []ScannedResult {
-	results := []ScannedResult{}
-	for _, p := range ports {
-		result := ScannedResult{
-			Host:      host,
-			Port:      p,
-			Protocol:  "tcp",
+// rawConnect() tries to connect to the host using DialTimeout() and waits
+// until a response is receive or if the timeout (in seconds) expires. This
+// function expects a full URL such as https://my.bmc.host:443/ to make the
+// connection.
+func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnly bool) ([]ScannedAsset, error) {
+	uri, err := url.ParseRequestURI(address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to split host/port: %w", err)
+	}
+
+	// convert port to its "proper" type
+	port, err := strconv.Atoi(uri.Port())
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert port to integer type: %w", err)
+	}
+
+	var (
+		timeoutDuration = time.Second * time.Duration(timeoutSeconds)
+		assets          []ScannedAsset
+		asset           = ScannedAsset{
+			Host:      uri.Host,
+			Port:      port,
+			Protocol:  protocol,
 			State:     false,
 			Timestamp: time.Now(),
 		}
-		t := time.Second * time.Duration(timeout)
-		port := fmt.Sprint(p)
-		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), t)
-		if err != nil {
-			result.State = false
-			// fmt.Println("Connecting error:", err)
+	)
+
+	// try to conntect to host (expects host in format [10.0.0.0]:443)
+	target := fmt.Sprintf("[%s]:%s", uri.Hostname(), uri.Port())
+	conn, err := net.DialTimeout(protocol, target, timeoutDuration)
+	if err != nil {
+		asset.State = false
+		return nil, fmt.Errorf("failed to dial host: %w", err)
+	}
+	if conn != nil {
+		asset.State = true
+		defer conn.Close()
+	}
+	if keepOpenOnly {
+		if asset.State {
+			assets = append(assets, asset)
 		}
-		if conn != nil {
-			result.State = true
-			defer conn.Close()
-			// fmt.Println("Opened", net.JoinHostPort(host, port))
-		}
-		if keepOpenOnly {
-			if result.State {
-				results = append(results, result)
-			}
-		} else {
-			results = append(results, result)
-		}
+	} else {
+		assets = append(assets, asset)
 	}
 
-	return results
+	return assets, nil
 }
 
-func generateHosts(ip *net.IP, mask *net.IPMask) []string {
+// generateIPsWithSubnet() returns a collection of host IP strings with a
+// provided subnet mask.
+//
+// TODO: add a way for filtering/exclude specific IPs and IP ranges.
+func generateIPsWithSubnet(ip *net.IP, mask *net.IPMask) []string {
+	// check if subnet IP and mask are valid
+	if ip == nil || mask == nil {
+		log.Error().Msg("invalid subnet IP or mask (ip == nil or mask == nil)")
+		return nil
+	}
 	// get all IP addresses in network
-	ones, _ := mask.Size()
+	ones, bits := mask.Size()
 	hosts := []string{}
-	end := int(math.Pow(2, float64((32-ones)))) - 1
+	end := int(math.Pow(2, float64((bits-ones)))) - 1
 	for i := 0; i < end; i++ {
-		// ip[3] = byte(i)
 		ip = util.GetNextIP(ip, 1)
 		if ip == nil {
 			continue
 		}
-		// host := fmt.Sprintf("%v.%v.%v.%v", (*ip)[0], (*ip)[1], (*ip)[2], (*ip)[3])
-		// fmt.Printf("host: %v\n", ip.String())
+
 		hosts = append(hosts, ip.String())
 	}
 	return hosts

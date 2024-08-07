@@ -27,11 +27,9 @@ const (
 	HTTPS_PORT = 443
 )
 
-// QueryParams is a collections of common parameters passed to the CLI.
-// Each CLI subcommand has a corresponding implementation function that
-// takes an object as an argument. However, the implementation may not
-// use all of the properties within the object.
-type QueryParams struct {
+// CollectParams is a collection of common parameters passed to the CLI
+// for the 'collect' subcommand.
+type CollectParams struct {
 	Host        string // set by the 'host' flag
 	Port        int    // set by the 'port' flag
 	Username    string // set the BMC username with the 'username' flag
@@ -50,7 +48,7 @@ type QueryParams struct {
 //
 // Requests can be made to several of the nodes using a goroutine by setting the q.Concurrency
 // property value between 1 and 255.
-func CollectInventory(scannedResults *[]ScannedResult, params *QueryParams) error {
+func CollectInventory(scannedResults *[]ScannedAsset, params *CollectParams) error {
 	// check for available probe states
 	if scannedResults == nil {
 		return fmt.Errorf("no probe states found")
@@ -65,7 +63,7 @@ func CollectInventory(scannedResults *[]ScannedResult, params *QueryParams) erro
 		wg                sync.WaitGroup
 		found             = make([]string, 0, len(*scannedResults))
 		done              = make(chan struct{}, params.Concurrency+1)
-		chanScannedResult = make(chan ScannedResult, params.Concurrency+1)
+		chanScannedResult = make(chan ScannedAsset, params.Concurrency+1)
 		outputPath        = path.Clean(params.OutputPath)
 		smdClient         = client.NewClient(
 			client.WithSecureTLS(params.CaCertPath),
@@ -94,7 +92,7 @@ func CollectInventory(scannedResults *[]ScannedResult, params *QueryParams) erro
 
 				// TODO: use pkg/crawler to request inventory data via Redfish
 				systems, err := crawler.CrawlBMC(crawler.CrawlerConfig{
-					URI:      fmt.Sprintf("https://%s:%d", sr.Host, sr.Port),
+					URI:      fmt.Sprintf("%s:%d", sr.Host, sr.Port),
 					Username: params.Username,
 					Password: params.Password,
 					Insecure: true,
@@ -131,14 +129,14 @@ func CollectInventory(scannedResults *[]ScannedResult, params *QueryParams) erro
 
 				// write JSON data to file if output path is set using hive partitioning strategy
 				if outputPath != "" {
-					err = os.MkdirAll(outputPath, os.ModeDir)
+					err = os.MkdirAll(outputPath, 0o644)
 					if err != nil {
 						log.Error().Err(err).Msg("failed to make directory for output")
 					} else {
 						// make the output directory to store files
 						outputPath, err := util.MakeOutputDirectory(outputPath, false)
 						if err != nil {
-							log.Error().Msgf("failed to make output directory: %v", err)
+							log.Error().Err(err).Msg("failed to make output directory")
 						} else {
 							// write the output to the final path
 							err = os.WriteFile(path.Clean(fmt.Sprintf("%s/%s/%d.json", params.Host, outputPath, time.Now().Unix())), body, os.ModePerm)
@@ -197,6 +195,6 @@ func CollectInventory(scannedResults *[]ScannedResult, params *QueryParams) erro
 	return nil
 }
 
-func baseRedfishUrl(q *QueryParams) string {
+func baseRedfishUrl(q *CollectParams) string {
 	return fmt.Sprintf("%s:%d", q.Host, q.Port)
 }

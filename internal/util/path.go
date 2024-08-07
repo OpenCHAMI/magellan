@@ -44,10 +44,6 @@ func SplitPathForViper(path string) (string, string, string) {
 //
 // Returns the final path that was created if no errors occurred. Otherwise,
 // it returns an empty string with an error.
-//
-// TODO: Refactor this function for hive partitioning or possibly move into
-// the logging package.
-// TODO: Add an option to force overwriting the path.
 func MakeOutputDirectory(path string, overwrite bool) (string, error) {
 	// get the current data + time using Go's stupid formatting
 	t := time.Now()
