@@ -145,20 +145,13 @@ func FormatIPUrls(ips []string, ports []int, scheme string, verbose bool) [][]st
 	// format each positional arg as a complete URL
 	var formattedHosts [][]string
 	for _, ip := range ips {
-		// if parsing completely fails, try to build new URL object
+		if scheme == "" {
+			scheme = "https"
+		}
+		// make an entirely new object since we're expecting just IPs
 		uri := &url.URL{
 			Scheme: scheme,
 			Host:   ip,
-		}
-
-		// check if scheme is set, if not set it with flag or default value ('https' if flag is not set)
-		if uri.Scheme == "" {
-			if scheme != "" {
-				uri.Scheme = scheme
-			} else {
-				// hardcoded assumption
-				uri.Scheme = "https"
-			}
 		}
 
 		// tidy up slashes and update arg with new value
@@ -167,9 +160,12 @@ func FormatIPUrls(ips []string, ports []int, scheme string, verbose bool) [][]st
 
 		// for hosts with unspecified ports, add ports to scan from flag
 		if uri.Port() == "" {
+			if len(ports) == 0 {
+				ports = append(ports, 443)
+			}
 			var tmp []string
 			for _, port := range ports {
-				uri.Host = fmt.Sprintf("%s:%d", ip, port)
+				uri.Host += fmt.Sprintf(":%d", port)
 				tmp = append(tmp, uri.String())
 			}
 			formattedHosts = append(formattedHosts, tmp)

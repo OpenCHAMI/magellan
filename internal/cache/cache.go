@@ -1,6 +1,8 @@
 package cache
 
-import "database/sql/driver"
+import (
+	"database/sql/driver"
+)
 
 type Cache[T any] interface {
 	CreateIfNotExists(path string) (driver.Connector, error)

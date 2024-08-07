@@ -78,26 +78,17 @@ var scanCmd = &cobra.Command{
 			}
 
 			// generate a slice of all hosts to scan from subnets
-			targetHosts = append(targetHosts, magellan.GenerateHostsWithSubnet(subnet, &subnetMask, ports, scheme)...)
-		}
-
-		// convert everything into full addresses for scanning
-		for _, host := range hosts {
-			var targets []string
-			for _, port := range ports {
-				_ = port
-				targets = append(targets, host)
-			}
-			targetHosts = append(targetHosts, targets)
+			subnetHosts := magellan.GenerateHostsWithSubnet(subnet, &subnetMask, ports, scheme)
+			targetHosts = append(targetHosts, subnetHosts...)
 		}
 
 		// if there are no target hosts, then there's nothing to do
 		if len(targetHosts) <= 0 {
-			log.Warn().Msg("nothing to do (no target hosts)")
+			log.Warn().Msg("nothing to do (no valid target hosts)")
 			return
 		} else {
 			if len(targetHosts[0]) <= 0 {
-				log.Warn().Msg("nothing to do (no target hosts)")
+				log.Warn().Msg("nothing to do (no valid target hosts)")
 				return
 			}
 		}
