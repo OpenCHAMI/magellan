@@ -4,6 +4,7 @@ github.com/Cray-HPE/hms-xname v1.3.0 h1:DQmetMniubqcaL6Cxarz9+7KFfWGSEizIhfPHIgC
 github.com/Cray-HPE/hms-xname v1.3.0/go.mod h1:XKdjQSzoTps5KDOE8yWojBTAWASGaS6LfRrVDxwTQO8=
 github.com/OpenCHAMI/jwtauth/v5 v5.0.0-20240321222802-e6cb468a2a18 h1:oBPtXp9RVm9lk5zTmDLf+Vh21yDHpulBxUqGJQjwQCk=
 github.com/OpenCHAMI/jwtauth/v5 v5.0.0-20240321222802-e6cb468a2a18/go.mod h1:ggNHWgLfW/WRXcE8ZZC4S7UwHif16HVmyowOCWdNSN8=
+
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/cpuguy83/go-md2man/v2 v2.0.4/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548 h1:iwZdTE0PVqJCos1vaoKsclOGD3ADKpshg3SRtYBbwso=
