@@ -30,21 +30,27 @@ func TestScanAndCollect(t *testing.T) {
 	}
 
 	// do a collect on the emulator cluster to collect Redfish info
-	magellan.CollectInventory(&results, &magellan.QueryParams{})
+	magellan.CollectInventory(&results, &magellan.CollectParams{})
 }
 
 func TestCrawlCommand(t *testing.T) {
-
+	// TODO: add test to check the crawl command's behavior
 }
 
 func TestListCommand(t *testing.T) {
-
+	// TODO: add test to check the list command's output
 }
 
 func TestUpdateCommand(t *testing.T) {
-
+	// TODO: add test that does a Redfish simple update checking it success and
+	// failure points
 }
 
 func TestGofishFunctions(t *testing.T) {
+	// TODO: add test that checks certain gofish function output to make sure
+	// gofish's output isn't changing spontaneously and remains predictable
+}
 
+func TestGenerateHosts(t *testing.T) {
+	// TODO: add test to generate hosts using a collection of subnets/masks
 }
