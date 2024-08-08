@@ -63,6 +63,14 @@ var scanCmd = &cobra.Command{
 		// assumes subnet without CIDR has a subnet-mask of 255.255.0.0
 		"  magellan scan --subnet 10.0.0.0/24 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db",
 	Run: func(cmd *cobra.Command, args []string) {
+		// add default ports for hosts if none are specified with flag
+		if len(ports) == 0 {
+			if debug {
+				log.Debug().Msg("adding default ports")
+			}
+			ports = magellan.GetDefaultPorts()
+		}
+
 		// format and combine flag and positional args
 		targetHosts = append(targetHosts, util.FormatHostUrls(args, ports, scheme, verbose)...)
 		targetHosts = append(targetHosts, util.FormatHostUrls(hosts, ports, scheme, verbose)...)
@@ -91,14 +99,6 @@ var scanCmd = &cobra.Command{
 				log.Warn().Msg("nothing to do (no valid target hosts)")
 				return
 			}
-		}
-
-		// add default ports for hosts if none are specified with flag
-		if len(ports) == 0 {
-			if debug {
-				log.Debug().Msg("adding default ports")
-			}
-			ports = magellan.GetDefaultPorts()
 		}
 
 		// show the parameters going into the scan
@@ -133,6 +133,7 @@ var scanCmd = &cobra.Command{
 		}
 
 		// scan and store scanned data in cache
+		fmt.Printf("targets: %v\n", targetHosts)
 		foundAssets := magellan.ScanForAssets(&magellan.ScanParams{
 			TargetHosts:    targetHosts,
 			Scheme:         scheme,

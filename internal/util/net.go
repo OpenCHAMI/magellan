@@ -155,8 +155,8 @@ func FormatIPUrls(ips []string, ports []int, scheme string, verbose bool) [][]st
 		}
 
 		// tidy up slashes and update arg with new value
-		uri.Path = strings.TrimSuffix(uri.Path, "/")
 		uri.Path = strings.ReplaceAll(uri.Path, "//", "/")
+		uri.Path = strings.TrimSuffix(uri.Path, "/")
 
 		// for hosts with unspecified ports, add ports to scan from flag
 		if uri.Port() == "" {
