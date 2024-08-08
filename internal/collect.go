@@ -129,19 +129,23 @@ func CollectInventory(scannedResults *[]ScannedAsset, params *CollectParams) err
 
 				// write JSON data to file if output path is set using hive partitioning strategy
 				if outputPath != "" {
-					err = os.MkdirAll(outputPath, 0o644)
-					if err != nil {
-						log.Error().Err(err).Msg("failed to make directory for output")
-					} else {
-						// make the output directory to store files
-						outputPath, err := util.MakeOutputDirectory(outputPath, false)
+					// make directory if it does exists
+					exists, err := util.PathExists(outputPath)
+					if err == nil && !exists {
+						err = os.MkdirAll(outputPath, 0o644)
 						if err != nil {
-							log.Error().Err(err).Msg("failed to make output directory")
+							log.Error().Err(err).Msg("failed to make directory for output")
 						} else {
-							// write the output to the final path
-							err = os.WriteFile(path.Clean(fmt.Sprintf("%s/%s/%d.json", params.Host, outputPath, time.Now().Unix())), body, os.ModePerm)
+							// make the output directory to store files
+							outputPath, err := util.MakeOutputDirectory(outputPath, false)
 							if err != nil {
-								log.Error().Err(err).Msgf("failed to write data to file")
+								log.Error().Err(err).Msg("failed to make output directory")
+							} else {
+								// write the output to the final path
+								err = os.WriteFile(path.Clean(fmt.Sprintf("%s/%s/%d.json", params.Host, outputPath, time.Now().Unix())), body, os.ModePerm)
+								if err != nil {
+									log.Error().Err(err).Msgf("failed to write data to file")
+								}
 							}
 						}
 					}
