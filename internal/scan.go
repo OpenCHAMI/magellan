@@ -132,8 +132,8 @@ func ScanForAssets(params *ScanParams) []ScannedAsset {
 
 // GenerateHostsWithSubnet() builds a list of hosts to scan using the "subnet"
 // and "subnetMask" arguments passed. The function is capable of
-// distinguishing between IP formats: a subnet with just an IP address (172.16.0.0) and
-// a subnet with IP address and CIDR (172.16.0.0/24).
+// distinguishing between IP formats: a subnet with just an IP address (172.16.0.0)
+// and a subnet with IP address and CIDR (172.16.0.0/24).
 //
 // NOTE: If a IP address is provided with CIDR, then the "subnetMask"
 // parameter will be ignored. If neither is provided, then the default
@@ -193,7 +193,7 @@ func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnl
 		timeoutDuration = time.Second * time.Duration(timeoutSeconds)
 		assets          []ScannedAsset
 		asset           = ScannedAsset{
-			Host:      uri.Host,
+			Host:      uri.Hostname(),
 			Port:      port,
 			Protocol:  protocol,
 			State:     false,
