@@ -133,7 +133,6 @@ var scanCmd = &cobra.Command{
 		}
 
 		// scan and store scanned data in cache
-		fmt.Printf("targets: %v\n", targetHosts)
 		foundAssets := magellan.ScanForAssets(&magellan.ScanParams{
 			TargetHosts:    targetHosts,
 			Scheme:         scheme,
