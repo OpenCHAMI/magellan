@@ -9,7 +9,6 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/rs/zerolog/log"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +26,7 @@ var listCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
-			logrus.Errorf("failed to get scanned assets: %v\n", err)
+			log.Error().Err(err).Msg("failed to get scanned assets")
 		}
 		format = strings.ToLower(format)
 		if format == "json" {
@@ -45,6 +44,6 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
-	listCmd.Flags().StringVar(&format, "format", "", "set the output format")
+	listCmd.Flags().StringVar(&format, "format", "", "set the output format (json|default)")
 	rootCmd.AddCommand(listCmd)
 }
