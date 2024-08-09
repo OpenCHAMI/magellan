@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type ScannedAsset struct {
+type RemoteAsset struct {
 	Host      string    `json:"host"`
 	Port      int       `json:"port"`
 	Protocol  string    `json:"protocol"`
@@ -49,9 +49,9 @@ type ScanParams struct {
 // remove the service from being stored in the list of scanned results.
 //
 // Returns a list of scanned results to be stored in cache (but isn't doing here).
-func ScanForAssets(params *ScanParams) []ScannedAsset {
+func ScanForAssets(params *ScanParams) []RemoteAsset {
 	var (
-		results   = make([]ScannedAsset, 0, len(params.TargetHosts))
+		results   = make([]RemoteAsset, 0, len(params.TargetHosts))
 		done      = make(chan struct{}, params.Concurrency+1)
 		chanHosts = make(chan []string, params.Concurrency+1)
 	)
@@ -81,7 +81,7 @@ func ScanForAssets(params *ScanParams) []ScannedAsset {
 						return
 					}
 					if !params.DisableProbing {
-						assetsToAdd := []ScannedAsset{}
+						assetsToAdd := []RemoteAsset{}
 						for _, foundAsset := range foundAssets {
 							url := fmt.Sprintf("%s://%s/redfish/v1/", params.Scheme, foundAsset.Host)
 							res, _, err := util.MakeRequest(nil, url, http.MethodGet, nil, nil)
@@ -177,7 +177,7 @@ func GetDefaultPorts() []int {
 // until a response is receive or if the timeout (in seconds) expires. This
 // function expects a full URL such as https://my.bmc.host:443/ to make the
 // connection.
-func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnly bool) ([]ScannedAsset, error) {
+func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnly bool) ([]RemoteAsset, error) {
 	uri, err := url.ParseRequestURI(address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to split host/port: %w", err)
@@ -191,8 +191,8 @@ func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnl
 
 	var (
 		timeoutDuration = time.Second * time.Duration(timeoutSeconds)
-		assets          []ScannedAsset
-		asset           = ScannedAsset{
+		assets          []RemoteAsset
+		asset           = RemoteAsset{
 			Host:      uri.Hostname(),
 			Port:      port,
 			Protocol:  protocol,

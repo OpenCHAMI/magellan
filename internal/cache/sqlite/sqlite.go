@@ -31,7 +31,7 @@ func CreateScannedAssetIfNotExists(path string) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func InsertScannedAssets(path string, assets ...magellan.ScannedAsset) error {
+func InsertScannedAssets(path string, assets ...magellan.RemoteAsset) error {
 	if assets == nil {
 		return fmt.Errorf("states == nil")
 	}
@@ -59,7 +59,7 @@ func InsertScannedAssets(path string, assets ...magellan.ScannedAsset) error {
 	return nil
 }
 
-func DeleteScannedAssets(path string, results ...magellan.ScannedAsset) error {
+func DeleteScannedAssets(path string, results ...magellan.RemoteAsset) error {
 	if results == nil {
 		return fmt.Errorf("no assets found")
 	}
@@ -83,7 +83,7 @@ func DeleteScannedAssets(path string, results ...magellan.ScannedAsset) error {
 	return nil
 }
 
-func GetScannedAssets(path string) ([]magellan.ScannedAsset, error) {
+func GetScannedAssets(path string) ([]magellan.RemoteAsset, error) {
 	// check if path exists first to prevent creating the database
 	exists, err := util.PathExists(path)
 	if !exists {
@@ -98,7 +98,7 @@ func GetScannedAssets(path string) ([]magellan.ScannedAsset, error) {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
 
-	results := []magellan.ScannedAsset{}
+	results := []magellan.RemoteAsset{}
 	err = db.Select(&results, fmt.Sprintf("SELECT * FROM %s ORDER BY host ASC, port ASC;", TABLE_NAME))
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve assets: %v", err)

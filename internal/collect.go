@@ -48,7 +48,7 @@ type CollectParams struct {
 //
 // Requests can be made to several of the nodes using a goroutine by setting the q.Concurrency
 // property value between 1 and 255.
-func CollectInventory(scannedResults *[]ScannedAsset, params *CollectParams) error {
+func CollectInventory(scannedResults *[]RemoteAsset, params *CollectParams) error {
 	// check for available probe states
 	if scannedResults == nil {
 		return fmt.Errorf("no probe states found")
@@ -63,7 +63,7 @@ func CollectInventory(scannedResults *[]ScannedAsset, params *CollectParams) err
 		wg                sync.WaitGroup
 		found             = make([]string, 0, len(*scannedResults))
 		done              = make(chan struct{}, params.Concurrency+1)
-		chanScannedResult = make(chan ScannedAsset, params.Concurrency+1)
+		chanScannedResult = make(chan RemoteAsset, params.Concurrency+1)
 		outputPath        = path.Clean(params.OutputPath)
 		smdClient         = client.NewClient[client.SmdClient](
 			client.WithSecureTLS[client.SmdClient](params.CaCertPath),
