@@ -11,41 +11,39 @@ import (
 )
 
 var (
-	Host         = "http://localhost"
+	Host         = "http://localhost:27779"
 	BaseEndpoint = "/hsm/v2"
-	Port         = 27779
 )
 
-func (c *Client) GetRedfishEndpoints(header util.HTTPHeader) error {
-	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	_, body, err := util.MakeRequest(c.Client, url, http.MethodGet, nil, header)
-	if err != nil {
-		return fmt.Errorf("failed to get endpoint: %v", err)
-	}
-	// fmt.Println(res)
-	fmt.Println(string(body))
-	return nil
+type SmdClient struct {
+	*http.Client
+	Host  string
+	Xname string
 }
 
-func (c *Client) GetComponentEndpoint(xname string) error {
-	url := makeEndpointUrl("/Inventory/ComponentsEndpoints/" + xname)
-	res, body, err := c.MakeRequest(url, "GET", nil, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get endpoint: %v", err)
-	}
-	fmt.Println(res)
-	fmt.Println(string(body))
-	return nil
+func (c SmdClient) Name() string {
+	return "smd"
 }
 
-func (c *Client) AddRedfishEndpoint(data map[string]any, headers util.HTTPHeader) error {
+func (c SmdClient) RootEndpoint(endpoint string) string {
+	return fmt.Sprintf("/hsm/v2/%s%s", Host, endpoint)
+}
+
+func (c SmdClient) GetClient() *http.Client {
+	return c.Client
+}
+
+// Add() has a similar function definition to that of the default implementation,
+// but also allows further customization and data/header manipulation that would
+// be specific and/or unique to SMD's API.
+func (c SmdClient) Add(data util.HTTPBody, headers util.HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("failed to add redfish endpoint: no data found")
 	}
 
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint
-	url := makeEndpointUrl("/Inventory/RedfishEndpoints")
-	res, body, err := c.Post(url, data, headers)
+	url := c.RootEndpoint("/Inventory/RedfishEndpoints")
+	res, body, err := util.MakeRequest(c.Client, url, http.MethodPost, data, headers)
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
@@ -56,13 +54,13 @@ func (c *Client) AddRedfishEndpoint(data map[string]any, headers util.HTTPHeader
 	return err
 }
 
-func (c *Client) UpdateRedfishEndpoint(xname string, data []byte, headers map[string]string) error {
+func (c SmdClient) Update(data util.HTTPBody, headers util.HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("failed to add redfish endpoint: no data found")
 	}
 	// Update redfish endpoint via PUT `/hsm/v2/Inventory/RedfishEndpoints` endpoint
-	url := makeEndpointUrl("/Inventory/RedfishEndpoints/" + xname)
-	res, body, err := c.MakeRequest(url, "PUT", data, headers)
+	url := c.RootEndpoint("/Inventory/RedfishEndpoints/" + c.Xname)
+	res, body, err := util.MakeRequest(c.Client, url, http.MethodPut, data, headers)
 	fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
@@ -71,8 +69,4 @@ func (c *Client) UpdateRedfishEndpoint(xname string, data []byte, headers map[st
 		}
 	}
 	return err
-}
-
-func makeEndpointUrl(endpoint string) string {
-	return Host + ":" + fmt.Sprint(Port) + BaseEndpoint + endpoint
 }
