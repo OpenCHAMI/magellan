@@ -65,8 +65,8 @@ func CollectInventory(scannedResults *[]ScannedAsset, params *CollectParams) err
 		done              = make(chan struct{}, params.Concurrency+1)
 		chanScannedResult = make(chan ScannedAsset, params.Concurrency+1)
 		outputPath        = path.Clean(params.OutputPath)
-		smdClient         = client.NewClient(
-			client.WithSecureTLS(params.CaCertPath),
+		smdClient         = client.NewClient[client.SmdClient](
+			client.WithSecureTLS[client.SmdClient](params.CaCertPath),
 		)
 	)
 	wg.Add(params.Concurrency)
@@ -152,13 +152,14 @@ func CollectInventory(scannedResults *[]ScannedAsset, params *CollectParams) err
 				}
 
 				// add all endpoints to smd
-				err = smdClient.AddRedfishEndpoint(data, headers)
+				err = smdClient.Add(body, headers)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to add Redfish endpoint")
 
 					// try updating instead
 					if params.ForceUpdate {
-						err = smdClient.UpdateRedfishEndpoint(data["ID"].(string), body, headers)
+						smdClient.Xname = data["ID"].(string)
+						err = smdClient.Update(body, headers)
 						if err != nil {
 							log.Error().Err(err).Msgf("failed to update Redfish endpoint")
 						}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/util"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -83,6 +84,15 @@ func DeleteScannedAssets(path string, results ...magellan.ScannedAsset) error {
 }
 
 func GetScannedAssets(path string) ([]magellan.ScannedAsset, error) {
+	// check if path exists first to prevent creating the database
+	exists, err := util.PathExists(path)
+	if !exists {
+		return nil, fmt.Errorf("no file found")
+	} else if err != nil {
+		return nil, err
+	}
+
+	// now check if the file is the SQLite database
 	db, err := sqlx.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
