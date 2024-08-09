@@ -35,17 +35,17 @@ var (
 var scanCmd = &cobra.Command{
 	Use:   "scan urls...",
 	Short: "Scan to discover BMC nodes on a network",
-	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response. " +
-		"Each host is passed *with a full URL* including the protocol and port. Additional subnets can be added " +
-		"by using the '--subnet' flag and providing an IP address on the subnet as well as a CIDR. If no CIDR is " +
-		"provided, then the subnet mask specified with the '--subnet-mask' flag will be used instead (will use " +
-		"default mask if not set).\n" +
-		"Similarly, any host provided with no port with use either the ports specified" +
-		"with `--port` or the default port used with each specified protocol. The default protocol is 'tcp' unless " +
-		"specified. The `--scheme` flag works similarly and the default value is 'https' in the host URL or with the " +
-		"'--protocol' flag.\n" +
-		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available. " +
-		"Redfish services. This is not recommended, since the extra request makes the scan a bit more reliable " +
+	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response.\n" +
+		"Each host is passed *with a full URL* including the protocol and port. Additional subnets can be added\n" +
+		"by using the '--subnet' flag and providing an IP address on the subnet as well as a CIDR. If no CIDR is\n" +
+		"provided, then the subnet mask specified with the '--subnet-mask' flag will be used instead (will use\n" +
+		"default mask if not set).\n\n" +
+		"Similarly, any host provided with no port with use either the ports specified\n" +
+		"with `--port` or the default port used with each specified protocol. The default protocol is 'tcp' unless\n" +
+		"specified. The `--scheme` flag works similarly and the default value is 'https' in the host URL or with the\n" +
+		"'--protocol' flag.\n\n" +
+		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available.\n" +
+		"Redfish services. This is not recommended, since the extra request makes the scan a bit more reliable\n" +
 		"for determining which hosts to collect inventory data.\n\n" +
 		"Examples:\n" +
 		// assumes host https://10.0.0.101:443
@@ -53,15 +53,15 @@ var scanCmd = &cobra.Command{
 		// assumes subnet using HTTPS and port 443 except for specified host
 		"  magellan scan http://10.0.0.101:80 https://user:password@10.0.0.102:443 http://172.16.0.105:8080 --subnet 172.16.0.0/24\n" +
 		// assumes hosts http://10.0.0.101:8080 and http://10.0.0.102:8080
-		"  magellan scan 10.0.0.101 10.0.0.102 https://172.16.0.10:443 --port 8080 --protocol tcp" +
+		"  magellan scan 10.0.0.101 10.0.0.102 https://172.16.0.10:443 --port 8080 --protocol tcp\n" +
 		// assumes subnet using default unspecified subnet-masks
-		"  magellan scan --subnet 10.0.0.0" +
+		"  magellan scan --subnet 10.0.0.0\n" +
 		// assumes subnet using HTTPS and port 443 with specified CIDR
-		"  magellan scan --subnet 10.0.0.0/16" +
+		"  magellan scan --subnet 10.0.0.0/16\n" +
 		// assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16
-		"  magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0" +
+		"  magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0\n" +
 		// assumes subnet without CIDR has a subnet-mask of 255.255.0.0
-		"  magellan scan --subnet 10.0.0.0/24 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db",
+		"  magellan scan --subnet 10.0.0.0/24 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db\n",
 	Run: func(cmd *cobra.Command, args []string) {
 		// add default ports for hosts if none are specified with flag
 		if len(ports) == 0 {
@@ -181,8 +181,8 @@ func init() {
 	scanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan. (default is 'tcp')")
 	scanCmd.Flags().StringSliceVar(&subnets, "subnet", nil, "Add additional hosts from specified subnets to scan.")
 	scanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
-	scanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "disable probing found assets for Redfish service(s) running on BMC nodes")
-	scanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "disable saving found assets to a cache database specified with 'cache' flag")
+	scanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
+	scanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 
 	viper.BindPFlag("scan.hosts", scanCmd.Flags().Lookup("host"))
 	viper.BindPFlag("scan.ports", scanCmd.Flags().Lookup("port"))
