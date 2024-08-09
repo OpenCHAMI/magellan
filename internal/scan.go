@@ -57,7 +57,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 	)
 
 	if params.Verbose {
-		log.Info().Msg("starting scan...")
+		log.Info().Any("args", params).Msg("starting scan...")
 	}
 
 	var wg sync.WaitGroup
@@ -83,7 +83,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 					if !params.DisableProbing {
 						assetsToAdd := []RemoteAsset{}
 						for _, foundAsset := range foundAssets {
-							url := fmt.Sprintf("%s://%s/redfish/v1/", params.Scheme, foundAsset.Host)
+							url := fmt.Sprintf("%s://%s:%d/redfish/v1/", params.Scheme, foundAsset.Host, foundAsset.Port)
 							res, _, err := util.MakeRequest(nil, url, http.MethodGet, nil, nil)
 							if err != nil || res == nil {
 								if params.Verbose {
@@ -202,7 +202,7 @@ func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnl
 	)
 
 	// try to conntect to host (expects host in format [10.0.0.0]:443)
-	target := fmt.Sprintf("[%s]:%s", uri.Hostname(), uri.Port())
+	target := fmt.Sprintf("%s:%s", uri.Hostname(), uri.Port())
 	conn, err := net.DialTimeout(protocol, target, timeoutDuration)
 	if err != nil {
 		asset.State = false
