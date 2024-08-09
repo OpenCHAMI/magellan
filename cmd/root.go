@@ -22,6 +22,7 @@ import (
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/pkg/client"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -76,7 +77,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set to enable/disable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "set to enable/disable debug messages")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
-	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%smagellan/magellan.db", currentUser.Username+"/"), "set the scanning result cache path")
+	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "set the scanning result cache path")
 
 	// bind viper config flags with cobra
 	viper.BindPFlag("concurrency", rootCmd.Flags().Lookup("concurrency"))
@@ -92,7 +93,10 @@ func init() {
 // See the 'LoadConfig' function in 'internal/config' for details.
 func InitializeConfig() {
 	if configPath != "" {
-		magellan.LoadConfig(configPath)
+		err := magellan.LoadConfig(configPath)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to load config")
+		}
 	}
 }
 
@@ -102,12 +106,13 @@ func InitializeConfig() {
 // TODO: This function should probably be moved to 'internal/config.go'
 // instead of in this file.
 func SetDefaults() {
+	currentUser, _ = user.Current()
 	viper.SetDefault("threads", 1)
 	viper.SetDefault("timeout", 5)
 	viper.SetDefault("config", "")
 	viper.SetDefault("verbose", false)
 	viper.SetDefault("debug", false)
-	viper.SetDefault("cache", "/tmp/magellan/magellan.db")
+	viper.SetDefault("cache", fmt.Sprintf("/tmp/%s/magellan/magellan.db", currentUser.Username))
 	viper.SetDefault("scan.hosts", []string{})
 	viper.SetDefault("scan.ports", []int{})
 	viper.SetDefault("scan.subnets", []string{})
@@ -115,7 +120,6 @@ func SetDefaults() {
 	viper.SetDefault("scan.disable-probing", false)
 	viper.SetDefault("collect.driver", []string{"redfish"})
 	viper.SetDefault("collect.host", client.Host)
-	viper.SetDefault("collect.port", client.Port)
 	viper.SetDefault("collect.user", "")
 	viper.SetDefault("collect.pass", "")
 	viper.SetDefault("collect.protocol", "tcp")

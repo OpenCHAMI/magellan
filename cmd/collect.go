@@ -40,8 +40,8 @@ var collectCmd = &cobra.Command{
 		if accessToken == "" {
 			var err error
 			accessToken, err = util.LoadAccessToken(tokenPath)
-			if err != nil {
-				log.Error().Err(err).Msgf("failed to load access token")
+			if err != nil && verbose {
+				log.Warn().Err(err).Msgf("could not load access token")
 			}
 		}
 
@@ -72,8 +72,7 @@ var collectCmd = &cobra.Command{
 
 func init() {
 	currentUser, _ = user.Current()
-	collectCmd.PersistentFlags().StringVar(&client.Host, "host", client.Host, "set the host to the SMD API")
-	collectCmd.PersistentFlags().IntVarP(&client.Port, "port", "p", client.Port, "set the port to the SMD API")
+	collectCmd.PersistentFlags().StringVar(&client.Host, "host", "", "set the host:port to the SMD API")
 	collectCmd.PersistentFlags().StringVar(&username, "username", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&password, "password", "", "set the BMC password")
 	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "set the scheme used to query")
