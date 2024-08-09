@@ -2,6 +2,18 @@
 
 The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/tree/master) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of using independently of other tools or services.
 
+## Main Features
+
+The `magellan` tool comes packed with a handleful of features for doing discovery, such as:
+
+- Simple network scanning
+- Redfish-based inventory collection
+- Redfish-based firmware updating
+- Integration with OpenCHAMI SMD
+- Write inventory data to JSON
+
+See the [TODO](#todo) section for a list of soon-ish goals planned.
+
 ## Getting Started
 
 [Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be ran by executing the `emulator/setup.sh` script or running `make emulator`.
@@ -52,10 +64,6 @@ docker pull ghcr.io/openchami/magellan:latest
 
 See the ["Running with Docker"](#running-with-docker) section below about running with the Docker container.
 
-
-
-
-
 ## Usage
 
 The sections below assume that the BMC nodes have an IP address available to query Redfish. Currently, `magellan` does not support discovery with MAC addresses although that may change in the future.
@@ -89,7 +97,9 @@ This should return a JSON response with general information. The output below ha
 }
 ```
 
-To see all of the available commands, run `magellan` with the `help` subcommand:
+### Running the Tool
+
+There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand:
 
 ```bash
 ./magellan help
@@ -120,9 +130,7 @@ Flags:
 Use "magellan [command] --help" for more information about a command.
 ```
 
-### Running the Tool
-
-There are three main commands to use with the tool: `scan`, `list`, and `collect`. To start a network scan for BMC nodes, use the `scan` command. If the port is not specified, `magellan` will probe ports 623 and 443 by default:
+To start a network scan for BMC nodes, use the `scan` command. If the port is not specified, `magellan` will probe ports 623 and 443 by default:
 
 ```bash
 ./magellan scan \
@@ -234,13 +242,13 @@ See the [issue list](https://github.com/OpenCHAMI/magellan/issues) for plans for
 
 * [X] Confirm loading different components into SMD
 * [X] Add ability to set subnet mask for scanning
-* [ ] Add ability to scan with other protocols like LLDP
-* [ ] Add more debugging messages with the `-v/--verbose` flag
+* [ ] Add ability to scan with other protocols like LLDP and SSDP
+* [X] Add more debugging messages with the `-v/--verbose` flag
 * [ ] Separate `collect` subcommand with making request to endpoint
 * [X] Support logging in with `opaal` to get access token
 * [X] Support using CA certificates with HTTP requests to SMD
-* [ ] Add unit tests for `scan`, `list`, and `collect` commands
-* [ ] Clean up, remove unused, and tidy code
+* [ ] Add tests for the regressions and compatibility
+* [X] Clean up, remove unused, and tidy code (first round)
 
 ## Copyright
 

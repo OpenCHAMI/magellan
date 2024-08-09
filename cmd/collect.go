@@ -5,11 +5,11 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/api/smd"
-	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/log"
+	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/cznic/mathutil"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -30,36 +30,32 @@ var collectCmd = &cobra.Command{
 		"  magellan collect --cache ./assets.db --output ./logs --timeout 30 --cacert cecert.pem\n" +
 		"  magellan collect --host smd.example.com --port 27779 --username username --password password",
 	Run: func(cmd *cobra.Command, args []string) {
-		// make application logger
-		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
-
 		// get probe states stored in db from scan
-		probeStates, err := sqlite.GetProbeResults(cachePath)
+		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
-			l.Log.Errorf("failed toget states: %v", err)
+			log.Error().Err(err).Msgf("failed to get scanned results from cache")
 		}
 
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {
 			var err error
-			accessToken, err = LoadAccessToken()
-			if err != nil {
-				l.Log.Errorf("failed to load access token: %v", err)
+			accessToken, err = util.LoadAccessToken(tokenPath)
+			if err != nil && verbose {
+				log.Warn().Err(err).Msgf("could not load access token")
 			}
 		}
 
 		if verbose {
-			fmt.Printf("access token: %v\n", accessToken)
+			log.Debug().Str("Access Token", accessToken)
 		}
 
 		//
 		if concurrency <= 0 {
-			concurrency = mathutil.Clamp(len(probeStates), 1, 255)
+			concurrency = mathutil.Clamp(len(scannedResults), 1, 255)
 		}
-		q := &magellan.QueryParams{
+		err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
 			Username:    username,
 			Password:    password,
-			Protocol:    protocol,
 			Timeout:     timeout,
 			Concurrency: concurrency,
 			Verbose:     verbose,
@@ -67,28 +63,21 @@ var collectCmd = &cobra.Command{
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
-		}
-		err = magellan.CollectAll(&probeStates, l, q)
+		})
 		if err != nil {
-			l.Log.Errorf("failed to collect data: %v", err)
-		}
-
-		// add necessary headers for final request (like token)
-		headers := make(map[string]string)
-		if q.AccessToken != "" {
-			headers["Authorization"] = "Bearer " + q.AccessToken
+			log.Error().Err(err).Msgf("failed to collect data")
 		}
 	},
 }
 
 func init() {
 	currentUser, _ = user.Current()
-	collectCmd.PersistentFlags().StringVar(&smd.Host, "host", smd.Host, "set the host to the SMD API")
-	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the SMD API")
+	collectCmd.PersistentFlags().StringVar(&client.Host, "host", "", "set the host:port to the SMD API")
 	collectCmd.PersistentFlags().StringVar(&username, "username", "", "set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&password, "password", "", "set the BMC password")
-	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the protocol used to query")
-	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/data/", currentUser.Username+"/"), "set the path to store collection data")
+	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "set the scheme used to query")
+	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "set the protocol used to query")
+	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "set the path to store collection data")
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD")
 	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "path to CA cert. (defaults to system CAs)")
 

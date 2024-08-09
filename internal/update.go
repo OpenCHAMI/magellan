@@ -9,23 +9,18 @@ import (
 )
 
 type UpdateParams struct {
-	QueryParams
+	CollectParams
 	FirmwarePath     string
 	FirmwareVersion  string
 	Component        string
 	TransferProtocol string
 }
 
-// UpdateFirmware() uses 'bmc-toolbox/bmclib' to update the firmware of a BMC node.
+// UpdateFirmwareRemote() uses 'gofish' to update the firmware of a BMC node.
 // The function expects the firmware URL, firmware version, and component flags to be
 // set from the CLI to perform a firmware update.
-//
-// NOTE: Multipart HTTP updating may not work since older verions of OpenBMC, which bmclib
-// uses underneath, did not support support multipart updates. This was changed with the
-// inclusion of support for MultipartHttpPushUri in OpenBMC (https://gerrit.openbmc.org/c/openbmc/bmcweb/+/32174).
-// Also, related to bmclib: https://github.com/bmc-toolbox/bmclib/issues/341
 func UpdateFirmwareRemote(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService/Actions/SimpleUpdate"
+	url := baseRedfishUrl(&q.CollectParams) + "/redfish/v1/UpdateService/Actions/SimpleUpdate"
 	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"cache-control": "no-cache",
@@ -37,7 +32,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 	}
 	data, err := json.Marshal(b)
 	if err != nil {
-		return fmt.Errorf("failed tomarshal data: %v", err)
+		return fmt.Errorf("failed to marshal data: %v", err)
 	}
 	res, body, err := util.MakeRequest(nil, url, "POST", data, headers)
 	if err != nil {
@@ -52,7 +47,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 }
 
 func GetUpdateStatus(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.QueryParams) + "/redfish/v1/UpdateService"
+	url := baseRedfishUrl(&q.CollectParams) + "/redfish/v1/UpdateService"
 	res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)

@@ -17,10 +17,13 @@ import (
 var crawlCmd = &cobra.Command{
 	Use:   "crawl [uri]",
 	Short: "Crawl a single BMC for inventory information",
-	Long: "Crawl a single BMC for inventory information\n" +
+	Long: "Crawl a single BMC for inventory information. This command does NOT store information" +
+		"store information about the scan into cache after completion. To do so, use the 'collect'" +
+		"command instead\n" +
 		"\n" +
-		"Example:\n" +
-		"  magellan crawl https://bmc.example.com",
+		"Examples:\n" +
+		"  magellan crawl https://bmc.example.com\n" +
+		"  magellan crawl https://bmc.example.com -i -u username -p password",
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Validate that the only argument is a valid URI
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
