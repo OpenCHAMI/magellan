@@ -113,7 +113,7 @@ var scanCmd = &cobra.Command{
 				"concurrency":     concurrency,
 				"protocol":        protocol,
 				"subnets":         subnets,
-				"subnet-masks":    subnetMask,
+				"subnet-mask":     subnetMask.String(),
 				"cert":            cacertPath,
 				"disable-probing": disableProbing,
 				"disable-caching": disableCache,
