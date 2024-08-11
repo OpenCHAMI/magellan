@@ -7,7 +7,6 @@ import (
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/internal/util"
-	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -51,9 +50,10 @@ var collectCmd = &cobra.Command{
 
 		//
 		if concurrency <= 0 {
-			concurrency = mathutil.Clamp(len(scannedResults), 1, 255)
+			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
 		err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
+			URI:         host,
 			Username:    username,
 			Password:    password,
 			Timeout:     timeout,
@@ -72,14 +72,14 @@ var collectCmd = &cobra.Command{
 
 func init() {
 	currentUser, _ = user.Current()
-	collectCmd.PersistentFlags().StringVar(&client.Host, "host", "", "set the host:port to the SMD API")
-	collectCmd.PersistentFlags().StringVar(&username, "username", "", "set the BMC user")
-	collectCmd.PersistentFlags().StringVar(&password, "password", "", "set the BMC password")
-	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "set the scheme used to query")
-	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "set the protocol used to query")
+	collectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD API")
+	collectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the BMC user")
+	collectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the BMC password")
+	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the scheme used to query")
+	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
 	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "set the path to store collection data")
-	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD")
-	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "path to CA cert. (defaults to system CAs)")
+	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
+	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to CA cert. (defaults to system CAs)")
 
 	// set flags to only be used together
 	collectCmd.MarkFlagsRequiredTogether("username", "password")

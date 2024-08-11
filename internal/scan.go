@@ -170,7 +170,7 @@ func GenerateHostsWithSubnet(subnet string, subnetMask *net.IPMask, additionalPo
 // GetDefaultPorts() returns a list of default ports. The only reason to have
 // this function is to add/remove ports without affecting usage.
 func GetDefaultPorts() []int {
-	return []int{HTTPS_PORT}
+	return []int{443}
 }
 
 // rawConnect() tries to connect to the host using DialTimeout() and waits

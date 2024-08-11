@@ -26,7 +26,7 @@ update:
   port: 443
   username: "admin"
   password: "password"
-  transfer-protocol: "HTTPS"
+  transfer-protocol: "https"
   firmware:
     url:
     version:

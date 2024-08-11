@@ -21,7 +21,6 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -112,14 +111,14 @@ func SetDefaults() {
 	viper.SetDefault("config", "")
 	viper.SetDefault("verbose", false)
 	viper.SetDefault("debug", false)
-	viper.SetDefault("cache", fmt.Sprintf("/tmp/%s/magellan/magellan.db", currentUser.Username))
+	viper.SetDefault("cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username))
 	viper.SetDefault("scan.hosts", []string{})
 	viper.SetDefault("scan.ports", []int{})
 	viper.SetDefault("scan.subnets", []string{})
 	viper.SetDefault("scan.subnet-masks", []net.IP{})
 	viper.SetDefault("scan.disable-probing", false)
 	viper.SetDefault("collect.driver", []string{"redfish"})
-	viper.SetDefault("collect.host", client.Host)
+	viper.SetDefault("collect.host", host)
 	viper.SetDefault("collect.user", "")
 	viper.SetDefault("collect.pass", "")
 	viper.SetDefault("collect.protocol", "tcp")
