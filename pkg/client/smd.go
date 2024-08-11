@@ -10,14 +10,9 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/util"
 )
 
-var (
-	Host         = "http://localhost:27779"
-	BaseEndpoint = "/hsm/v2"
-)
-
 type SmdClient struct {
 	*http.Client
-	Host  string
+	URI   string
 	Xname string
 }
 
@@ -26,7 +21,7 @@ func (c SmdClient) Name() string {
 }
 
 func (c SmdClient) RootEndpoint(endpoint string) string {
-	return fmt.Sprintf("/hsm/v2/%s%s", Host, endpoint)
+	return fmt.Sprintf("%s/hsm/v2%s", c.URI, endpoint)
 }
 
 func (c SmdClient) GetClient() *http.Client {
