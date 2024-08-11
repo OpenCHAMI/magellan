@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/OpenCHAMI/magellan/internal/util"
 )
@@ -20,7 +21,15 @@ type UpdateParams struct {
 // The function expects the firmware URL, firmware version, and component flags to be
 // set from the CLI to perform a firmware update.
 func UpdateFirmwareRemote(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.CollectParams) + "/redfish/v1/UpdateService/Actions/SimpleUpdate"
+	// parse URI to set up full address
+	uri, err := url.ParseRequestURI(q.URI)
+	if err != nil {
+		return fmt.Errorf("failed to parse URI: %w", err)
+	}
+	uri.User = url.UserPassword(q.Username, q.Password)
+
+	// set up other vars
+	updateUrl := fmt.Sprintf("%s/redfish/v1/UpdateService/Actions/SimpleUpdate", uri.String())
 	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"cache-control": "no-cache",
@@ -34,11 +43,11 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
-	res, body, err := util.MakeRequest(nil, url, "POST", data, headers)
+	res, body, err := util.MakeRequest(nil, updateUrl, "POST", data, headers)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {
-		return fmt.Errorf("no response returned (url: %s)", url)
+		return fmt.Errorf("no response returned (url: %s)", updateUrl)
 	}
 	if len(body) > 0 {
 		fmt.Printf("%d: %v\n", res.StatusCode, string(body))
@@ -47,12 +56,18 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 }
 
 func GetUpdateStatus(q *UpdateParams) error {
-	url := baseRedfishUrl(&q.CollectParams) + "/redfish/v1/UpdateService"
-	res, body, err := util.MakeRequest(nil, url, "GET", nil, nil)
+	// parse URI to set up full address
+	uri, err := url.ParseRequestURI(q.URI)
+	if err != nil {
+		return fmt.Errorf("failed to parse URI: %w", err)
+	}
+	uri.User = url.UserPassword(q.Username, q.Password)
+	updateUrl := fmt.Sprintf("%s/redfish/v1/UpdateService", uri.String())
+	res, body, err := util.MakeRequest(nil, updateUrl, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {
-		return fmt.Errorf("no response returned (url: %s)", url)
+		return fmt.Errorf("no response returned (url: %s)", updateUrl)
 	} else if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("returned status code %d", res.StatusCode)
 	}
