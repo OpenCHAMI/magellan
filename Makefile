@@ -13,6 +13,7 @@ $(error VERSION is not set.  Please review and copy config.env.default to config
 endif
 
 SHELL := /bin/bash
+GOPATH ?= $(shell echo $${GOPATH:-~/go})
 
 .DEFAULT_GOAL := all
 .PHONY: all
@@ -50,7 +51,7 @@ inst: ## go install tools
 .PHONY: goreleaser
 release: ## goreleaser build
 	$(call print-target)
-	goreleaser build --clean --single-target --snapshot
+	$(GOPATH)/bin/goreleaser build --clean --single-target --snapshot
 
 .PHONY: build
 build: ## goreleaser build
@@ -65,12 +66,12 @@ container:
 .PHONY: spell
 spell: ## misspell
 	$(call print-target)
-	misspell -error -locale=US -w **.md
+	$(GOPATH)/bin/misspell -error -locale=US -w **.md
 
 .PHONY: lint
 lint: ## golangci-lint
 	$(call print-target)
-	golangci-lint run --fix
+	$(GOPATH)/bin/golangci-lint run --fix
 
 .PHONY: test
 test: ## go test
