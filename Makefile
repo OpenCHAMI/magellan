@@ -47,11 +47,14 @@ inst: ## go install tools
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
 	go install github.com/goreleaser/goreleaser@v1.18.2
 
-.PHONY: build
-build: ## goreleaser build
-build:
+.PHONY: goreleaser
+release: ## goreleaser build
 	$(call print-target)
 	goreleaser build --clean --single-target --snapshot
+
+.PHONY: build
+build: ## goreleaser build
+	go build --tags=all
 
 .PHONY: docker
 docker: ## docker build
