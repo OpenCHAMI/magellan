@@ -3,10 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os/user"
+	"strings"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -35,10 +36,14 @@ var collectCmd = &cobra.Command{
 			log.Error().Err(err).Msgf("failed to get scanned results from cache")
 		}
 
+		// URL sanitanization for host argument
+		host = strings.TrimSuffix(host, "/")
+		host = strings.ReplaceAll(host, "//", "/")
+
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {
 			var err error
-			accessToken, err = util.LoadAccessToken(tokenPath)
+			accessToken, err = auth.LoadAccessToken(tokenPath)
 			if err != nil && verbose {
 				log.Warn().Err(err).Msgf("could not load access token")
 			}
@@ -72,7 +77,7 @@ var collectCmd = &cobra.Command{
 
 func init() {
 	currentUser, _ = user.Current()
-	collectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD API")
+	collectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
 	collectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the BMC user")
 	collectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the BMC password")
 	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the scheme used to query")
