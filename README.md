@@ -130,7 +130,7 @@ Flags:
 Use "magellan [command] --help" for more information about a command.
 ```
 
-To start a network scan for BMC nodes, use the `scan` command. If the port is not specified, `magellan` will probe ports 623 and 443 by default:
+To start a network scan for BMC nodes, use the `scan` command. If the port is not specified, `magellan` will probe the common Redfish port 443 by default:
 
 ```bash
 ./magellan scan \
