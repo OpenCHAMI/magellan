@@ -18,8 +18,7 @@ var crawlCmd = &cobra.Command{
 	Use:   "crawl [uri]",
 	Short: "Crawl a single BMC for inventory information",
 	Long: "Crawl a single BMC for inventory information. This command does NOT store information\n" +
-		"store information about the scan into cache after completion. To do so, use the 'collect'\n" +
-		"command instead\n\n" +
+		"about the scan into cache after completion. To do so, use the 'collect' command instead\n\n" +
 		"Examples:\n" +
 		"  magellan crawl https://bmc.example.com\n" +
 		"  magellan crawl https://bmc.example.com -i -u username -p password",
