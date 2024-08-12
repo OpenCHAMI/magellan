@@ -9,7 +9,7 @@ import (
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 
 	"github.com/cznic/mathutil"
@@ -40,7 +40,7 @@ var scanCmd = &cobra.Command{
 		"by using the '--subnet' flag and providing an IP address on the subnet as well as a CIDR. If no CIDR is\n" +
 		"provided, then the subnet mask specified with the '--subnet-mask' flag will be used instead (will use\n" +
 		"default mask if not set).\n\n" +
-		"Similarly, any host provided with no port with use either the ports specified\n" +
+		"Similarly, any host provided with no port will use either the ports specified\n" +
 		"with `--port` or the default port used with each specified protocol. The default protocol is 'tcp' unless\n" +
 		"specified. The `--scheme` flag works similarly and the default value is 'https' in the host URL or with the\n" +
 		"'--protocol' flag.\n\n" +
@@ -72,8 +72,8 @@ var scanCmd = &cobra.Command{
 		}
 
 		// format and combine flag and positional args
-		targetHosts = append(targetHosts, util.FormatHostUrls(args, ports, scheme, verbose)...)
-		targetHosts = append(targetHosts, util.FormatHostUrls(hosts, ports, scheme, verbose)...)
+		targetHosts = append(targetHosts, client.FormatHostUrls(args, ports, scheme, verbose)...)
+		targetHosts = append(targetHosts, client.FormatHostUrls(hosts, ports, scheme, verbose)...)
 
 		// add more hosts specified with `--subnet` flag
 		if debug {

@@ -7,7 +7,7 @@ import (
 	"os"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -30,7 +30,7 @@ var loginCmd = &cobra.Command{
 		// check if we have a valid JWT before starting login
 		if !forceLogin {
 			// try getting the access token from env var
-			testToken, err := util.LoadAccessToken(tokenPath)
+			testToken, err := auth.LoadAccessToken(tokenPath)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to load access token")
 			}

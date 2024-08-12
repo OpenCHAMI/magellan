@@ -26,7 +26,7 @@ var (
 var updateCmd = &cobra.Command{
 	Use:   "update hosts...",
 	Short: "Update BMC node firmware",
-	Long: "Perform an firmware update using Redfish by providing a remote firmware URL and component.\n" +
+	Long: "Perform an firmware update using Redfish by providing a remote firmware URL and component.\n\n" +
 		"Examples:\n" +
 		"  magellan update --bmc.host 172.16.0.108 --bmc.port 443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
 		"  magellan update --status --bmc.host 172.16.0.108 --bmc.port 443 --username bmc_username --password bmc_password",
