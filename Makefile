@@ -17,7 +17,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := all
 .PHONY: all
 all: ## build pipeline
-all: mod inst build spell lint test
+all: mod inst build lint test
 
 .PHONY: ci
 ci: ## CI build pipeline
@@ -57,8 +57,8 @@ build: ## goreleaser build
 	go build --tags=all
 
 .PHONY: docker
-docker: ## docker build
-docker:
+container: ## docker build
+container:
 	$(call print-target)
 	docker build . --build-arg REGISTRY_HOST=${REGISTRY_HOST} --no-cache --pull --tag '${NAME}:${VERSION}' 
 
