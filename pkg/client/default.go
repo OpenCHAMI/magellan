@@ -3,8 +3,6 @@ package client
 import (
 	"fmt"
 	"net/http"
-
-	"github.com/OpenCHAMI/magellan/internal/util"
 )
 
 type MagellanClient struct {
@@ -20,13 +18,13 @@ func (c *MagellanClient) Name() string {
 // the first argument with no data processing or manipulation. The function sends
 // the data to a set callback URL (which may be changed to use a configurable value
 // instead).
-func (c *MagellanClient) Add(data util.HTTPBody, headers util.HTTPHeader) error {
+func (c *MagellanClient) Add(data HTTPBody, headers HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("no data found")
 	}
 
 	path := "/inventory/add"
-	res, body, err := util.MakeRequest(c.Client, path, http.MethodPost, data, headers)
+	res, body, err := MakeRequest(c.Client, path, http.MethodPost, data, headers)
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
@@ -37,13 +35,13 @@ func (c *MagellanClient) Add(data util.HTTPBody, headers util.HTTPHeader) error 
 	return err
 }
 
-func (c *MagellanClient) Update(data util.HTTPBody, headers util.HTTPHeader) error {
+func (c *MagellanClient) Update(data HTTPBody, headers HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("no data found")
 	}
 
 	path := "/inventory/update"
-	res, body, err := util.MakeRequest(c.Client, path, http.MethodPut, data, headers)
+	res, body, err := MakeRequest(c.Client, path, http.MethodPut, data, headers)
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {

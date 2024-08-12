@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/OpenCHAMI/magellan/internal/util"
 )
 
 type Option[T Client] func(client T)
@@ -24,8 +22,8 @@ type Client interface {
 	RootEndpoint(endpoint string) string
 
 	// functions needed to make request
-	Add(data util.HTTPBody, headers util.HTTPHeader) error
-	Update(data util.HTTPBody, headers util.HTTPHeader) error
+	Add(data HTTPBody, headers HTTPHeader) error
+	Update(data HTTPBody, headers HTTPHeader) error
 }
 
 // NewClient() creates a new client
@@ -71,11 +69,11 @@ func WithSecureTLS[T Client](certPath string) func(T) {
 // Post() is a simplified wrapper function that packages all of the
 // that marshals a mapper into a JSON-formatted byte array, and then performs
 // a request to the specified URL.
-func (c *MagellanClient) Post(url string, data map[string]any, header util.HTTPHeader) (*http.Response, util.HTTPBody, error) {
+func (c *MagellanClient) Post(url string, data map[string]any, header HTTPHeader) (*http.Response, HTTPBody, error) {
 	// serialize data into byte array
 	body, err := json.Marshal(data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal data for request: %v", err)
 	}
-	return util.MakeRequest(c.Client, url, http.MethodPost, body, header)
+	return MakeRequest(c.Client, url, http.MethodPost, body, header)
 }
