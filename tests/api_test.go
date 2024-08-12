@@ -13,18 +13,31 @@ import (
 	magellan "github.com/OpenCHAMI/magellan/internal"
 )
 
+var (
+	scanParams = &magellan.ScanParams{
+		TargetHosts: [][]string{
+			[]string{
+				"http://127.0.0.1:443",
+				"http://127.0.0.1:5000",
+			},
+		},
+		Scheme:         "https",
+		Protocol:       "tcp",
+		Concurrency:    1,
+		Timeout:        30,
+		DisableProbing: false,
+		Verbose:        false,
+	}
+)
+
 func TestScanAndCollect(t *testing.T) {
-	var (
-		hosts = []string{"http://127.0.0.1"}
-		ports = []int{5000}
-	)
 	// do a scan on the emulator cluster with probing disabled and check results
-	results := magellan.ScanForAssets(hosts, ports, 1, 30, true, false)
+	results := magellan.ScanForAssets(scanParams)
 	if len(results) <= 0 {
 		t.Fatal("expected to find at least one BMC node, but found none")
 	}
 	// do a scan on the emulator cluster with probing enabled
-	results = magellan.ScanForAssets(hosts, ports, 1, 30, false, false)
+	results = magellan.ScanForAssets(scanParams)
 	if len(results) <= 0 {
 		t.Fatal("expected to find at least one BMC node, but found none")
 	}

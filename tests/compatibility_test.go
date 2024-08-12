@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 )
 
@@ -30,7 +30,7 @@ func TestRedfishV1Availability(t *testing.T) {
 		body    = []byte{}
 		headers = map[string]string{}
 	)
-	res, b, err := util.MakeRequest(nil, url, http.MethodGet, body, headers)
+	res, b, err := client.MakeRequest(nil, url, http.MethodGet, body, headers)
 	if err != nil {
 		t.Fatalf("failed to make request to BMC: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestRedfishVersion(t *testing.T) {
 		headers = map[string]string{}
 	)
 
-	util.MakeRequest(nil, url, http.MethodGet, body, headers)
+	client.MakeRequest(nil, url, http.MethodGet, body, headers)
 }
 
 // Crawls a BMC node and checks that we're able to query certain properties
