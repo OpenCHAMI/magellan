@@ -75,6 +75,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 				}
 
 				// generate custom xnames for bmcs
+				// TODO: add xname customization via CLI
 				node := xnames.Node{
 					Cabinet:       1000,
 					Chassis:       1,
@@ -83,7 +84,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 				}
 				offset += 1
 
-				// TODO: use pkg/crawler to request inventory data via Redfish
+				// crawl BMC node to fetch inventory data via Redfish
 				systems, err := crawler.CrawlBMC(crawler.CrawlerConfig{
 					URI:      fmt.Sprintf("%s:%d", sr.Host, sr.Port),
 					Username: params.Username,
@@ -107,7 +108,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 				}
 
 				// create and set headers for request
-				headers := util.HTTPHeader{}
+				headers := client.HTTPHeader{}
 				headers.Authorization(params.AccessToken)
 				headers.ContentType("application/json")
 

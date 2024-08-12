@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 )
 
@@ -84,7 +84,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 						assetsToAdd := []RemoteAsset{}
 						for _, foundAsset := range foundAssets {
 							url := fmt.Sprintf("%s://%s:%d/redfish/v1/", params.Scheme, foundAsset.Host, foundAsset.Port)
-							res, _, err := util.MakeRequest(nil, url, http.MethodGet, nil, nil)
+							res, _, err := client.MakeRequest(nil, url, http.MethodGet, nil, nil)
 							if err != nil || res == nil {
 								if params.Verbose {
 									log.Printf("failed to make request: %v\n", err)
@@ -164,7 +164,7 @@ func GenerateHostsWithSubnet(subnet string, subnetMask *net.IPMask, additionalPo
 
 	// generate new IPs from subnet and format to full URL
 	subnetIps := generateIPsWithSubnet(&subnetIp, subnetMask)
-	return util.FormatIPUrls(subnetIps, additionalPorts, defaultScheme, false)
+	return client.FormatIPUrls(subnetIps, additionalPorts, defaultScheme, false)
 }
 
 // GetDefaultPorts() returns a list of default ports. The only reason to have
@@ -238,7 +238,7 @@ func generateIPsWithSubnet(ip *net.IP, mask *net.IPMask) []string {
 	hosts := []string{}
 	end := int(math.Pow(2, float64((bits-ones)))) - 1
 	for i := 0; i < end; i++ {
-		ip = util.GetNextIP(ip, 1)
+		ip = client.GetNextIP(ip, 1)
 		if ip == nil {
 			continue
 		}

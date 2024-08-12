@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 )
 
 type UpdateParams struct {
@@ -43,7 +43,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
-	res, body, err := util.MakeRequest(nil, updateUrl, "POST", data, headers)
+	res, body, err := client.MakeRequest(nil, updateUrl, "POST", data, headers)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {
@@ -63,7 +63,7 @@ func GetUpdateStatus(q *UpdateParams) error {
 	}
 	uri.User = url.UserPassword(q.Username, q.Password)
 	updateUrl := fmt.Sprintf("%s/redfish/v1/UpdateService", uri.String())
-	res, body, err := util.MakeRequest(nil, updateUrl, "GET", nil, nil)
+	res, body, err := client.MakeRequest(nil, updateUrl, "GET", nil, nil)
 	if err != nil {
 		return fmt.Errorf("something went wrong: %v", err)
 	} else if res == nil {
