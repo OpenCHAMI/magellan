@@ -170,7 +170,7 @@ Note: If the `cache` flag is not set, `magellan` will use "/tmp/$USER/magellan.d
 
 ### Updating Firmware
 
-The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessbile URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag with all the other usual arguments like in the example below:
+The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessible URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag with all the other usual arguments like in the example below:
 
 ```bash
 ./magellan update \
@@ -228,7 +228,7 @@ At its core, `magellan` is designed to do three basic things:
 
 First, the tool performs a scan to find running services on a network. This is done by sending a raw TCP packet to all specified hosts (either IP or host name) and taking note which services respond. At this point, `magellan` has no way of knowing whether this is a Redfish service or not, so another HTTP request is made to verify. Once the BMC responds with an OK status code, `magellan` will store the necessary information in a local cache database to allow collecting more information about the node later. This allows for users to only have to scan their cluster once to find systems that are currently available and scannable.
 
-Next, the tool queries information about the BMC node using `gofish` API functions, but requires access to BMC node found in the scanning step mentioned above to work. If the node requires basic authentication, a user name and password is required to be supplied as well. Once the BMC information is retrived from each node, the info is aggregated and a HTTP request is made to a SMD instance to be stored. Optionally, the information can be written to disk for inspection and debugging purposes.
+Next, the tool queries information about the BMC node using `gofish` API functions, but requires access to BMC node found in the scanning step mentioned above to work. If the node requires basic authentication, a user name and password is required to be supplied as well. Once the BMC information is retrieved from each node, the info is aggregated and a HTTP request is made to a SMD instance to be stored. Optionally, the information can be written to disk for inspection and debugging purposes.
 
 In summary, `magellan` needs at minimum the following configured to work on each node:
 
