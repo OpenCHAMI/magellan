@@ -75,7 +75,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 					// if we failed to connect, exit from the function
 					if err != nil {
 						if params.Verbose {
-							log.Debug().Err(err).Msgf("failed to connect to host (%s)", host)
+							log.Debug().Err(err).Msgf("failed to connect to host")
 						}
 						wg.Done()
 						return
@@ -193,7 +193,7 @@ func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnl
 		timeoutDuration = time.Second * time.Duration(timeoutSeconds)
 		assets          []RemoteAsset
 		asset           = RemoteAsset{
-			Host:      uri.Hostname(),
+			Host:      fmt.Sprintf("%s://%s", uri.Scheme, uri.Hostname()),
 			Port:      port,
 			Protocol:  protocol,
 			State:     false,
