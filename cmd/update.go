@@ -27,8 +27,8 @@ var updateCmd = &cobra.Command{
 	Short: "Update BMC node firmware",
 	Long: "Perform an firmware update using Redfish by providing a remote firmware URL and component.\n\n" +
 		"Examples:\n" +
-		"  magellan update --bmc.host 172.16.0.108 --bmc.port 443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
-		"  magellan update --status --bmc.host 172.16.0.108 --bmc.port 443 --username bmc_username --password bmc_password",
+		"  magellan update 172.16.0.108:443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
+		"  magellan update 172.16.0.108:443 --status --username bmc_username --password bmc_password",
 	Run: func(cmd *cobra.Command, args []string) {
 		// check that we have at least one host
 		if len(args) <= 0 {
@@ -80,7 +80,7 @@ var updateCmd = &cobra.Command{
 func init() {
 	updateCmd.Flags().StringVar(&username, "username", "", "Set the BMC user")
 	updateCmd.Flags().StringVar(&password, "password", "", "Set the BMC password")
-	updateCmd.Flags().StringVar(&transferProtocol, "transfer-protocol", "HTTP", "Set the transfer protocol")
+	updateCmd.Flags().StringVar(&transferProtocol, "scheme", "https", "Set the transfer protocol")
 	updateCmd.Flags().StringVar(&firmwareUrl, "firmware.url", "", "Set the path to the firmware")
 	updateCmd.Flags().StringVar(&firmwareVersion, "firmware.version", "", "Set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "Set the component to upgrade (BMC|BIOS)")
