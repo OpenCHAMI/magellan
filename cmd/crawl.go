@@ -67,9 +67,9 @@ func init() {
 	crawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
 	crawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
 
-	viper.BindPFlag("crawl.username", crawlCmd.Flags().Lookup("username"))
-	viper.BindPFlag("crawl.password", crawlCmd.Flags().Lookup("password"))
-	viper.BindPFlag("crawl.insecure", crawlCmd.Flags().Lookup("insecure"))
+	checkBindFlagError(viper.BindPFlag("crawl.username", crawlCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("crawl.password", crawlCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("crawl.insecure", crawlCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(crawlCmd)
 }
