@@ -11,8 +11,8 @@ import "fmt"
 func FormatErrorList(errList []error) error {
 	var err error
 	for i, e := range errList {
+		// NOTE: for multi-error formating, we want to include \n here
 		err = fmt.Errorf("\t[%d] %v\n", i, e)
-		i += 1
 	}
 	return err
 }

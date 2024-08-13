@@ -14,10 +14,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	forceUpdate bool
-)
-
 // The `collect` command fetches data from a collection of BMC nodes.
 // This command should be ran after the `scan` to find available hosts
 // on a subnet.
@@ -82,7 +78,7 @@ func init() {
 	collectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the BMC password")
 	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the scheme used to query")
 	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "set the path to store collection data")
+	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
 	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to CA cert. (defaults to system CAs)")
 
@@ -90,16 +86,15 @@ func init() {
 	collectCmd.MarkFlagsRequiredTogether("username", "password")
 
 	// bind flags to config properties
-	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
-	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
-	viper.BindPFlag("collect.port", collectCmd.Flags().Lookup("port"))
-	viper.BindPFlag("collect.username", collectCmd.Flags().Lookup("username"))
-	viper.BindPFlag("collect.password", collectCmd.Flags().Lookup("password"))
-	viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol"))
-	viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output"))
-	viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update"))
-	viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("secure-tls"))
-	viper.BindPFlags(collectCmd.Flags())
+	checkBindFlagError(viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("collect.host")))
+	checkBindFlagError(viper.BindPFlag("collect.username", collectCmd.Flags().Lookup("collect.username")))
+	checkBindFlagError(viper.BindPFlag("collect.password", collectCmd.Flags().Lookup("collect.password")))
+	checkBindFlagError(viper.BindPFlag("collect.scheme", collectCmd.Flags().Lookup("collect.scheme")))
+	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("collect.protocol")))
+	checkBindFlagError(viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("collect.output")))
+	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("collect.force-update")))
+	checkBindFlagError(viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("collect.cacert")))
+	checkBindFlagError(viper.BindPFlags(collectCmd.Flags()))
 
 	rootCmd.AddCommand(collectCmd)
 }

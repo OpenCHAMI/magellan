@@ -54,12 +54,12 @@ func (c SmdClient) Update(data HTTPBody, headers HTTPHeader) error {
 	// Update redfish endpoint via PUT `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := c.RootEndpoint("/Inventory/RedfishEndpoints/" + c.Xname)
 	res, body, err := MakeRequest(c.Client, url, http.MethodPut, data, headers)
-	fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
 			return fmt.Errorf("failed to update redfish endpoint (returned %s)", res.Status)
 		}
+		fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
 	return err
 }

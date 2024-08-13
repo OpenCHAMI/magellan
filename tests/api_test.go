@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -43,7 +44,10 @@ func TestScanAndCollect(t *testing.T) {
 	}
 
 	// do a collect on the emulator cluster to collect Redfish info
-	magellan.CollectInventory(&results, &magellan.CollectParams{})
+	err := magellan.CollectInventory(&results, &magellan.CollectParams{})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to collect inventory")
+	}
 }
 
 func TestCrawlCommand(t *testing.T) {

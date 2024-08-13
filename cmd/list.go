@@ -55,7 +55,7 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
-	listCmd.Flags().StringVar(&format, "format", "", "set the output format (json|default)")
-	listCmd.Flags().BoolVar(&showCache, "cache-info", false, "show cache information and exit")
+	listCmd.Flags().StringVar(&format, "format", "", "Set the output format (json|default)")
+	listCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
 	rootCmd.AddCommand(listCmd)
 }

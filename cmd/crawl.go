@@ -62,8 +62,8 @@ var crawlCmd = &cobra.Command{
 }
 
 func init() {
-	crawlCmd.Flags().StringP("username", "u", "", "Username for the BMC")
-	crawlCmd.Flags().StringP("password", "p", "", "Password for the BMC")
+	crawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
+	crawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
 	crawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
 
 	rootCmd.AddCommand(crawlCmd)

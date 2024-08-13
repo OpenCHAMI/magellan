@@ -184,11 +184,14 @@ func init() {
 	scanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	scanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 
-	viper.BindPFlag("scan.hosts", scanCmd.Flags().Lookup("host"))
-	viper.BindPFlag("scan.ports", scanCmd.Flags().Lookup("port"))
-	viper.BindPFlag("scan.subnets", scanCmd.Flags().Lookup("subnet"))
-	viper.BindPFlag("scan.subnet-masks", scanCmd.Flags().Lookup("subnet-mask"))
-	viper.BindPFlag("scan.disable-probing", scanCmd.Flags().Lookup("disable-probing"))
+	checkBindFlagError(viper.BindPFlag("scan.hosts", scanCmd.Flags().Lookup("host")))
+	checkBindFlagError(viper.BindPFlag("scan.ports", scanCmd.Flags().Lookup("port")))
+	checkBindFlagError(viper.BindPFlag("scan.scheme", scanCmd.Flags().Lookup("scheme")))
+	checkBindFlagError(viper.BindPFlag("scan.protocol", scanCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("scan.subnets", scanCmd.Flags().Lookup("subnet")))
+	checkBindFlagError(viper.BindPFlag("scan.subnet-masks", scanCmd.Flags().Lookup("subnet-mask")))
+	checkBindFlagError(viper.BindPFlag("scan.disable-probing", scanCmd.Flags().Lookup("disable-probing")))
+	checkBindFlagError(viper.BindPFlag("scan.disable-cache", scanCmd.Flags().Lookup("disable-cache")))
 
 	rootCmd.AddCommand(scanCmd)
 }

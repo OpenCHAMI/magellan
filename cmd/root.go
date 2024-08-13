@@ -43,6 +43,7 @@ var (
 	configPath  string
 	verbose     bool
 	debug       bool
+	forceUpdate bool
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -53,7 +54,10 @@ var rootCmd = &cobra.Command{
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			cmd.Help()
+			err := cmd.Help()
+			if err != nil {
+				log.Error().Err(err).Msg("failed to print help")
+			}
 			os.Exit(0)
 		}
 	},
@@ -79,11 +83,19 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "set the scanning result cache path")
 
 	// bind viper config flags with cobra
-	viper.BindPFlag("concurrency", rootCmd.Flags().Lookup("concurrency"))
-	viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout"))
-	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
-	viper.BindPFlag("cache", rootCmd.Flags().Lookup("cache"))
-	viper.BindPFlags(rootCmd.Flags())
+	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.Flags().Lookup("concurrency")))
+	checkBindFlagError(viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout")))
+	checkBindFlagError(viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose")))
+	checkBindFlagError(viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug")))
+	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.Flags().Lookup("verbose")))
+	checkBindFlagError(viper.BindPFlag("cache", rootCmd.Flags().Lookup("cache")))
+	checkBindFlagError(viper.BindPFlags(rootCmd.Flags()))
+}
+
+func checkBindFlagError(err error) {
+	if err != nil {
+		log.Error().Err(err).Msg("failed to bind flag")
+	}
 }
 
 // InitializeConfig() initializes a new config object by loading it
@@ -117,24 +129,21 @@ func SetDefaults() {
 	viper.SetDefault("scan.subnets", []string{})
 	viper.SetDefault("scan.subnet-masks", []net.IP{})
 	viper.SetDefault("scan.disable-probing", false)
-	viper.SetDefault("collect.driver", []string{"redfish"})
+	viper.SetDefault("scan.disable-cache", false)
 	viper.SetDefault("collect.host", host)
-	viper.SetDefault("collect.user", "")
-	viper.SetDefault("collect.pass", "")
+	viper.SetDefault("collect.username", "")
+	viper.SetDefault("collect.password", "")
 	viper.SetDefault("collect.protocol", "tcp")
 	viper.SetDefault("collect.output", "/tmp/magellan/data/")
 	viper.SetDefault("collect.force-update", false)
-	viper.SetDefault("collect.ca-cert", "")
-	viper.SetDefault("bmc-host", "")
-	viper.SetDefault("bmc-port", 443)
-	viper.SetDefault("user", "")
-	viper.SetDefault("pass", "")
-	viper.SetDefault("transfer-protocol", "HTTP")
-	viper.SetDefault("protocol", "tcp")
-	viper.SetDefault("firmware-url", "")
-	viper.SetDefault("firmware-version", "")
-	viper.SetDefault("component", "")
-	viper.SetDefault("secure-tls", false)
-	viper.SetDefault("status", false)
+	viper.SetDefault("collect.cacert", "")
+	viper.SetDefault("update.username", "")
+	viper.SetDefault("update.password", "")
+	viper.SetDefault("update.transfer-protocol", "https")
+	viper.SetDefault("update.protocol", "tcp")
+	viper.SetDefault("update.firmware.url", "")
+	viper.SetDefault("update.firmware.version", "")
+	viper.SetDefault("update.component", "")
+	viper.SetDefault("update.status", false)
 
 }

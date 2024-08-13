@@ -77,11 +77,11 @@ var loginCmd = &cobra.Command{
 }
 
 func init() {
-	loginCmd.Flags().StringVar(&loginUrl, "url", "http://127.0.0.1:3333/login", "set the login URL")
-	loginCmd.Flags().StringVar(&targetHost, "target-host", "127.0.0.1", "set the target host to return the access code")
-	loginCmd.Flags().IntVar(&targetPort, "target-port", 5000, "set the target host to return the access code")
-	loginCmd.Flags().BoolVarP(&forceLogin, "force", "f", false, "start the login process even with a valid token")
-	loginCmd.Flags().StringVar(&tokenPath, "token-path", ".ochami-token", "set the path the load/save the access token")
-	loginCmd.Flags().BoolVar(&noBrowser, "no-browser", false, "prevent the default browser from being opened automatically")
+	loginCmd.Flags().StringVar(&loginUrl, "url", "http://127.0.0.1:3333/login", "Set the login URL")
+	loginCmd.Flags().StringVar(&targetHost, "target-host", "127.0.0.1", "Set the target host to return the access code")
+	loginCmd.Flags().IntVar(&targetPort, "target-port", 5000, "Set the target host to return the access code")
+	loginCmd.Flags().BoolVarP(&forceLogin, "force", "f", false, "Start the login process even with a valid token")
+	loginCmd.Flags().StringVar(&tokenPath, "token-path", ".ochami-token", "Set the path to load/save the access token")
+	loginCmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Prevent the default browser from being opened automatically")
 	rootCmd.AddCommand(loginCmd)
 }

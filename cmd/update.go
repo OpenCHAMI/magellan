@@ -12,7 +12,6 @@ import (
 
 var (
 	host             string
-	port             int
 	firmwareUrl      string
 	firmwareVersion  string
 	component        string
@@ -79,25 +78,22 @@ var updateCmd = &cobra.Command{
 }
 
 func init() {
-	updateCmd.Flags().StringVar(&username, "username", "", "set the BMC user")
-	updateCmd.Flags().StringVar(&password, "password", "", "set the BMC password")
-	updateCmd.Flags().StringVar(&transferProtocol, "transfer-protocol", "HTTP", "set the transfer protocol")
-	updateCmd.Flags().StringVar(&firmwareUrl, "firmware.url", "", "set the path to the firmware")
-	updateCmd.Flags().StringVar(&firmwareVersion, "firmware.version", "", "set the version of firmware to be installed")
-	updateCmd.Flags().StringVar(&component, "component", "", "set the component to upgrade")
-	updateCmd.Flags().BoolVar(&showStatus, "status", false, "get the status of the update")
+	updateCmd.Flags().StringVar(&username, "username", "", "Set the BMC user")
+	updateCmd.Flags().StringVar(&password, "password", "", "Set the BMC password")
+	updateCmd.Flags().StringVar(&transferProtocol, "transfer-protocol", "HTTP", "Set the transfer protocol")
+	updateCmd.Flags().StringVar(&firmwareUrl, "firmware.url", "", "Set the path to the firmware")
+	updateCmd.Flags().StringVar(&firmwareVersion, "firmware.version", "", "Set the version of firmware to be installed")
+	updateCmd.Flags().StringVar(&component, "component", "", "Set the component to upgrade (BMC|BIOS)")
+	updateCmd.Flags().BoolVar(&showStatus, "status", false, "Get the status of the update")
 
-	viper.BindPFlag("update.bmc.host", updateCmd.Flags().Lookup("bmc.host"))
-	viper.BindPFlag("update.bmc.port", updateCmd.Flags().Lookup("bmc.port"))
-	viper.BindPFlag("update.username", updateCmd.Flags().Lookup("username"))
-	viper.BindPFlag("update.password", updateCmd.Flags().Lookup("password"))
-	viper.BindPFlag("update.transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol"))
-	viper.BindPFlag("update.protocol", updateCmd.Flags().Lookup("protocol"))
-	viper.BindPFlag("update.firmware.url", updateCmd.Flags().Lookup("firmware.url"))
-	viper.BindPFlag("update.firmware.version", updateCmd.Flags().Lookup("firmware.version"))
-	viper.BindPFlag("update.component", updateCmd.Flags().Lookup("component"))
-	viper.BindPFlag("update.secure-tls", updateCmd.Flags().Lookup("secure-tls"))
-	viper.BindPFlag("update.status", updateCmd.Flags().Lookup("status"))
+	checkBindFlagError(viper.BindPFlag("update.username", updateCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("update.password", updateCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("update.transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol")))
+	checkBindFlagError(viper.BindPFlag("update.protocol", updateCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("update.firmware.url", updateCmd.Flags().Lookup("firmware.url")))
+	checkBindFlagError(viper.BindPFlag("update.firmware.version", updateCmd.Flags().Lookup("firmware.version")))
+	checkBindFlagError(viper.BindPFlag("update.component", updateCmd.Flags().Lookup("component")))
+	checkBindFlagError(viper.BindPFlag("update.status", updateCmd.Flags().Lookup("status")))
 
 	rootCmd.AddCommand(updateCmd)
 }
