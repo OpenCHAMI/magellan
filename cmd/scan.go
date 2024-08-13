@@ -144,7 +144,7 @@ var scanCmd = &cobra.Command{
 			Debug:          debug,
 		})
 
-		if len(foundAssets) > 0 && verbose {
+		if len(foundAssets) > 0 && debug {
 			log.Info().Any("assets", foundAssets).Msgf("found assets from scan")
 		}
 
