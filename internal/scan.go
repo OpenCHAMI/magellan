@@ -83,7 +83,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 					if !params.DisableProbing {
 						assetsToAdd := []RemoteAsset{}
 						for _, foundAsset := range foundAssets {
-							url := fmt.Sprintf("%s://%s:%d/redfish/v1/", params.Scheme, foundAsset.Host, foundAsset.Port)
+							url := fmt.Sprintf("%s:%d/redfish/v1/", foundAsset.Host, foundAsset.Port)
 							res, _, err := client.MakeRequest(nil, url, http.MethodGet, nil, nil)
 							if err != nil || res == nil {
 								if params.Verbose {
