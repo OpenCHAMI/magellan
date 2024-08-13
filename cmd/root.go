@@ -83,13 +83,12 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "set the scanning result cache path")
 
 	// bind viper config flags with cobra
-	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.Flags().Lookup("concurrency")))
-	checkBindFlagError(viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout")))
-	checkBindFlagError(viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose")))
-	checkBindFlagError(viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug")))
-	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.Flags().Lookup("verbose")))
-	checkBindFlagError(viper.BindPFlag("cache", rootCmd.Flags().Lookup("cache")))
-	checkBindFlagError(viper.BindPFlags(rootCmd.Flags()))
+	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))
+	checkBindFlagError(viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")))
+	checkBindFlagError(viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")))
+	checkBindFlagError(viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")))
+	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.PersistentFlags().Lookup("verbose")))
+	checkBindFlagError(viper.BindPFlag("cache", rootCmd.PersistentFlags().Lookup("cache")))
 }
 
 func checkBindFlagError(err error) {

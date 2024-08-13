@@ -88,8 +88,7 @@ func init() {
 
 	checkBindFlagError(viper.BindPFlag("update.username", updateCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("update.password", updateCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("update.transfer-protocol", updateCmd.Flags().Lookup("transfer-protocol")))
-	checkBindFlagError(viper.BindPFlag("update.protocol", updateCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("update.scheme", updateCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("update.firmware.url", updateCmd.Flags().Lookup("firmware.url")))
 	checkBindFlagError(viper.BindPFlag("update.firmware.version", updateCmd.Flags().Lookup("firmware.version")))
 	checkBindFlagError(viper.BindPFlag("update.component", updateCmd.Flags().Lookup("component")))

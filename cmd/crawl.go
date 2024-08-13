@@ -9,6 +9,7 @@ import (
 
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // The `crawl` command walks a collection of Redfish endpoints to collect
@@ -65,6 +66,10 @@ func init() {
 	crawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
 	crawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
 	crawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+
+	viper.BindPFlag("crawl.username", crawlCmd.Flags().Lookup("username"))
+	viper.BindPFlag("crawl.password", crawlCmd.Flags().Lookup("password"))
+	viper.BindPFlag("crawl.insecure", crawlCmd.Flags().Lookup("insecure"))
 
 	rootCmd.AddCommand(crawlCmd)
 }
