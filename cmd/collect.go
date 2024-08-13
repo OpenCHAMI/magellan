@@ -86,14 +86,14 @@ func init() {
 	collectCmd.MarkFlagsRequiredTogether("username", "password")
 
 	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("collect.host")))
-	checkBindFlagError(viper.BindPFlag("collect.username", collectCmd.Flags().Lookup("collect.username")))
-	checkBindFlagError(viper.BindPFlag("collect.password", collectCmd.Flags().Lookup("collect.password")))
-	checkBindFlagError(viper.BindPFlag("collect.scheme", collectCmd.Flags().Lookup("collect.scheme")))
-	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("collect.protocol")))
-	checkBindFlagError(viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("collect.output")))
-	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("collect.force-update")))
-	checkBindFlagError(viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("collect.cacert")))
+	checkBindFlagError(viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host")))
+	checkBindFlagError(viper.BindPFlag("collect.username", collectCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("collect.password", collectCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("collect.scheme", collectCmd.Flags().Lookup("scheme")))
+	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output")))
+	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update")))
+	checkBindFlagError(viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlags(collectCmd.Flags()))
 
 	rootCmd.AddCommand(collectCmd)
