@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 )
@@ -164,7 +165,7 @@ func GenerateHostsWithSubnet(subnet string, subnetMask *net.IPMask, additionalPo
 
 	// generate new IPs from subnet and format to full URL
 	subnetIps := generateIPsWithSubnet(&subnetIp, subnetMask)
-	return client.FormatIPUrls(subnetIps, additionalPorts, defaultScheme, false)
+	return urlx.FormatIPs(subnetIps, additionalPorts, defaultScheme, false)
 }
 
 // GetDefaultPorts() returns a list of default ports. The only reason to have

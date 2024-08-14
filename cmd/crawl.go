@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
-	"strings"
 
+	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -25,19 +24,14 @@ var crawlCmd = &cobra.Command{
 		"  magellan crawl https://bmc.example.com -i -u username -p password",
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Validate that the only argument is a valid URI
+		var err error
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
 		}
-		parsedURI, err := url.ParseRequestURI(args[0])
+		args[0], err = urlx.Sanitize(args[0])
 		if err != nil {
-			return fmt.Errorf("invalid URI specified: %s", args[0])
+			return fmt.Errorf("failed to sanitize URI: %w", err)
 		}
-		// Remove any trailing slashes
-		parsedURI.Path = strings.TrimSuffix(parsedURI.Path, "/")
-		// Collapse any doubled slashes
-		parsedURI.Path = strings.ReplaceAll(parsedURI.Path, "//", "/")
-		// Update the URI in the args slice
-		args[0] = parsedURI.String()
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {

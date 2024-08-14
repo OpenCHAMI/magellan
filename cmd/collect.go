@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os/user"
-	"strings"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
@@ -33,8 +33,10 @@ var collectCmd = &cobra.Command{
 		}
 
 		// URL sanitanization for host argument
-		host = strings.TrimSuffix(host, "/")
-		host = strings.ReplaceAll(host, "//", "/")
+		host, err = urlx.Sanitize(host)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to sanitize host")
+		}
 
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {

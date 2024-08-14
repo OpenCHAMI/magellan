@@ -9,9 +9,9 @@ import (
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 
+	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/cznic/mathutil"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -72,8 +72,8 @@ var scanCmd = &cobra.Command{
 		}
 
 		// format and combine flag and positional args
-		targetHosts = append(targetHosts, client.FormatHostUrls(args, ports, scheme, verbose)...)
-		targetHosts = append(targetHosts, client.FormatHostUrls(hosts, ports, scheme, verbose)...)
+		targetHosts = append(targetHosts, urlx.FormatHosts(args, ports, scheme, verbose)...)
+		targetHosts = append(targetHosts, urlx.FormatHosts(hosts, ports, scheme, verbose)...)
 
 		// add more hosts specified with `--subnet` flag
 		if debug {
