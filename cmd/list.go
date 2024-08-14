@@ -6,10 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
+	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	"github.com/rs/zerolog/log"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+)
+
+var (
+	showCache bool
 )
 
 // The `list` command provides an easy way to show what was found
@@ -24,23 +28,34 @@ var listCmd = &cobra.Command{
 		"  magellan list\n" +
 		"  magellan list --cache ./assets.db",
 	Run: func(cmd *cobra.Command, args []string) {
-		probeResults, err := sqlite.GetProbeResults(cachePath)
+		// check if we just want to show cache-related info and exit
+		if showCache {
+			fmt.Printf("cache: %s\n", cachePath)
+			return
+		}
+
+		// load the assets found from scan
+		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
-			logrus.Errorf("failed toget probe results: %v\n", err)
+			log.Error().Err(err).Msg("failed to get scanned assets")
 		}
 		format = strings.ToLower(format)
 		if format == "json" {
-			b, _ := json.Marshal(probeResults)
+			b, err := json.Marshal(scannedResults)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to unmarshal scanned results")
+			}
 			fmt.Printf("%s\n", string(b))
 		} else {
-			for _, r := range probeResults {
-				fmt.Printf("%s:%d (%s) @ %s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate))
+			for _, r := range scannedResults {
+				fmt.Printf("%s:%d (%s) @%s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate))
 			}
 		}
 	},
 }
 
 func init() {
-	listCmd.Flags().StringVar(&format, "format", "", "set the output format")
+	listCmd.Flags().StringVar(&format, "format", "", "Set the output format (json|default)")
+	listCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
 	rootCmd.AddCommand(listCmd)
 }

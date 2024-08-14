@@ -13,11 +13,12 @@ $(error VERSION is not set.  Please review and copy config.env.default to config
 endif
 
 SHELL := /bin/bash
+GOPATH ?= $(shell echo $${GOPATH:-~/go})
 
 .DEFAULT_GOAL := all
 .PHONY: all
 all: ## build pipeline
-all: mod inst build spell lint test
+all: mod inst build lint test
 
 .PHONY: ci
 ci: ## CI build pipeline
@@ -47,27 +48,30 @@ inst: ## go install tools
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
 	go install github.com/goreleaser/goreleaser@v1.18.2
 
+.PHONY: goreleaser
+release: ## goreleaser build
+	$(call print-target)
+	$(GOPATH)/bin/goreleaser build --clean --single-target --snapshot
+
 .PHONY: build
 build: ## goreleaser build
-build:
-	$(call print-target)
-	goreleaser build --clean --single-target --snapshot
+	go build --tags=all
 
 .PHONY: docker
-docker: ## docker build
-docker:
+container: ## docker build
+container:
 	$(call print-target)
 	docker build . --build-arg REGISTRY_HOST=${REGISTRY_HOST} --no-cache --pull --tag '${NAME}:${VERSION}' 
 
 .PHONY: spell
 spell: ## misspell
 	$(call print-target)
-	misspell -error -locale=US -w **.md
+	$(GOPATH)/bin/misspell -error -locale=US -w **.md
 
 .PHONY: lint
 lint: ## golangci-lint
 	$(call print-target)
-	golangci-lint run --fix
+	$(GOPATH)/bin/golangci-lint run --fix
 
 .PHONY: test
 test: ## go test
@@ -87,6 +91,11 @@ docs: ## go docs
 	go doc github.com/OpenCHAMI/magellan/cmd
 	go doc github.com/OpenCHAMI/magellan/internal
 	go doc github.com/OpenCHAMI/magellan/pkg/crawler
+
+.PHONY: emulator
+emulator:
+	$(call print-target)
+	./emulator/setup.sh
 
 define print-target
     @printf "Executing target: \033[36m$@\033[0m\n"

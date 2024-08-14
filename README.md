@@ -2,6 +2,20 @@
 
 The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/tree/master) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of using independently of other tools or services.
 
+**Note: `magellan` v0.1.0 is incompatible with SMD v2.15.3 and earlier.**
+
+## Main Features
+
+The `magellan` tool comes packed with a handleful of features for doing discovery, such as:
+
+- Simple network scanning
+- Redfish-based inventory collection
+- Redfish-based firmware updating
+- Integration with OpenCHAMI SMD
+- Write inventory data to JSON
+
+See the [TODO](#todo) section for a list of soon-ish goals planned.
+
 ## Getting Started
 
 [Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be ran by executing the `emulator/setup.sh` script or running `make emulator`.
@@ -52,10 +66,6 @@ docker pull ghcr.io/openchami/magellan:latest
 
 See the ["Running with Docker"](#running-with-docker) section below about running with the Docker container.
 
-
-
-
-
 ## Usage
 
 The sections below assume that the BMC nodes have an IP address available to query Redfish. Currently, `magellan` does not support discovery with MAC addresses although that may change in the future.
@@ -89,7 +99,9 @@ This should return a JSON response with general information. The output below ha
 }
 ```
 
-To see all of the available commands, run `magellan` with the `help` subcommand:
+### Running the Tool
+
+There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand:
 
 ```bash
 ./magellan help
@@ -120,9 +132,7 @@ Flags:
 Use "magellan [command] --help" for more information about a command.
 ```
 
-### Running the Tool
-
-There are three main commands to use with the tool: `scan`, `list`, and `collect`. To start a network scan for BMC nodes, use the `scan` command. If the port is not specified, `magellan` will probe ports 623 and 443 by default:
+To start a network scan for BMC nodes, use the `scan` command. If the port is not specified, `magellan` will probe the common Redfish port 443 by default:
 
 ```bash
 ./magellan scan \
@@ -162,7 +172,7 @@ Note: If the `cache` flag is not set, `magellan` will use "/tmp/$USER/magellan.d
 
 ### Updating Firmware
 
-The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessbile URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag with all the other usual arguments like in the example below:
+The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessible URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag with all the other usual arguments like in the example below:
 
 ```bash
 ./magellan update \
@@ -220,7 +230,7 @@ At its core, `magellan` is designed to do three basic things:
 
 First, the tool performs a scan to find running services on a network. This is done by sending a raw TCP packet to all specified hosts (either IP or host name) and taking note which services respond. At this point, `magellan` has no way of knowing whether this is a Redfish service or not, so another HTTP request is made to verify. Once the BMC responds with an OK status code, `magellan` will store the necessary information in a local cache database to allow collecting more information about the node later. This allows for users to only have to scan their cluster once to find systems that are currently available and scannable.
 
-Next, the tool queries information about the BMC node using `gofish` API functions, but requires access to BMC node found in the scanning step mentioned above to work. If the node requires basic authentication, a user name and password is required to be supplied as well. Once the BMC information is retrived from each node, the info is aggregated and a HTTP request is made to a SMD instance to be stored. Optionally, the information can be written to disk for inspection and debugging purposes.
+Next, the tool queries information about the BMC node using `gofish` API functions, but requires access to BMC node found in the scanning step mentioned above to work. If the node requires basic authentication, a user name and password is required to be supplied as well. Once the BMC information is retrieved from each node, the info is aggregated and a HTTP request is made to a SMD instance to be stored. Optionally, the information can be written to disk for inspection and debugging purposes.
 
 In summary, `magellan` needs at minimum the following configured to work on each node:
 
@@ -234,13 +244,13 @@ See the [issue list](https://github.com/OpenCHAMI/magellan/issues) for plans for
 
 * [X] Confirm loading different components into SMD
 * [X] Add ability to set subnet mask for scanning
-* [ ] Add ability to scan with other protocols like LLDP
-* [ ] Add more debugging messages with the `-v/--verbose` flag
+* [ ] Add ability to scan with other protocols like LLDP and SSDP
+* [X] Add more debugging messages with the `-v/--verbose` flag
 * [ ] Separate `collect` subcommand with making request to endpoint
 * [X] Support logging in with `opaal` to get access token
 * [X] Support using CA certificates with HTTP requests to SMD
-* [ ] Add unit tests for `scan`, `list`, and `collect` commands
-* [ ] Clean up, remove unused, and tidy code
+* [ ] Add tests for the regressions and compatibility
+* [X] Clean up, remove unused, and tidy code (first round)
 
 ## Copyright
 

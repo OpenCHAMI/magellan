@@ -13,8 +13,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -26,11 +27,11 @@ var (
 // Simple test to fetch the base Redfish URL and assert a 200 OK response.
 func TestRedfishV1Availability(t *testing.T) {
 	var (
-		url     = fmt.Sprintf("%s/redfish/v1", host)
+		url     = fmt.Sprintf("%s/redfish/v1", *host)
 		body    = []byte{}
 		headers = map[string]string{}
 	)
-	res, b, err := util.MakeRequest(nil, url, http.MethodGet, body, headers)
+	res, b, err := client.MakeRequest(nil, url, http.MethodGet, body, headers)
 	if err != nil {
 		t.Fatalf("failed to make request to BMC: %v", err)
 	}
@@ -55,12 +56,16 @@ func TestRedfishV1Availability(t *testing.T) {
 // Simple test to ensure an expected Redfish version minimum requirement.
 func TestRedfishVersion(t *testing.T) {
 	var (
-		url     = fmt.Sprintf("%s/redfish/v1", host)
-		body    = []byte{}
-		headers = map[string]string{}
+		url     string            = fmt.Sprintf("%s/redfish/v1", *host)
+		body    client.HTTPBody   = []byte{}
+		headers client.HTTPHeader = map[string]string{}
+		err     error
 	)
 
-	util.MakeRequest(nil, url, http.MethodGet, body, headers)
+	_, _, err = client.MakeRequest(nil, url, http.MethodGet, body, headers)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to make request")
+	}
 }
 
 // Crawls a BMC node and checks that we're able to query certain properties

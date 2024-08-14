@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * Ability to update firmware
  * Refactored connection handling for faster scanning
- * Updated to refelct home at github.com/OpenCHAMI
+ * Updated to reflect home at github.com/OpenCHAMI
  * Updated to reflect ghcr.io as container home
 
  ## [Unreleased]

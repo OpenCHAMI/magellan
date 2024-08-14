@@ -5,15 +5,18 @@ scan:
     - "172.16.0.0"
     - "172.16.0.0/24"
   subnet-masks:
+    - "255.255.255.0"
   ports:
-    - 433
+    - 443
   disable-probing: false
+  disable-caching: false
+  protocol: "tcp"
+  scheme: "https"
 collect:
-  # host: smd-host
-  # port: smd-port
   username: "admin"
   password: "password"
-  protocol: "https"
+  protocol: "tcp"
+  scheme: "https"
   output: "/tmp/magellan/data/"
   threads: 1
   force-update: false
@@ -23,8 +26,7 @@ update:
   port: 443
   username: "admin"
   password: "password"
-  transfer-protocol: "HTTP"
-  protocol: "https"
+  transfer-protocol: "https"
   firmware:
     url:
     version:

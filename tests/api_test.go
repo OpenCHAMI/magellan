@@ -11,43 +11,63 @@ import (
 	"testing"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/log"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
+)
+
+var (
+	scanParams = &magellan.ScanParams{
+		TargetHosts: [][]string{
+			[]string{
+				"http://127.0.0.1:443",
+				"http://127.0.0.1:5000",
+			},
+		},
+		Scheme:         "https",
+		Protocol:       "tcp",
+		Concurrency:    1,
+		Timeout:        30,
+		DisableProbing: false,
+		Verbose:        false,
+	}
 )
 
 func TestScanAndCollect(t *testing.T) {
-	var (
-		hosts = []string{"http://127.0.0.1"}
-		ports = []int{5000}
-		l     = log.NewLogger(logrus.New(), logrus.DebugLevel)
-	)
 	// do a scan on the emulator cluster with probing disabled and check results
-	results := magellan.ScanForAssets(hosts, ports, 1, 30, true, false)
+	results := magellan.ScanForAssets(scanParams)
 	if len(results) <= 0 {
 		t.Fatal("expected to find at least one BMC node, but found none")
 	}
 	// do a scan on the emulator cluster with probing enabled
-	results = magellan.ScanForAssets(hosts, ports, 1, 30, false, false)
+	results = magellan.ScanForAssets(scanParams)
 	if len(results) <= 0 {
 		t.Fatal("expected to find at least one BMC node, but found none")
 	}
 
 	// do a collect on the emulator cluster to collect Redfish info
-	magellan.CollectAll(results)
+	err := magellan.CollectInventory(&results, &magellan.CollectParams{})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to collect inventory")
+	}
 }
 
 func TestCrawlCommand(t *testing.T) {
-
+	// TODO: add test to check the crawl command's behavior
 }
 
 func TestListCommand(t *testing.T) {
-
+	// TODO: add test to check the list command's output
 }
 
 func TestUpdateCommand(t *testing.T) {
-
+	// TODO: add test that does a Redfish simple update checking it success and
+	// failure points
 }
 
 func TestGofishFunctions(t *testing.T) {
+	// TODO: add test that checks certain gofish function output to make sure
+	// gofish's output isn't changing spontaneously and remains predictable
+}
 
+func TestGenerateHosts(t *testing.T) {
+	// TODO: add test to generate hosts using a collection of subnets/masks
 }

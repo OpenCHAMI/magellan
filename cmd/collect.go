@@ -5,17 +5,13 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/api/smd"
-	"github.com/OpenCHAMI/magellan/internal/db/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/log"
+	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	urlx "github.com/OpenCHAMI/magellan/internal/url"
+	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/cznic/mathutil"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-var (
-	forceUpdate bool
 )
 
 // The `collect` command fetches data from a collection of BMC nodes.
@@ -30,36 +26,39 @@ var collectCmd = &cobra.Command{
 		"  magellan collect --cache ./assets.db --output ./logs --timeout 30 --cacert cecert.pem\n" +
 		"  magellan collect --host smd.example.com --port 27779 --username username --password password",
 	Run: func(cmd *cobra.Command, args []string) {
-		// make application logger
-		l := log.NewLogger(logrus.New(), logrus.DebugLevel)
-
 		// get probe states stored in db from scan
-		probeStates, err := sqlite.GetProbeResults(cachePath)
+		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
-			l.Log.Errorf("failed toget states: %v", err)
+			log.Error().Err(err).Msgf("failed to get scanned results from cache")
+		}
+
+		// URL sanitanization for host argument
+		host, err = urlx.Sanitize(host)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to sanitize host")
 		}
 
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {
 			var err error
-			accessToken, err = LoadAccessToken()
-			if err != nil {
-				l.Log.Errorf("failed to load access token: %v", err)
+			accessToken, err = auth.LoadAccessToken(tokenPath)
+			if err != nil && verbose {
+				log.Warn().Err(err).Msgf("could not load access token")
 			}
 		}
 
 		if verbose {
-			fmt.Printf("access token: %v\n", accessToken)
+			log.Debug().Str("Access Token", accessToken)
 		}
 
 		//
 		if concurrency <= 0 {
-			concurrency = mathutil.Clamp(len(probeStates), 1, 255)
+			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
-		q := &magellan.QueryParams{
+		err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
+			URI:         host,
 			Username:    username,
 			Password:    password,
-			Protocol:    protocol,
 			Timeout:     timeout,
 			Concurrency: concurrency,
 			Verbose:     verbose,
@@ -67,45 +66,37 @@ var collectCmd = &cobra.Command{
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
-		}
-		err = magellan.CollectAll(&probeStates, l, q)
+		})
 		if err != nil {
-			l.Log.Errorf("failed to collect data: %v", err)
-		}
-
-		// add necessary headers for final request (like token)
-		headers := make(map[string]string)
-		if q.AccessToken != "" {
-			headers["Authorization"] = "Bearer " + q.AccessToken
+			log.Error().Err(err).Msgf("failed to collect data")
 		}
 	},
 }
 
 func init() {
 	currentUser, _ = user.Current()
-	collectCmd.PersistentFlags().StringVar(&smd.Host, "host", smd.Host, "set the host to the SMD API")
-	collectCmd.PersistentFlags().IntVarP(&smd.Port, "port", "p", smd.Port, "set the port to the SMD API")
-	collectCmd.PersistentFlags().StringVar(&username, "username", "", "set the BMC user")
-	collectCmd.PersistentFlags().StringVar(&password, "password", "", "set the BMC password")
-	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "https", "set the protocol used to query")
-	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/data/", currentUser.Username+"/"), "set the path to store collection data")
-	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "set flag to force update data sent to SMD")
-	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "path to CA cert. (defaults to system CAs)")
+	collectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
+	collectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the BMC user")
+	collectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the BMC password")
+	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the scheme used to query")
+	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
+	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
+	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
+	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to CA cert. (defaults to system CAs)")
 
 	// set flags to only be used together
 	collectCmd.MarkFlagsRequiredTogether("username", "password")
 
 	// bind flags to config properties
-	viper.BindPFlag("collect.driver", collectCmd.Flags().Lookup("driver"))
-	viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host"))
-	viper.BindPFlag("collect.port", collectCmd.Flags().Lookup("port"))
-	viper.BindPFlag("collect.username", collectCmd.Flags().Lookup("username"))
-	viper.BindPFlag("collect.password", collectCmd.Flags().Lookup("password"))
-	viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol"))
-	viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output"))
-	viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update"))
-	viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("secure-tls"))
-	viper.BindPFlags(collectCmd.Flags())
+	checkBindFlagError(viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host")))
+	checkBindFlagError(viper.BindPFlag("collect.username", collectCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("collect.password", collectCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("collect.scheme", collectCmd.Flags().Lookup("scheme")))
+	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output")))
+	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update")))
+	checkBindFlagError(viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlags(collectCmd.Flags()))
 
 	rootCmd.AddCommand(collectCmd)
 }

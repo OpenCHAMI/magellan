@@ -21,7 +21,7 @@ import (
 	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/api/smd"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -42,17 +42,22 @@ var (
 	outputPath  string
 	configPath  string
 	verbose     bool
+	debug       bool
+	forceUpdate bool
 )
 
 // The `root` command doesn't do anything on it's own except display
 // a help message and then exits.
 var rootCmd = &cobra.Command{
 	Use:   "magellan",
-	Short: "Tool for BMC discovery",
+	Short: "Redfish-based BMC discovery tool",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			cmd.Help()
+			err := cmd.Help()
+			if err != nil {
+				log.Error().Err(err).Msg("failed to print help")
+			}
 			os.Exit(0)
 		}
 	},
@@ -66,51 +71,30 @@ func Execute() {
 	}
 }
 
-// LoadAccessToken() tries to load a JWT string from an environment
-// variable, file, or config in that order. If loading the token
-// fails with one options, it will fallback to the next option until
-// all options are exhausted.
-//
-// Returns a token as a string with no error if successful.
-// Alternatively, returns an empty string with an error if a token is
-// not able to be loaded.
-func LoadAccessToken() (string, error) {
-	// try to load token from env var
-	testToken := os.Getenv("ACCESS_TOKEN")
-	if testToken != "" {
-		return testToken, nil
-	}
-
-	// try reading access token from a file
-	b, err := os.ReadFile(tokenPath)
-	if err == nil {
-		return string(b), nil
-	}
-
-	// TODO: try to load token from config
-	testToken = viper.GetString("access_token")
-	if testToken != "" {
-		return testToken, nil
-	}
-	return "", fmt.Errorf("failed toload token from environment variable, file, or config")
-}
-
 func init() {
 	currentUser, _ = user.Current()
 	cobra.OnInitialize(InitializeConfig)
 	rootCmd.PersistentFlags().IntVar(&concurrency, "concurrency", -1, "set the number of concurrent processes")
-	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "set the timeout")
+	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 5, "set the timeout")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "set the config file path")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set output verbosity")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set to enable/disable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "set to enable/disable debug messages")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
-	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%smagellan/magellan.db", currentUser.Username+"/"), "set the scanning result cache path")
+	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "set the scanning result cache path")
 
 	// bind viper config flags with cobra
-	viper.BindPFlag("concurrency", rootCmd.Flags().Lookup("concurrency"))
-	viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout"))
-	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
-	viper.BindPFlag("cache", rootCmd.Flags().Lookup("cache"))
-	viper.BindPFlags(rootCmd.Flags())
+	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))
+	checkBindFlagError(viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")))
+	checkBindFlagError(viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")))
+	checkBindFlagError(viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")))
+	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.PersistentFlags().Lookup("verbose")))
+	checkBindFlagError(viper.BindPFlag("cache", rootCmd.PersistentFlags().Lookup("cache")))
+}
+
+func checkBindFlagError(err error) {
+	if err != nil {
+		log.Error().Err(err).Msg("failed to bind flag")
+	}
 }
 
 // InitializeConfig() initializes a new config object by loading it
@@ -119,7 +103,10 @@ func init() {
 // See the 'LoadConfig' function in 'internal/config' for details.
 func InitializeConfig() {
 	if configPath != "" {
-		magellan.LoadConfig(configPath)
+		err := magellan.LoadConfig(configPath)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to load config")
+		}
 	}
 }
 
@@ -129,35 +116,33 @@ func InitializeConfig() {
 // TODO: This function should probably be moved to 'internal/config.go'
 // instead of in this file.
 func SetDefaults() {
+	currentUser, _ = user.Current()
 	viper.SetDefault("threads", 1)
-	viper.SetDefault("timeout", 30)
+	viper.SetDefault("timeout", 5)
 	viper.SetDefault("config", "")
 	viper.SetDefault("verbose", false)
-	viper.SetDefault("cache", "/tmp/magellan/magellan.db")
+	viper.SetDefault("debug", false)
+	viper.SetDefault("cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username))
 	viper.SetDefault("scan.hosts", []string{})
 	viper.SetDefault("scan.ports", []int{})
 	viper.SetDefault("scan.subnets", []string{})
 	viper.SetDefault("scan.subnet-masks", []net.IP{})
 	viper.SetDefault("scan.disable-probing", false)
-	viper.SetDefault("collect.driver", []string{"redfish"})
-	viper.SetDefault("collect.host", smd.Host)
-	viper.SetDefault("collect.port", smd.Port)
-	viper.SetDefault("collect.user", "")
-	viper.SetDefault("collect.pass", "")
-	viper.SetDefault("collect.protocol", "https")
+	viper.SetDefault("scan.disable-cache", false)
+	viper.SetDefault("collect.host", host)
+	viper.SetDefault("collect.username", "")
+	viper.SetDefault("collect.password", "")
+	viper.SetDefault("collect.protocol", "tcp")
 	viper.SetDefault("collect.output", "/tmp/magellan/data/")
 	viper.SetDefault("collect.force-update", false)
-	viper.SetDefault("collect.ca-cert", "")
-	viper.SetDefault("bmc-host", "")
-	viper.SetDefault("bmc-port", 443)
-	viper.SetDefault("user", "")
-	viper.SetDefault("pass", "")
-	viper.SetDefault("transfer-protocol", "HTTP")
-	viper.SetDefault("protocol", "https")
-	viper.SetDefault("firmware-url", "")
-	viper.SetDefault("firmware-version", "")
-	viper.SetDefault("component", "")
-	viper.SetDefault("secure-tls", false)
-	viper.SetDefault("status", false)
+	viper.SetDefault("collect.cacert", "")
+	viper.SetDefault("update.username", "")
+	viper.SetDefault("update.password", "")
+	viper.SetDefault("update.transfer-protocol", "https")
+	viper.SetDefault("update.protocol", "tcp")
+	viper.SetDefault("update.firmware.url", "")
+	viper.SetDefault("update.firmware.version", "")
+	viper.SetDefault("update.component", "")
+	viper.SetDefault("update.status", false)
 
 }
