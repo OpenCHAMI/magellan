@@ -15,9 +15,9 @@ func Sanitize(uri string) (string, error) {
 		return "", fmt.Errorf("failed to parse URI: %w", err)
 	}
 	// Remove any trailing slashes
-	parsedURI.Path = strings.TrimSuffix(uri, "/")
+	parsedURI.Path = strings.TrimSuffix(parsedURI.Path, "/")
 	// Collapse any doubled slashes
-	parsedURI.Path = strings.ReplaceAll(uri, "//", "/")
+	parsedURI.Path = strings.ReplaceAll(parsedURI.Path, "//", "/")
 	return parsedURI.String(), nil
 }
 
