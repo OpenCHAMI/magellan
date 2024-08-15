@@ -22,6 +22,7 @@ type EthernetInterface struct {
 	IP          string `json:"ip,omitempty"`          // IP address of the interface
 	Name        string `json:"name,omitempty"`        // Name of the interface
 	Description string `json:"description,omitempty"` // Description of the interface
+	Enabled     bool   `json:"enabled,omitempty"`     // Enabled interface
 }
 
 type NetworkAdapter struct {
@@ -42,7 +43,9 @@ type NetworkInterface struct {
 
 type InventoryDetail struct {
 	URI                  string              `json:"uri,omitempty"`                  // URI of the BMC
+	UUID                 string              `json:"uuid,omitempty"`                 // UUID of Node
 	Manufacturer         string              `json:"manufacturer,omitempty"`         // Manufacturer of the Node
+	SystemType           string              `json:"system_type,omitempty`           // System type of the Node
 	Name                 string              `json:"name,omitempty"`                 // Name of the Node
 	Model                string              `json:"model,omitempty"`                // Model of the Node
 	Serial               string              `json:"serial,omitempty"`               // Serial number of the Node
@@ -120,8 +123,10 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 	for _, rf_computersystem := range rf_systems {
 		system := InventoryDetail{
 			URI:            baseURI + "/redfish/v1/Systems/" + rf_computersystem.ID,
+			UUID:           rf_computersystem.UUID,
 			Name:           rf_computersystem.Name,
 			Manufacturer:   rf_computersystem.Manufacturer,
+			SystemType:     string(rf_computersystem.SystemType),
 			Model:          rf_computersystem.Model,
 			Serial:         rf_computersystem.SerialNumber,
 			BiosVersion:    rf_computersystem.BIOSVersion,
@@ -150,6 +155,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 				MAC:         rf_ethernetinterface.MACAddress,
 				Name:        rf_ethernetinterface.Name,
 				Description: rf_ethernetinterface.Description,
+				Enabled:     rf_ethernetinterface.InterfaceEnabled,
 			}
 			if len(rf_ethernetinterface.IPv4Addresses) > 0 {
 				ethernetinterface.IP = rf_ethernetinterface.IPv4Addresses[0].Address
