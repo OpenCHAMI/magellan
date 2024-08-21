@@ -6,7 +6,7 @@ on:
     tags:
       - v*
 
-permissions: write-all # Necessary for the generate-build-provenance action with containers
+permissions: write-all
 
 jobs:
 
