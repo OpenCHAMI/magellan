@@ -150,7 +150,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 				if smdClient.URI != "" {
 					err = smdClient.Add(body, headers)
 					if err != nil {
-						log.Error().Err(err).Msgf("failed to add Redfish endpoint")
 
 						// try updating instead
 						if params.ForceUpdate {
@@ -159,6 +158,8 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 							if err != nil {
 								log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint")
 							}
+						} else {
+							log.Error().Err(err).Msgf("failed to add Redfish endpoint")
 						}
 					}
 				} else {
