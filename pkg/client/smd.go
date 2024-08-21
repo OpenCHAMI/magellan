@@ -40,7 +40,11 @@ func (c SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
-			return fmt.Errorf("returned status code %d when adding endpoint", res.StatusCode)
+			if len(body) > 0 {
+				return fmt.Errorf("%d: %s", res.StatusCode, string(body))
+			} else {
+				return fmt.Errorf("returned status code %d when adding endpoint", res.StatusCode)
+			}
 		}
 		fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
@@ -57,7 +61,11 @@ func (c SmdClient) Update(data HTTPBody, headers HTTPHeader) error {
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
-			return fmt.Errorf("failed to update redfish endpoint (returned %s)", res.Status)
+			if len(body) > 0 {
+				return fmt.Errorf("%d: %s", res.StatusCode, string(body))
+			} else {
+				return fmt.Errorf("failed to update redfish endpoint (returned %s)", res.Status)
+			}
 		}
 		fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
