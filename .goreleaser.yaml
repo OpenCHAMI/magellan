@@ -30,8 +30,8 @@ dockers:
     image_templates:
       - ghcr.io/openchami/{{.ProjectName}}:latest
       - ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
+      - ghcr.io/openchami/{{.ProjectName}}:v{{ .Major }}
+      - ghcr.io/openchami/{{.ProjectName}}:v{{ .Major }}.{{ .Minor }}
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
