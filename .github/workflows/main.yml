@@ -6,13 +6,11 @@ on:
     tags:
       - v*
 
-permissions: write-all # Necessary for the generate-build-provenance action with containers
+permissions: write-all
 
 jobs:
 
   build:
-
-
     runs-on: ubuntu-latest
 
     steps:
@@ -20,6 +18,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.21
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Checkout
         uses: actions/checkout@v4
         with:
