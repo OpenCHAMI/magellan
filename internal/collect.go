@@ -105,6 +105,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
 					"Systems":            systems,
+					"SchemaVersion":      1,
 				}
 
 				// create and set headers for request
