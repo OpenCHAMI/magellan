@@ -6,6 +6,8 @@ package client
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 )
 
 type SmdClient struct {
@@ -46,7 +48,7 @@ func (c SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 				return fmt.Errorf("returned status code %d when adding endpoint", res.StatusCode)
 			}
 		}
-		fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
+		log.Debug().Msgf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
 	return err
 }
@@ -67,7 +69,7 @@ func (c SmdClient) Update(data HTTPBody, headers HTTPHeader) error {
 				return fmt.Errorf("failed to update redfish endpoint (returned %s)", res.Status)
 			}
 		}
-		fmt.Printf("%v (%v)\n%s\n", url, res.Status, string(body))
+		log.Debug().Msgf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
 	return err
 }
