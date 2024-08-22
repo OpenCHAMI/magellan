@@ -25,10 +25,28 @@ archives:
       - CHANGELOG.md
       - README.md
       - bin/magellan.sh
+dockers:
+  - 
+    image_templates:
+      - ghcr.io/openchami/{{.ProjectName}}:latest
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}
+      - ghcr.io/openchami/{{.ProjectName}}:v{{ .Major }}
+      - ghcr.io/openchami/{{.ProjectName}}:v{{ .Major }}.{{ .Minor }}
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - LICENSE
+      - CHANGELOG.md
+      - README.md
+      - bin/magellan.sh
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
   filters:

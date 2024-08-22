@@ -15,10 +15,6 @@ SCAN_PARAMS=""
 COLLECT_PARAMS=""
 
 
-function build(){
-	go mod tidy && go build -C bin/magellan
-}
-
 function scan() {
 	# ./magellan scan --subnet 172.16.0.0 --port 443
 	${EXE} scan ${SCAN_PARAMS}
@@ -30,7 +26,7 @@ function scan() {
 
 function list(){
 	# ./magellan list
-	${EXE} list 
+	${EXE} list
 }
 
 function collect() {
@@ -48,7 +44,7 @@ function collect() {
 
 # parse incoming arguments to set variables
 while [[ $# -gt 0 ]]; do
-  case $1 in
+	case $1 in
 	--scan)
 		SCAN_PARAMS="$2"
 		shift
@@ -107,7 +103,7 @@ while [[ $# -gt 0 ]]; do
 		ARGS+=("$1") # save positional arg
 		shift # past argument
 		;;
-  esac
+	esac
 done
 
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
