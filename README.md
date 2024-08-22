@@ -104,30 +104,31 @@ This should return a JSON response with general information. The output below ha
 There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand:
 
 ```bash
-./magellan help
-Tool for BMC discovery
+Redfish-based BMC discovery tool
 
 Usage:
   magellan [flags]
   magellan [command]
 
 Available Commands:
-  collect     Query information about BMC
+  collect     Collect system information by interrogating BMC node
   completion  Generate the autocompletion script for the specified shell
+  crawl       Crawl a single BMC for inventory information
   help        Help about any command
-  list        List information from scan
+  list        List information stored in cache from a scan
   login       Log in with identity provider for access token
-  scan        Scan for BMC nodes on a network
+  scan        Scan to discover BMC nodes on a network
   update      Update BMC node firmware
 
 Flags:
       --access-token string   set the access token
+      --cache string          set the scanning result cache path (default "/tmp/allend/magellan/assets.db")
+      --concurrency int       set the number of concurrent processes (default -1)
   -c, --config string         set the config file path
-      --cache string        set the probe storage path (default "/tmp/magellan/magellan.db")
+  -d, --debug                 set to enable/disable debug messages
   -h, --help                  help for magellan
-      --threads int           set the number of threads (default -1)
-      --timeout int           set the timeout (default 30)
-  -v, --verbose               set verbose flag
+      --timeout int           set the timeout (default 5)
+  -v, --verbose               set to enable/disable verbose output
 
 Use "magellan [command] --help" for more information about a command.
 ```
@@ -139,10 +140,16 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
     --format json \
-    --cache data/assets.db --port 443
+    --cache data/assets.db \
 ```
 
-This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently. Setting the `--format=json` will format the output in JSON. Try using `./magellan help scan` for a complete set of options this subcommand.
+This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently. Setting the `--format=json` will format the output in JSON. Try using `./magellan help scan` for a complete set of options this subcommand. Alternatively, the same scan can be started using CIDR notation and with additional hosts:
+
+```bash
+./magellan scan https://10.0.0.100:5000 --subnet 172.16.0.0/24
+```
+
+Check the help for each subcommand for more examples for specifying arguments.
 
 To inspect the cache, use the `list` command. Make sure to point to the same database used before:
 
@@ -158,12 +165,11 @@ Finally, set the `ACCESS_TOKEN`run the `collect` command to query the node from 
 ./magellan collect \
     --cache data/assets.db \
     --timeout 5 \
-    --user admin \
-    --pass password \
-    --host https://example.openchami.cluster \
-    --port 27779 \
+    --username $USERNAME \
+    --password $PASSWORD \
+    --host https://example.openchami.cluster:27779 \
     --output logs/
-    --ca-cert cacert.pem
+    --cacert cacert.pem
 ```
 
 This uses the info stored in cache to request information about each BMC node if possible. Like with the scan, the time to wait for a response can be set with the `--timeout` flag as well. This command also requires the `--user` and `--pass` flags to be set if access the Redfish service requires basic authentication. Additionally, it may be necessary to set the `--host` and `--port` flags for `magellan` to find the SMD API (not the root API endpoint "/hsm/v2"). The output of the `collect` can be saved by using the `--output`
@@ -175,10 +181,9 @@ Note: If the `cache` flag is not set, `magellan` will use "/tmp/$USER/magellan.d
 The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessible URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag with all the other usual arguments like in the example below:
 
 ```bash
-./magellan update \
-  --host 172.16.0.108 \
-  --port 443 \
-  --user username \ --pass password \
+./magellan update 172.16.0.108:443 \
+  --username $USERNAME \ 
+  --password $PASSWORD \
   --firmware-path http://172.16.0.255:8005/firmware/bios/image.RBU \
   --component BIOS
 ```
@@ -186,9 +191,9 @@ The `magellan` tool is capable of updating firmware with using the `update` subc
 Then, the update status can be viewed by including the `--status` flag along with the other usual arguments or with the `watch` command:
 
 ```bash
-./magellan update --status --host 172.16.0.110 --user admin --pass password | jq '.'
+./magellan update 172.16.0.110 --status --username $USERNAME --pass $PASSWORD | jq '.'
 # ...or...
-watch -n 1 "./magellan update --status --host 172.16.0.110 --user admin --pass password | jq '.'"
+watch -n 1 "./magellan update 172.16.0.110 --status --username $USERNAME --password $PASSWORD | jq '.'"
 ```
 
 ### Getting an Access Token (WIP)
@@ -213,11 +218,19 @@ export ACCESS_TOKEN=$(gen_access_token)
 
 ### Running with Docker
 
-Both the `scan` and `collect` commands can be ran via Docker after pulling the image:
+The `magellan` tool can be ran in a Docker container after pulling the latest image:
 
 ```bash
-docker pull bikeshack/magellan:latest
-docker run bikeshack/magellan:latest /magellan.sh --scan "--subnet 172.16.0.0 --port 443 --timeout 3" --collect "--user admin --pass password --host http://vm01 --port 27779"
+docker pull ghcr.io/openchami/magellan:latest
+
+```
+
+Then, run either with the helper script found in `bin/magellan.sh` or the binary in the container:
+
+```bash
+docker run ghcr.io/openchami/magellan:latest /magellan.sh --scan "--subnet 172.16.0.0 --port 443 --timeout 3" --collect "--user admin --pass password --host http://vm01 --port 27779"
+# ... or ..
+docker ghcr.io/openhami/magellan:latest /magellan scan --subnet 172.16.0.0 --subnet-mask 255.255.255.0
 ```
 
 ## How It Works
