@@ -2,8 +2,12 @@
 package magellan
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"path"
 	"sync"
@@ -58,12 +62,32 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
 		outputPath = path.Clean(params.OutputPath)
-		smdClient  = client.NewClient(
-			client.WithSecureTLS[*client.SmdClient](params.CaCertPath),
-		)
+		smdClient  = &client.SmdClient{Client: &http.Client{}}
 	)
-	// set the client's host from the CLI param
+	// set the client's params from CLI
+	// NOTE: temporary solution until client.NewClient() is fixed
 	smdClient.URI = params.URI
+	if params.CaCertPath != "" {
+		cacert, err := os.ReadFile(params.CaCertPath)
+		if err != nil {
+			return fmt.Errorf("failed to read CA cert path: %w", err)
+		}
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(cacert)
+		smdClient.Client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:            certPool,
+				InsecureSkipVerify: true,
+			},
+			DisableKeepAlives: true,
+			Dial: (&net.Dialer{
+				Timeout:   120 * time.Second,
+				KeepAlive: 120 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout:   120 * time.Second,
+			ResponseHeaderTimeout: 120 * time.Second,
+		}
+	}
 	wg.Add(params.Concurrency)
 	for i := 0; i < params.Concurrency; i++ {
 		go func() {
