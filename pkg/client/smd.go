@@ -16,6 +16,10 @@ type SmdClient struct {
 	Xname string
 }
 
+func (c SmdClient) Init() {
+	c.Client = &http.Client{}
+}
+
 func (c SmdClient) Name() string {
 	return "smd"
 }
