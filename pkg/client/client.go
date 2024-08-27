@@ -19,6 +19,7 @@ type Option[T Client] func(client T)
 // that provides an extended API to work with functional options.
 // It also provides functions that work with `collect` data.
 type Client interface {
+	Init()
 	Name() string
 	GetInternalClient() *http.Client
 	RootEndpoint(endpoint string) string
