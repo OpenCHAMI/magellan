@@ -16,26 +16,26 @@ type SmdClient struct {
 	Xname string
 }
 
-func (c SmdClient) Init() {
+func (c *SmdClient) Init() {
 	c.Client = &http.Client{}
 }
 
-func (c SmdClient) Name() string {
+func (c *SmdClient) Name() string {
 	return "smd"
 }
 
-func (c SmdClient) RootEndpoint(endpoint string) string {
+func (c *SmdClient) RootEndpoint(endpoint string) string {
 	return fmt.Sprintf("%s/hsm/v2%s", c.URI, endpoint)
 }
 
-func (c SmdClient) GetInternalClient() *http.Client {
+func (c *SmdClient) GetInternalClient() *http.Client {
 	return c.Client
 }
 
 // Add() has a similar function definition to that of the default implementation,
 // but also allows further customization and data/header manipulation that would
 // be specific and/or unique to SMD's API.
-func (c SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
+func (c *SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("failed to add redfish endpoint: no data found")
 	}
@@ -57,7 +57,7 @@ func (c SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 	return err
 }
 
-func (c SmdClient) Update(data HTTPBody, headers HTTPHeader) error {
+func (c *SmdClient) Update(data HTTPBody, headers HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("failed to add redfish endpoint: no data found")
 	}

@@ -59,7 +59,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
 		outputPath = path.Clean(params.OutputPath)
 		smdClient  = client.NewClient(
-			client.WithSecureTLS[client.SmdClient](params.CaCertPath),
+			client.WithSecureTLS[*client.SmdClient](params.CaCertPath),
 		)
 	)
 	// set the client's host from the CLI param

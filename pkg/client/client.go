@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Option[T Client] func(client T)
+type Option[T Client] func(client *T)
 
 // The 'Client' struct is a wrapper around the default http.Client
 // that provides an extended API to work with functional options.
@@ -21,8 +21,8 @@ type Option[T Client] func(client T)
 type Client interface {
 	Init()
 	Name() string
-	GetInternalClient() *http.Client
 	RootEndpoint(endpoint string) string
+	GetInternalClient() *http.Client
 
 	// functions needed to make request
 	Add(data HTTPBody, headers HTTPHeader) error
@@ -46,7 +46,7 @@ func WithCertPool[T Client](certPool *x509.CertPool) func(T) {
 	return func(client T) {
 		// make sure that we can access the internal client
 		if client.GetInternalClient() == nil {
-			log.Warn().Msg("internal client is invalid")
+			log.Warn().Any("client", client.GetInternalClient()).Msg("invalid internal HTTP client ()")
 			return
 		}
 		client.GetInternalClient().Transport = &http.Transport{
