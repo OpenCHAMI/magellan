@@ -28,7 +28,7 @@ func (c SmdClient) RootEndpoint(endpoint string) string {
 	return fmt.Sprintf("%s/hsm/v2%s", c.URI, endpoint)
 }
 
-func (c SmdClient) GetClient() *http.Client {
+func (c SmdClient) GetInternalClient() *http.Client {
 	return c.Client
 }
 
