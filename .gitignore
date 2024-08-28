@@ -2,3 +2,6 @@ magellan
 emulator/rf-emulator
 **/*.db
 dist/*
+**.tar.gz
+**.tar.zst
+**.part
