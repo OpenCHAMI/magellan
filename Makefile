@@ -97,6 +97,10 @@ emulator:
 	$(call print-target)
 	./emulator/setup.sh
 
+man:
+	$(call print-target)
+	go-md2man -in README.md -out magellan.1
+
 define print-target
     @printf "Executing target: \033[36m$@\033[0m\n"
 endef
