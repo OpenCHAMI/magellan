@@ -47,6 +47,7 @@ inst: ## go install tools
 	go install github.com/client9/misspell/cmd/misspell@v0.3.4
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
 	go install github.com/goreleaser/goreleaser@v1.18.2
+	go install github.com/cpuguy83/go-md2man/v2
 
 .PHONY: goreleaser
 release: ## goreleaser build
