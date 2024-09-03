@@ -15,7 +15,6 @@ import (
 
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -24,8 +23,26 @@ var (
 	password = flag.String("password", "", "set the BMC password used for the tests")
 )
 
+func checkResponse(res *http.Response, b []byte) error {
+	// test for a 200 response code here
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected response code to return status code 200")
+	}
+
+	// make sure the response body is not empty
+	if len(b) <= 0 {
+		return fmt.Errorf("expected response body to not be empty")
+	}
+
+	// make sure the response body is in a valid JSON format
+	if json.Valid(b) {
+		return fmt.Errorf("expected response body to be valid JSON")
+	}
+	return nil
+}
+
 // Simple test to fetch the base Redfish URL and assert a 200 OK response.
-func TestRedfishV1Availability(t *testing.T) {
+func TestRedfishV1ServiceRootAvailability(t *testing.T) {
 	var (
 		url     = fmt.Sprintf("%s/redfish/v1", *host)
 		body    = []byte{}
@@ -33,28 +50,15 @@ func TestRedfishV1Availability(t *testing.T) {
 	)
 	res, b, err := client.MakeRequest(nil, url, http.MethodGet, body, headers)
 	if err != nil {
-		t.Fatalf("failed to make request to BMC: %v", err)
+		t.Fatalf("failed to make request to BMC node: %w", err)
 	}
 
-	// test for a 200 response code here
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("expected response code to return status code 200")
-	}
-
-	// make sure the response body is not empty
-	if len(b) <= 0 {
-		t.Fatalf("expected response body to not be empty")
-	}
-
-	// make sure the response body is in a JSON format
-	if json.Valid(b) {
-		t.Fatalf("expected response body to be valid JSON")
-	}
+	err = checkResponse(res, b)
 
 }
 
 // Simple test to ensure an expected Redfish version minimum requirement.
-func TestRedfishVersion(t *testing.T) {
+func TestRedfishV1Version(t *testing.T) {
 	var (
 		url     string            = fmt.Sprintf("%s/redfish/v1", *host)
 		body    client.HTTPBody   = []byte{}
@@ -62,17 +66,18 @@ func TestRedfishVersion(t *testing.T) {
 		err     error
 	)
 
-	_, _, err = client.MakeRequest(nil, url, http.MethodGet, body, headers)
+	res, b, err := client.MakeRequest(nil, url, http.MethodGet, body, headers)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to make request")
+		t.Fatalf("failed to make request to BMC node: %w", err)
 	}
+	err = checkResponse(res, b)
 }
 
 // Crawls a BMC node and checks that we're able to query certain properties
 // that we need for Magellan to run correctly. This test differs from the
 // `TestCrawlCommand` testing function as it is not checking specifically
 // for functionality.
-func TestExpectedProperties(t *testing.T) {
+func TestExpectedOutput(t *testing.T) {
 	// make sure what have a valid host
 	if host == nil {
 		t.Fatal("invalid host (host is nil)")
