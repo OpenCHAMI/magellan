@@ -12,6 +12,12 @@ ifndef VERSION
 $(error VERSION is not set.  Please review and copy config.env.default to config.env and try again)
 endif
 
+ifndef BUILD
+$(error BUILD is not set.  Please review and copy config.env.default to config.env and try again)
+endif
+
+LDFLAGS="-s -X=$(GIT)main.commit=$(BUILD) -X=$(GIT)main.version=$(VERSION) -X=$(GIT)main.date=$(shell date +%Y-%m-%d:%H:%M:%S)"
+
 SHELL := /bin/bash
 GOPATH ?= $(shell echo $${GOPATH:-~/go})
 
@@ -55,8 +61,8 @@ release: ## goreleaser build
 	$(GOPATH)/bin/goreleaser build --clean --single-target --snapshot
 
 .PHONY: build
-build: ## goreleaser build
-	go build --tags=all
+build: ## go build
+	go build -v --tags=all -ldflags=$(LDFLAGS) -o $(NAME) main.go
 
 .PHONY: docker
 container: ## docker build
