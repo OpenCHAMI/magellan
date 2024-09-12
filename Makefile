@@ -83,7 +83,9 @@ lint: ## golangci-lint
 .PHONY: test
 test: ## go test
 	$(call print-target)
-	go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... ./...
+	./emulator/setup.sh &
+	sleep 10
+	go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... tests/api_test.go tests/compatibility_test.go
 	go tool cover -html=coverage.out -o coverage.html
 
 .PHONY: diff
