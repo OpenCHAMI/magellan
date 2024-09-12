@@ -1,6 +1,11 @@
 magellan
 emulator/rf-emulator
 **/*.db
+<<<<<<< HEAD
 **.tar.gz
 **.tar.zst
 **.part
+=======
+dist/*
+**coverage.out**
+>>>>>>> 4b062dd (Updated .gitignore)
