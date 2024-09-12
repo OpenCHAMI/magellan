@@ -50,10 +50,13 @@ func TestRedfishV1ServiceRootAvailability(t *testing.T) {
 	)
 	res, b, err := client.MakeRequest(nil, url, http.MethodGet, body, headers)
 	if err != nil {
-		t.Fatalf("failed to make request to BMC node: %w", err)
+		t.Fatalf("failed to make request to BMC node: %v", err)
 	}
 
 	err = checkResponse(res, b)
+	if err != nil {
+		t.Fatalf("failed to check response for redfish service root: %v", err)
+	}
 
 }
 
@@ -68,9 +71,12 @@ func TestRedfishV1Version(t *testing.T) {
 
 	res, b, err := client.MakeRequest(nil, url, http.MethodGet, body, headers)
 	if err != nil {
-		t.Fatalf("failed to make request to BMC node: %w", err)
+		t.Fatalf("failed to make request to BMC node: %v", err)
 	}
 	err = checkResponse(res, b)
+	if err != nil {
+		t.Fatalf("failed to check response for redfish version: %v", err)
+	}
 }
 
 // Crawls a BMC node and checks that we're able to query certain properties
