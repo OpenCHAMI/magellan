@@ -3,7 +3,7 @@ version: 2
 before:
   hooks:
     - go mod download
-    - go install github.com/cpuguy83/go-md2man/v2
+    - go install github.com/cpuguy83/go-md2man/v2@latest
     - go-md2man -in README.md -out manpage.1
 
 builds:

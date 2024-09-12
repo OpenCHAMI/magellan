@@ -53,7 +53,7 @@ inst: ## go install tools
 	go install github.com/client9/misspell/cmd/misspell@v0.3.4
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
 	go install github.com/goreleaser/goreleaser@v1.18.2
-	go install github.com/cpuguy83/go-md2man/v2
+	go install github.com/cpuguy83/go-md2man/v2@latest
 
 .PHONY: goreleaser
 release: ## goreleaser build
@@ -106,7 +106,7 @@ emulator:
 
 man:
 	$(call print-target)
-	go-md2man -in README.md -out magellan.1
+	$(GOPATH)/bin/go-md2man -in README.md -out magellan.1
 
 define print-target
     @printf "Executing target: \033[36m$@\033[0m\n"
