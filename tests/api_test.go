@@ -146,6 +146,17 @@ func TestListCommand(t *testing.T) {
 func TestUpdateCommand(t *testing.T) {
 	// TODO: add test that does a Redfish simple update checking it success and
 	// failure points
+	var (
+		cmd    *exec.Cmd
+		err    error
+		output []byte
+	)
+	// set up temporary directory
+	cmd = exec.Command("bash", "-c", fmt.Sprintf("%s list", *exePath))
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to run 'list' command: %v", err)
+	}
 }
 
 func TestGofishFunctions(t *testing.T) {
