@@ -10,12 +10,16 @@ package tests
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"os/exec"
 	"testing"
+	"time"
 
 	"flag"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 )
 
 var (
@@ -94,6 +98,12 @@ func TestCrawlCommand(t *testing.T) {
 		command string
 	)
 
+	// set up the emulator to run before test
+	err = waitUntilEmulatorIsReady()
+	if err != nil {
+		t.Fatalf("failed to start emulator: %v", err)
+	}
+
 	// try and start the emulator in the background if arg passed
 	if *emuPath != "" {
 		t.Parallel()
@@ -127,7 +137,11 @@ func TestListCommand(t *testing.T) {
 		output []byte
 	)
 
-	// set up the test
+	// set up the emulator to run before test
+	err = waitUntilEmulatorIsReady()
+	if err != nil {
+		t.Fatalf("failed to start emulator: %v", err)
+	}
 
 	// set up temporary directory
 	cmd = exec.Command("bash", "-c", fmt.Sprintf("%s list", *exePath))
@@ -151,11 +165,23 @@ func TestUpdateCommand(t *testing.T) {
 		err    error
 		output []byte
 	)
+
+	// set up the emulator to run before test
+	err = waitUntilEmulatorIsReady()
+	if err != nil {
+		t.Fatalf("failed to start emulator: %v", err)
+	}
+
 	// set up temporary directory
 	cmd = exec.Command("bash", "-c", fmt.Sprintf("%s list", *exePath))
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("failed to run 'list' command: %v", err)
+	}
+
+	// make sure that the output is not empty
+	if len(output) <= 0 {
+		t.Fatalf("expected the 'list' output to not be empty")
 	}
 }
 
@@ -164,28 +190,71 @@ func TestGofishFunctions(t *testing.T) {
 	// gofish's output isn't changing spontaneously and remains predictable
 }
 
+// TestGenerateHosts() tests creating a collection of hosts by changing arguments
+// and calling GenerateHostsWithSubnet().
 func TestGenerateHosts(t *testing.T) {
 	// TODO: add test to generate hosts using a collection of subnets/masks
-	t.Run("generate-hosts.1", func(t *testing.T) {
-		var (
-			subnet     = "172.16.0.0"
-			subnetMask = &net.IPMask{255, 255, 255, 0}
-			ports      = []int{443}
-			scheme     = "https"
-			hosts      = [][]string{}
-		)
+	var (
+		subnet     = "127.0.0.1"
+		subnetMask = &net.IPMask{255, 255, 255, 0}
+		ports      = []int{443}
+		scheme     = "https"
+		hosts      = [][]string{}
+	)
+	t.Run("generate-hosts", func(t *testing.T) {
 		hosts = magellan.GenerateHostsWithSubnet(subnet, subnetMask, ports, scheme)
+
+		// check for at least one host to be generated
+		if len(hosts) <= 0 {
+			t.Fatalf("expected at least one host to be generated for subnet %s", subnet)
+		}
 	})
 
-	t.Run("generate-hosts.2", func(t *testing.T) {
-		var (
-			subnet     = "127.0.0.1"
-			subnetMask = &net.IPMask{255, 255, 255, 0}
-			ports      = []int{443, 5000}
-			scheme     = "https"
-			hosts      = [][]string{}
-		)
+	t.Run("generate-hosts-with-multiple-ports", func(t *testing.T) {
+		ports = []int{443, 5000}
 		hosts = magellan.GenerateHostsWithSubnet(subnet, subnetMask, ports, scheme)
+
+		// check for at least one host to be generated
+		if len(hosts) <= 0 {
+			t.Fatalf("expected at least one host to be generated for subnet %s", subnet)
+		}
 	})
 
+	t.Run("generate-hosts-with-subnet-mask", func(t *testing.T) {
+		subnetMask = &net.IPMask{255, 255, 125, 0}
+		hosts = magellan.GenerateHostsWithSubnet(subnet, subnetMask, ports, scheme)
+
+		// check for at least one host to be generated
+		if len(hosts) <= 0 {
+			t.Fatalf("expected at least one host to be generated for subnet %s", subnet)
+		}
+	})
+
+}
+
+// waitUntilEmulatorIsReady() polls with
+func waitUntilEmulatorIsReady() error {
+	var (
+		interval   = time.Second * 5
+		timeout    = time.Second * 60
+		testClient = &http.Client{}
+		body       client.HTTPBody
+		header     client.HTTPHeader
+		err        error
+	)
+	err = util.CheckUntil(interval, timeout, func() (bool, error) {
+		// send request to host until we get expected response
+		res, _, err := client.MakeRequest(testClient, "http://127.0.0.1", http.MethodPost, body, header)
+		if err != nil {
+			return false, fmt.Errorf("failed to start emulator: %w", err)
+		}
+		if res == nil {
+			return false, fmt.Errorf("response returned nil")
+		}
+		if res.StatusCode == http.StatusOK {
+			return true, nil
+		}
+		return false, nil
+	})
+	return err
 }
