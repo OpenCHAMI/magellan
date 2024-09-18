@@ -16,11 +16,11 @@ import (
 )
 
 type RemoteAsset struct {
-	Host      string    `json:"host"`
-	Port      int       `json:"port"`
-	Protocol  string    `json:"protocol"`
-	State     bool      `json:"state"`
-	Timestamp time.Time `json:"timestamp"`
+	Host      string    `db:"host" json:"host"`
+	Port      int       `db:"port" json:"port"`
+	Protocol  string    `db:"protocol" json:"protocol"`
+	State     bool      `db:"state" json:"state"`
+	Timestamp time.Time `db:"timestamp" json:"timestamp"`
 }
 
 // ScanParams is a collection of commom parameters passed to the CLI

@@ -59,8 +59,8 @@ func InsertScannedAssets(path string, assets ...magellan.RemoteAsset) error {
 	return nil
 }
 
-func DeleteScannedAssets(path string, results ...magellan.RemoteAsset) error {
-	if results == nil {
+func DeleteScannedAssets(path string, assets ...magellan.RemoteAsset) error {
+	if assets == nil {
 		return fmt.Errorf("no assets found")
 	}
 	db, err := sqlx.Open("sqlite3", path)
@@ -68,11 +68,11 @@ func DeleteScannedAssets(path string, results ...magellan.RemoteAsset) error {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
 	tx := db.MustBegin()
-	for _, state := range results {
-		sql := fmt.Sprintf(`DELETE FROM %s WHERE host = :host, port = :port;`, TABLE_NAME)
-		_, err := tx.NamedExec(sql, &state)
+	for _, asset := range assets {
+		sql := fmt.Sprintf(`DELETE FROM %s WHERE host=:host AND port=:port;`, TABLE_NAME)
+		_, err := tx.NamedExec(sql, &asset)
 		if err != nil {
-			fmt.Printf("failed to execute transaction: %v\n", err)
+			fmt.Printf("failed to execute DELETE transaction: %v\n", err)
 		}
 	}
 
