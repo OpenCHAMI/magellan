@@ -62,11 +62,28 @@ var cacheRemoveCmd = &cobra.Command{
 			assets = append(assets, asset)
 		}
 
-		// add all assets with specified hosts (same host different different ports)
+		// Add all assets with specified hosts (same host different different ports)
+		// This should produce the following SQL:
+		// DELETE FROM magellan_scanned_assets WHERE host=:host
 		for _, host := range withHosts {
-
+			assets = append(assets, magellan.RemoteAsset{
+				Host: host,
+				Port: -1,
+			})
 		}
-		// add all assets with specified ports (same port different hosts)
+		// Add all assets with specified ports (same port different hosts)
+		// This should produce the following SQL:
+		// DELETE FROM magellan_scanned_assets WHERE port=:port
+		for _, port := range withPorts {
+			assets = append(assets, magellan.RemoteAsset{
+				Host: "",
+				Port: port,
+			})
+		}
+		if len(assets) <= 0 {
+			log.Error().Msg("nothing to do")
+			os.Exit(1)
+		}
 		sqlite.DeleteScannedAssets(cachePath, assets...)
 	},
 }
