@@ -69,7 +69,13 @@ func DeleteScannedAssets(path string, assets ...magellan.RemoteAsset) error {
 	}
 	tx := db.MustBegin()
 	for _, asset := range assets {
-		sql := fmt.Sprintf(`DELETE FROM %s WHERE host=:host AND port=:port;`, TABLE_NAME)
+		if asset.Host == "" && asset.Port <= 0 {
+			continue
+		}
+		sql := fmt.Sprintf(`DELETE FROM %s WHERE port=:port;`, TABLE_NAME)
+		if asset.Host != "" {
+			sql += "AND host=:host"
+		}
 		_, err := tx.NamedExec(sql, &asset)
 		if err != nil {
 			fmt.Printf("failed to execute DELETE transaction: %v\n", err)

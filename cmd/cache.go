@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	withAllHosts bool
-	withAllPorts bool
+	withHosts []string
+	withPorts []int
 )
 
 var cacheCmd = &cobra.Command{
@@ -34,6 +34,8 @@ var cacheRemoveCmd = &cobra.Command{
 	Short: "Remove a host from a scanned cache list.",
 	Run: func(cmd *cobra.Command, args []string) {
 		assets := []magellan.RemoteAsset{}
+
+		// add all assets directly from positional args
 		for _, arg := range args {
 			var (
 				port int
@@ -46,6 +48,9 @@ var cacheRemoveCmd = &cobra.Command{
 			}
 
 			// convert port to its "proper" type
+			if uri.Port() == "" {
+				uri.Host += ":443"
+			}
 			port, err = strconv.Atoi(uri.Port())
 			if err != nil {
 				log.Error().Err(err).Msg("failed to convert port to integer type")
@@ -54,16 +59,21 @@ var cacheRemoveCmd = &cobra.Command{
 				Host: fmt.Sprintf("%s://%s", uri.Scheme, uri.Hostname()),
 				Port: port,
 			}
-			fmt.Printf("%s:%d\n", asset.Host, asset.Port)
 			assets = append(assets, asset)
 		}
+
+		// add all assets with specified hosts (same host different different ports)
+		for _, host := range withHosts {
+
+		}
+		// add all assets with specified ports (same port different hosts)
 		sqlite.DeleteScannedAssets(cachePath, assets...)
 	},
 }
 
 func init() {
-	cacheRemoveCmd.Flags().BoolVar(&withAllHosts, "--all-hosts", false, "Remove all assets with specified hosts")
-	cacheRemoveCmd.Flags().BoolVar(&withAllPorts, "--all-ports", false, "Remove all assets with specified ports")
+	cacheRemoveCmd.Flags().StringSliceVar(&withHosts, "with-hosts", []string{}, "Remove all assets with specified hosts")
+	cacheRemoveCmd.Flags().IntSliceVar(&withPorts, "with-ports", []int{}, "Remove all assets with specified ports")
 	cacheCmd.AddCommand(cacheRemoveCmd)
 	rootCmd.AddCommand(cacheCmd)
 }
