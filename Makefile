@@ -55,7 +55,7 @@ inst: ## go install tools
 	go install github.com/goreleaser/goreleaser@v1.18.2
 	go install github.com/cpuguy83/go-md2man/v2@latest
 
-.PHONY: goreleaser
+.PHONY: releaser
 release: ## goreleaser build
 	$(call print-target)
 	$(GOPATH)/bin/goreleaser build --clean --single-target --snapshot
