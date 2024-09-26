@@ -52,7 +52,7 @@ inst: ## go install tools
 	$(call print-target)
 	go install github.com/client9/misspell/cmd/misspell@v0.3.4
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
-	go install github.com/goreleaser/goreleaser@v1.18.2
+	go install github.com/goreleaser/goreleaser/v2@v2.3.2
 	go install github.com/cpuguy83/go-md2man/v2@latest
 
 .PHONY: release
