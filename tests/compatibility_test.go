@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	host     = flag.String("host", "https://172.23.0.2:5000", "set the BMC host")
+	host     = flag.String("host", "https://127.0.0.1:5000", "set the BMC host")
 	username = flag.String("username", "root", "set the BMC username used for the tests")
 	password = flag.String("password", "root_password", "set the BMC password used for the tests")
 )

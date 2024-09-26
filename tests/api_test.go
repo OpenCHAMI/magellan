@@ -60,7 +60,7 @@ func TestScanAndCollect(t *testing.T) {
 	// }
 
 	// try and run a "scan" with the emulator
-	command = fmt.Sprintf("%s scan https://172.23.0.2 --port 5000 --cache %s", *exePath, tempDir)
+	command = fmt.Sprintf("%s scan https://127.0.0.1 --port 5000 --cache %s", *exePath, tempDir)
 	cmd = exec.Command("bash", "-c", command)
 	cmd.Stdout = &buf
 	err = cmd.Run()
@@ -184,7 +184,7 @@ func TestGofishFunctions(t *testing.T) {
 // and calling GenerateHostsWithSubnet().
 func TestGenerateHosts(t *testing.T) {
 	var (
-		subnet     = "172.23.0.0"
+		subnet     = "127.0.0.1"
 		subnetMask = &net.IPMask{255, 255, 255, 0}
 		ports      = []int{443}
 		scheme     = "https"
@@ -255,7 +255,7 @@ func waitUntilEmulatorIsReady() error {
 	)
 	err = util.CheckUntil(interval, timeout, func() (bool, error) {
 		// send request to host until we get expected response
-		res, _, err := client.MakeRequest(testClient, "https://172.23.0.2:5000/redfish/v1/", http.MethodGet, body, header)
+		res, _, err := client.MakeRequest(testClient, "https://127.0.0.1:5000/redfish/v1/", http.MethodGet, body, header)
 		if err != nil {
 			return false, fmt.Errorf("failed to make request to emulator: %w", err)
 		}
