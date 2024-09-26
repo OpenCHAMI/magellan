@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,12 +35,14 @@ var (
 
 func TestScanAndCollect(t *testing.T) {
 	var (
-		err     error
-		tempDir = t.TempDir()
-		command string
+		err error
+		// tempDir = t.TempDir()
+		path    string
+		command []string
 		cwd     string
 		cmd     *exec.Cmd
-		buf     bytes.Buffer
+		bufout  bytes.Buffer
+		buferr  bytes.Buffer
 	)
 
 	// set up the emulator to run before test
@@ -60,35 +64,40 @@ func TestScanAndCollect(t *testing.T) {
 	// }
 
 	// try and run a "scan" with the emulator
-	command = fmt.Sprintf("%s scan https://127.0.0.1 --port 5000 --cache %s", *exePath, tempDir)
-	cmd = exec.Command("bash", "-c", command)
-	cmd.Stdout = &buf
+	// set up the emulator to run before test
+	path, err = filepath.Abs(*exePath)
+	if err != nil {
+		t.Fatalf("failed to get absolute path: %v", err)
+	}
+	command = strings.Split("scan https://127.0.0.1 --port 5000 --verbose", " ")
+	cmd = exec.Command(path, command...)
+	cmd.Stdout = &bufout
+	cmd.Stderr = &buferr
 	err = cmd.Run()
+	fmt.Printf("out:\n%s\nerr:\n%s\n", bufout.String(), buferr.String())
 	if err != nil {
 		t.Fatalf("failed to run 'scan' command: %v", err)
 	}
 
 	// make sure that the expected output is not empty
-	if len(buf.Bytes()) <= 0 {
+	if len(buferr.Bytes()) <= 0 {
 		t.Fatalf("expected the 'scan' output to not be empty")
 	}
 
 	// try and run a "collect" with the emulator
-	command = fmt.Sprintf("%s collect --username root --password root_password --cache %s", *exePath, tempDir)
-	cmd = exec.Command("bash", "-c", command)
-	cmd.Stdout = &buf
-	err = cmd.Start()
+
+	command = strings.Split("collect --username root --password root_password --verbose", " ")
+	cmd = exec.Command(path, command...)
+	cmd.Stdout = &bufout
+	cmd.Stderr = &buferr
+	err = cmd.Run()
+	fmt.Printf("out:\n%s\nerr:\n%s\n", bufout.String(), buferr.String())
 	if err != nil {
 		t.Fatalf("failed to run 'collect' command: %v", err)
 	}
 
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("failed to call 'wait' for scan: %v", err)
-	}
-
 	// make sure that the output is not empty
-	if len(buf.Bytes()) <= 0 {
+	if len(bufout.Bytes()) <= 0 {
 		t.Fatalf("expected the 'collect' output to not be empty")
 	}
 
@@ -98,33 +107,42 @@ func TestScanAndCollect(t *testing.T) {
 func TestCrawlCommand(t *testing.T) {
 	var (
 		err     error
-		command string
+		command []string
 		cmd     *exec.Cmd
-		buf     bytes.Buffer
+		bufout  bytes.Buffer
+		buferr  bytes.Buffer
+		path    string
 	)
 
 	// set up the emulator to run before test
+	path, err = filepath.Abs(*exePath)
+	if err != nil {
+		t.Fatalf("failed to get absolute path: %v", err)
+	}
+	fmt.Printf("path: %s\n", path)
 	err = waitUntilEmulatorIsReady()
 	if err != nil {
 		t.Fatalf("failed while waiting for emulator: %v", err)
 	}
 
 	// try and run a "collect" with the emulator
-	command = fmt.Sprintf("%s crawl --username root --password root_password -i", *exePath)
-	cmd = exec.Command("bash", "-c", command)
-	cmd.Stdout = &buf
-	err = cmd.Start()
+	command = strings.Split("crawl --username root --password root_password -i https://127.0.0.1:5000", " ")
+	cmd = exec.Command(path, command...)
+	cmd.Stdout = &bufout
+	cmd.Stderr = &buferr
+	err = cmd.Run()
+	fmt.Printf("out:\n%s\nerr:\n%s\n", bufout.String(), buferr.String())
 	if err != nil {
 		t.Fatalf("failed to run 'crawl' command: %v", err)
 	}
 
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("failed to call 'wait' for crawl: %v", err)
-	}
+	// err = cmd.Wait()
+	// if err != nil {
+	// 	t.Fatalf("failed to call 'wait' for crawl: %v", err)
+	// }
 
 	// make sure that the output is not empty
-	if len(buf.Bytes()) <= 0 {
+	if len(bufout.Bytes()) <= 0 {
 		t.Fatalf("expected the 'crawl' output to not be empty")
 	}
 
@@ -242,8 +260,8 @@ func startEmulatorInBackground(path string) (int, error) {
 // waitUntilEmulatorIsReady() polls with
 func waitUntilEmulatorIsReady() error {
 	var (
-		interval   = time.Second * 5
-		timeout    = time.Second * 15
+		interval   = time.Second * 2
+		timeout    = time.Second * 6
 		testClient = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
