@@ -4,7 +4,7 @@ before:
   hooks:
     - go mod download
     - go install github.com/cpuguy83/go-md2man/v2@latest
-    - go-md2man -in README.md -out manpage.1
+    - go-md2man -in README.md -out magellan.1
 
 builds:
   - env:
