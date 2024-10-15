@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 
 	"github.com/Cray-HPE/hms-xname/xnames"
@@ -148,25 +148,20 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 
 				// write JSON data to file if output path is set using hive partitioning strategy
 				if outputPath != "" {
-					// make directory if it does exists
-					exists, err := util.PathExists(outputPath)
-					if err == nil && !exists {
-						err = os.MkdirAll(outputPath, 0o644)
+					var (
+						finalPath = fmt.Sprintf("./%s/%s/%d.json", outputPath, data["ID"], time.Now().Unix())
+						finalDir  = filepath.Dir(finalPath)
+					)
+					// if it doesn't, make the directory and write file
+					err = os.MkdirAll(finalDir, 0o777)
+					if err == nil { // no error
+						err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
 						if err != nil {
-							log.Error().Err(err).Msg("failed to make directory for output")
-						} else {
-							// make the output directory to store files
-							outputPath, err := util.MakeOutputDirectory(outputPath, false)
-							if err != nil {
-								log.Error().Err(err).Msg("failed to make output directory")
-							} else {
-								// write the output to the final path
-								err = os.WriteFile(path.Clean(fmt.Sprintf("%s/%s/%d.json", params.URI, outputPath, time.Now().Unix())), body, os.ModePerm)
-								if err != nil {
-									log.Error().Err(err).Msgf("failed to write data to file")
-								}
-							}
+							log.Error().Err(err).Msgf("failed to write collect output to file")
 						}
+
+					} else { // error is set
+						log.Error().Err(err).Msg("failed to make directory for collect output")
 					}
 				}
 
