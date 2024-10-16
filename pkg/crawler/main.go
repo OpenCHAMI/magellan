@@ -124,7 +124,7 @@ func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
 
 func printSystems(prefix string, rf_systems []*redfish.ComputerSystem) {
 	for _, rf_system := range rf_systems {
-		log.Info().Str("collection", prefix).Msgf("%s\n", rf_system.Name)
+		log.Info().Str("collection", prefix).Str("name", rf_system.Name).Str("id", rf_system.ID).Str("path", rf_system.ODataID)
 	}
 }
 
