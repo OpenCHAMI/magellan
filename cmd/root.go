@@ -74,13 +74,13 @@ func Execute() {
 func init() {
 	currentUser, _ = user.Current()
 	cobra.OnInitialize(InitializeConfig)
-	rootCmd.PersistentFlags().IntVar(&concurrency, "concurrency", -1, "set the number of concurrent processes")
-	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 5, "set the timeout")
-	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "set the config file path")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set to enable/disable verbose output")
-	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "set to enable/disable debug messages")
-	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "set the access token")
-	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "set the scanning result cache path")
+	rootCmd.PersistentFlags().IntVar(&concurrency, "concurrency", -1, "Set the number of concurrent processes")
+	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 5, "Set the timeout for requests")
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Set to enable/disable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Set to enable/disable debug messages")
+	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Set the access token")
+	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "Set the scanning result cache path")
 
 	// bind viper config flags with cobra
 	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))

@@ -101,7 +101,7 @@ This should return a JSON response with general information. The output below ha
 
 ### Running the Tool
 
-There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand:
+There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand which will print this output:
 
 ```bash
 Redfish-based BMC discovery tool
@@ -119,16 +119,17 @@ Available Commands:
   login       Log in with identity provider for access token
   scan        Scan to discover BMC nodes on a network
   update      Update BMC node firmware
+  version     Print version info and exit
 
 Flags:
-      --access-token string   set the access token
-      --cache string          set the scanning result cache path (default "/tmp/allend/magellan/assets.db")
-      --concurrency int       set the number of concurrent processes (default -1)
-  -c, --config string         set the config file path
-  -d, --debug                 set to enable/disable debug messages
+      --access-token string   Set the access token
+      --cache string          Set the scanning result cache path (default "/tmp/allend/magellan/assets.db")
+      --concurrency int       Set the number of concurrent processes (default -1)
+  -c, --config string         Set the config file path
+  -d, --debug                 Set to enable/disable debug messages
   -h, --help                  help for magellan
-      --timeout int           set the timeout (default 5)
-  -v, --verbose               set to enable/disable verbose output
+      --timeout int           Set the timeout for requests (default 5)
+  -v, --verbose               Set to enable/disable verbose output
 
 Use "magellan [command] --help" for more information about a command.
 ```
@@ -143,23 +144,19 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
     --cache data/assets.db \
 ```
 
-This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently. Setting the `--format=json` will format the output in JSON. Try using `./magellan help scan` for a complete set of options this subcommand. Alternatively, the same scan can be started using CIDR notation and with additional hosts:
+This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan that are not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently with goroutines. Try using `./magellan help scan` for a complete set of options this subcommand. Alternatively, the same scan can be started using CIDR notation and with additional hosts:
 
 ```bash
 ./magellan scan https://10.0.0.100:5000 --subnet 172.16.0.0/24
 ```
 
-Check the help for each subcommand for more examples for specifying arguments.
-
-To inspect the cache, use the `list` command. Make sure to point to the same database used before:
+Once the scan is complete, inspect the cache to see a list of found hosts with the `list` command. Make sure to point to the same database used before if you set the `--cache` flag.
 
 ```bash
-./magellan list --cache data/assets.db --format json
+./magellan list --cache data/assets.db
 ```
 
-This will print a list of node info found and stored from the scan. Like the `scan` subcommand, the output format can be set using the `--format` flag.
-
-Finally, set the `ACCESS_TOKEN`run the `collect` command to query the node from cache and send the info to be stored into SMD:
+This will print a list of host information needed for the `collect` step. Set the `ACCESS_TOKEN` if necessary and invoke `magellan` again with the `collect` subcommand to query the node BMCs stored in cache. If the `--host` flag is set, then an additional request will be made to send the output to the specified URL. The `--userame` and `--password` flags must be set if the BMC requires basic authentication.
 
 ```bash
 ./magellan collect \
@@ -167,14 +164,14 @@ Finally, set the `ACCESS_TOKEN`run the `collect` command to query the node from 
     --timeout 5 \
     --username $USERNAME \
     --password $PASSWORD \
-    --host https://example.openchami.cluster:27779 \
+    --host https://example.openchami.cluster:8443 \
     --output logs/
     --cacert cacert.pem
 ```
 
-This uses the info stored in cache to request information about each BMC node if possible. Like with the scan, the time to wait for a response can be set with the `--timeout` flag as well. This command also requires the `--user` and `--pass` flags to be set if access the Redfish service requires basic authentication. Additionally, it may be necessary to set the `--host` and `--port` flags for `magellan` to find the SMD API (not the root API endpoint "/hsm/v2"). The output of the `collect` can be saved by using the `--output`
+This will initiate a crawler that will find as much inventory data as possible. The data can be viewed from standard output by setting the `--verbose` flag. This output can also be saved by using the `--output` flag and providing a path argument.
 
-Note: If the `cache` flag is not set, `magellan` will use "/tmp/$USER/magellan.db" by default.
+Note: If the `cache` flag is not set, `magellan` will use `/tmp/$USER/magellan.db` by default.
 
 ### Updating Firmware
 

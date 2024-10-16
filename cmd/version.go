@@ -14,16 +14,17 @@ var (
 )
 
 var versionCmd = &cobra.Command{
-	Use: "version",
+	Use:   "version",
+	Short: "Print version info and exit",
 	Run: func(cmd *cobra.Command, args []string) {
 		if cmd.Flag("commit").Value.String() == "true" {
 			output = commit
 			if date != "" {
-				output += " built @ " + date
+				output += " built on " + date
 			}
 			fmt.Println(output)
 		} else {
-			fmt.Println(version)
+			fmt.Printf("%s-%s\n", version, commit)
 		}
 	},
 }

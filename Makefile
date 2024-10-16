@@ -60,6 +60,9 @@ release: ## goreleaser build
 	$(call print-target)
 	$(GOPATH)/bin/goreleaser build --clean --single-target --snapshot
 
+.PHONY: binaries
+binaries: build
+
 .PHONY: build
 build: ## go build
 	go build -v --tags=all -ldflags=$(LDFLAGS) -o $(NAME) main.go
