@@ -103,6 +103,7 @@ func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
 		for _, chassis := range rf_chassis {
 			rf_chassis_systems, err := chassis.ComputerSystems()
 			if err == nil {
+				printSystems("chassis", rf_chassis_systems)
 				rf_systems = append(rf_systems, rf_chassis_systems...)
 				log.Info().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
 			}
@@ -112,10 +113,19 @@ func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get systems from ServiceRoot")
 	}
+	printSystems("systems", rf_root_systems)
 	log.Info().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
 	rf_systems = append(rf_systems, rf_root_systems...)
+
+	// TODO: remove any duplicates added from chassis and service root
 	systems, err = walkSystems(rf_systems, nil, config.URI)
 	return systems, err
+}
+
+func printSystems(prefix string, rf_systems []*redfish.ComputerSystem) {
+	for _, rf_system := range rf_systems {
+		log.Info().Str("collection", prefix).Msgf("%s\n", rf_system.Name)
+	}
 }
 
 func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chassis, baseURI string) ([]InventoryDetail, error) {
