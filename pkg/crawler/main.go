@@ -263,13 +263,17 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 		}
 		var ethernet_interfaces []EthernetInterface
 		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
-			ethernet_interfaces = append(ethernet_interfaces, EthernetInterface{
+			ethernetinterface := EthernetInterface{
 				URI:         baseURI + rf_ethernetinterface.ODataID,
 				MAC:         rf_ethernetinterface.MACAddress,
 				Name:        rf_ethernetinterface.Name,
 				Description: rf_ethernetinterface.Description,
 				Enabled:     rf_ethernetinterface.InterfaceEnabled,
-			})
+			}
+			if len(rf_ethernetinterface.IPv4Addresses) > 0 {
+				ethernetinterface.IP = rf_ethernetinterface.IPv4Addresses[0].Address
+			}
+			ethernet_interfaces = append(ethernet_interfaces, ethernetinterface)
 		}
 		managers = append(managers, Manager{
 			URI:                baseURI + "/redfish/v1/Managers/" + rf_manager.ID,
