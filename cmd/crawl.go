@@ -35,7 +35,7 @@ var crawlCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		systems, err := crawler.CrawlBMC(crawler.CrawlerConfig{
+		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
 			URI:      args[0],
 			Username: cmd.Flag("username").Value.String(),
 			Password: cmd.Flag("password").Value.String(),
