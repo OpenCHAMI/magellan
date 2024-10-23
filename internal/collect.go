@@ -23,7 +23,6 @@ import (
 	"github.com/Cray-HPE/hms-xname/xnames"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish"
-	_ "github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 	"golang.org/x/exp/slices"
 )
