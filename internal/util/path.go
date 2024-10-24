@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,15 +14,9 @@ import (
 //
 // Returns whether the path exists and no error if successful,
 // otherwise, it returns false with an error.
-func PathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
+func PathExists(path string) (fs.FileInfo, bool) {
+	fi, err := os.Stat(path)
+	return fi, !os.IsNotExist(err)
 }
 
 // SplitPathForViper() is an utility function to split a path into 3 parts:
@@ -51,17 +46,14 @@ func MakeOutputDirectory(path string, overwrite bool) (string, error) {
 	final := path + "/" + dirname
 
 	// check if path is valid and directory
-	pathExists, err := PathExists(final)
-	if err != nil {
-		return "", fmt.Errorf("failed to check for existing path: %v", err)
-	}
+	_, pathExists := PathExists(final)
 	if pathExists && !overwrite {
 		// make sure it is directory with 0o644 permissions
 		return "", fmt.Errorf("found existing path: %v", final)
 	}
 
 	// create directory with data + time
-	err = os.MkdirAll(final, 0766)
+	err := os.MkdirAll(final, 0766)
 	if err != nil {
 		return "", fmt.Errorf("failed to make directory: %v", err)
 	}
