@@ -41,6 +41,17 @@ type NetworkInterface struct {
 	Adapter     NetworkAdapter `json:"adapter,omitempty"`     // Adapter of the interface
 }
 
+type Manager struct {
+	URI                string              `json:"uri,omitempty"`
+	UUID               string              `json:"uuid,omitempty"`
+	Name               string              `json:"name,omitempty"`
+	Description        string              `json:"description,omitempty"`
+	Model              string              `json:"model,omitempty"`
+	Type               string              `json:"type,omitempty"`
+	FirmwareVersion    string              `json:"firmware_version,omitempty"`
+	EthernetInterfaces []EthernetInterface `json:"ethernet_interfaces,omitempty"`
+}
+
 type InventoryDetail struct {
 	URI                  string              `json:"uri,omitempty"`                  // URI of the BMC
 	UUID                 string              `json:"uuid,omitempty"`                 // UUID of Node
@@ -65,9 +76,12 @@ type InventoryDetail struct {
 	Chassis_Model        string              `json:"chassis_model,omitempty"`        // Model of the Chassis
 }
 
-// CrawlBMC pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
-func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
-	var systems []InventoryDetail
+// CrawlBMCForSystems pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
+func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
+	var (
+		systems    []InventoryDetail
+		rf_systems []*redfish.ComputerSystem
+	)
 	// initialize gofish client
 	client, err := gofish.Connect(gofish.ClientConfig{
 		Endpoint:  config.URI,
@@ -94,8 +108,6 @@ func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
 	rf_service := client.GetService()
 	log.Info().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
-	var rf_systems []*redfish.ComputerSystem
-
 	// Nodes are sometimes only found under Chassis, but they should be found under Systems.
 	rf_chassis, err := rf_service.Chassis()
 	if err == nil {
@@ -114,8 +126,43 @@ func CrawlBMC(config CrawlerConfig) ([]InventoryDetail, error) {
 	}
 	log.Info().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
 	rf_systems = append(rf_systems, rf_root_systems...)
-	systems, err = walkSystems(rf_systems, nil, config.URI)
-	return systems, err
+	return walkSystems(rf_systems, nil, config.URI)
+}
+
+// CrawlBMCForSystems pulls BMC manager information.
+func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
+	// initialize gofish client
+	var managers []Manager
+	client, err := gofish.Connect(gofish.ClientConfig{
+		Endpoint:  config.URI,
+		Username:  config.Username,
+		Password:  config.Password,
+		Insecure:  config.Insecure,
+		BasicAuth: true,
+	})
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "404:") {
+			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
+		}
+		if strings.HasPrefix(err.Error(), "401:") {
+			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
+		}
+		event := log.Error()
+		event.Err(err)
+		event.Msg("failed to connect to BMC")
+		return managers, err
+	}
+	defer client.Logout()
+
+	// Obtain the ServiceRoot
+	rf_service := client.GetService()
+	log.Info().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+
+	rf_managers, err := rf_service.Managers()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get managers from ServiceRoot")
+	}
+	return walkManagers(rf_managers, config.URI)
 }
 
 func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chassis, baseURI string) ([]InventoryDetail, error) {
@@ -200,7 +247,44 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 		for _, rf_trustedmodule := range rf_computersystem.TrustedModules {
 			system.TrustedModules = append(system.TrustedModules, fmt.Sprintf("%s %s", rf_trustedmodule.InterfaceType, rf_trustedmodule.FirmwareVersion))
 		}
+
 		systems = append(systems, system)
 	}
 	return systems, nil
+}
+
+func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, error) {
+	var managers []Manager
+	for _, rf_manager := range rf_managers {
+		rf_ethernetinterfaces, err := rf_manager.EthernetInterfaces()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get ethernet interfaces from manager")
+			return managers, err
+		}
+		var ethernet_interfaces []EthernetInterface
+		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
+			if len(rf_ethernetinterface.IPv4Addresses) <= 0 {
+				continue
+			}
+			ethernet_interfaces = append(ethernet_interfaces, EthernetInterface{
+				URI:         baseURI + rf_ethernetinterface.ODataID,
+				MAC:         rf_ethernetinterface.MACAddress,
+				Name:        rf_ethernetinterface.Name,
+				Description: rf_ethernetinterface.Description,
+				Enabled:     rf_ethernetinterface.InterfaceEnabled,
+				IP:          rf_ethernetinterface.IPv4Addresses[0].Address,
+			})
+		}
+		managers = append(managers, Manager{
+			URI:                baseURI + "/redfish/v1/Managers/" + rf_manager.ID,
+			UUID:               rf_manager.UUID,
+			Name:               rf_manager.Name,
+			Description:        rf_manager.Description,
+			Model:              rf_manager.Model,
+			Type:               string(rf_manager.ManagerType),
+			FirmwareVersion:    rf_manager.FirmwareVersion,
+			EthernetInterfaces: ethernet_interfaces,
+		})
+	}
+	return managers, nil
 }

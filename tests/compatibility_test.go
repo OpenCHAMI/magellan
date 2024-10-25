@@ -126,7 +126,7 @@ func TestExpectedOutput(t *testing.T) {
 		t.Fatalf("failed while waiting for emulator: %v", err)
 	}
 
-	systems, err := crawler.CrawlBMC(
+	systems, err := crawler.CrawlBMCForSystems(
 		crawler.CrawlerConfig{
 			URI:      *host,
 			Username: *username,
