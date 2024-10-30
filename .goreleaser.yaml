@@ -8,20 +8,23 @@ before:
 
 builds:
   - binary: magellan
+    main: ./main.go
     # export GIT_STATE=$(if git diff-index --quiet HEAD --; then echo 'clean'; else echo 'dirty'; fi)
     # export BUILD_HOST=$(hostname)
     # export GO_VERSION=$(go version | awk '{print $3}')
     # export BUILD_USER=$(whoami)
     ldflags:
-      - "-X main.GitCommit={{.Commit}} \
-         -X main.BuildTime={{.Timestamp}} \
-         -X main.Version={{.Version}} \
-         -X main.GitBranch={{.Branch}} \
-         -X main.GitTag={{.Tag}} \
-         -X main.GitState={{ .Env.GIT_STATE }} \
-         -X main.BuildHost={{ .Env.BUILD_HOST }} \
-         -X main.GoVersion={{ .Env.GO_VERSION }} \
-         -X main.BuildUser={{ .Env.BUILD_USER }} "
+      - "-X github.com/OpenCHAMI/magellan/internal/version.GitCommit={{ .Commit }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.BuildTime={{ .Timestamp }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.Version={{ .Version }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GitBranch={{ .Branch }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GitTag={{ .Tag }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GitState={{ .Env.GIT_STATE }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.BuildHost={{ .Env.BUILD_HOST }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GoVersion={{ .Env.GO_VERSION }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.BuildUser={{ .Env.BUILD_USER }} "
+    tags:
+      - version
     goos:
       - linux
       - darwin
