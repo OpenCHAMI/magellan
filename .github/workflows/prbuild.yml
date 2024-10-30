@@ -1,19 +1,17 @@
-name: Release with goreleaser
+name: Build PR with goreleaser
 
 on:
-  workflow_dispatch:
-  push:
-    tags:
-      - v*
-
-permissions: write-all
-
+    pull_request:
+        branches:
+            - main
+        types: [opened, synchronize, reopened, edited]
+    workflow_dispatch:
+    
 jobs:
-
-  build:
+  prbuild:
     runs-on: ubuntu-latest
-
     steps:
+
       - name: Set up latest stable Go
         uses: actions/setup-go@v5
         with:
@@ -37,22 +35,10 @@ jobs:
           echo "BUILD_USER=$(whoami)" >> $GITHUB_ENV
           echo "CGO_ENABLED=1" >> $GITHUB_ENV
 
-      - name: Docker Login
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Release with goreleaser
+      - name: Build with goreleaser
         uses: goreleaser/goreleaser-action@v6
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+
         with:
-          version: latest
-          args: release --clean
+          version: '~> v2'
+          args: release --snapshot
         id: goreleaser
-      - name: Attest Binaries
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: '${{ github.workspace }}/dist/magellan_linux_amd64_v1/magellan'

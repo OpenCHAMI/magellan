@@ -1,13 +1,17 @@
-FROM cgr.dev/chainguard/wolfi-base
+FROM chainguard/wolfi-base:latest
 
-RUN apk add --no-cache tini bash
+# Include curl in the final image for manual checks of the Redfish urls
+RUN set -ex \
+    && apk update \
+    && apk add --no-cache curl tini \
+    && rm -rf /var/cache/apk/*  \
+    && rm -rf /tmp/*
 
 # nobody 65534:65534
 USER 65534:65534
 
 
 COPY  magellan  /magellan
-COPY  /bin/magellan.sh /magellan.sh
 
 
 CMD [ "/magellan" ]

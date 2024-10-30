@@ -7,12 +7,36 @@ before:
     - go-md2man -in README.md -out magellan.1
 
 builds:
-  - env:
-      - CGO_ENABLED=1
+  - binary: magellan
+    main: ./main.go
+    # export GIT_STATE=$(if git diff-index --quiet HEAD --; then echo 'clean'; else echo 'dirty'; fi)
+    # export BUILD_HOST=$(hostname)
+    # export GO_VERSION=$(go version | awk '{print $3}')
+    # export BUILD_USER=$(whoami)
+    ldflags:
+      - "-X github.com/OpenCHAMI/magellan/internal/version.GitCommit={{ .Commit }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.BuildTime={{ .Timestamp }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.Version={{ .Version }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GitBranch={{ .Branch }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GitTag={{ .Tag }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GitState={{ .Env.GIT_STATE }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.BuildHost={{ .Env.BUILD_HOST }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.GoVersion={{ .Env.GO_VERSION }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.BuildUser={{ .Env.BUILD_USER }} "
+    tags:
+      - version
     goos:
       - linux
+      - darwin
+      - windows
     goarch:
       - amd64
+      - arm64
+    goamd64:
+      - v3
+    env:
+      - CGO_ENABLED=0
+
 archives:
   - format: tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
@@ -27,17 +51,55 @@ archives:
       - LICENSE
       - CHANGELOG.md
       - README.md
-      - bin/magellan.sh
       - magellan.1
+
+nfpms:
+        - id: magellan
+          formats: 
+          - deb
+          - rpm
+          - apk
+          - archlinux
+          maintainer: "David J. Allen <allend@lanl.gov>"
+          description: "Magellan is a discovery tool for BMCs."
+          homepage: "https://www.openchami.org"
+          license: MIT
+          section: utils
+          priority: optional
+          contents:
+            - src: dist/magellan_{{ .Os }}_{{ if eq .Arch "amd64" }}{{ .Arch }}_{{ .Amd64 }}{{ else }}{{ .Arch }}{{ end }}/magellan
+              dst: /usr/local/bin/magellan
+            - src: magellan.1
+              dst: /usr/share/man/man1/
+
+
 dockers:
-  - 
-    image_templates:
-      - ghcr.io/openchami/{{.ProjectName}}:latest
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}
-      - ghcr.io/openchami/{{.ProjectName}}:v{{ .Major }}
-      - ghcr.io/openchami/{{.ProjectName}}:v{{ .Major }}.{{ .Minor }}
+  - image_templates:
+      - &amd64_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-amd64
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-amd64
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-amd64
+    use: buildx
     build_flag_templates:
       - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    goarch: amd64
+    goamd64: v3
+    extra_files:
+      - LICENSE
+      - CHANGELOG.md
+      - README.md
+  - image_templates:
+      - &arm64v8_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-arm64
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-arm64
+      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-arm64
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -46,7 +108,32 @@ dockers:
       - LICENSE
       - CHANGELOG.md
       - README.md
-      - bin/magellan.sh
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/openchami/{{.ProjectName}}:latest"
+    image_templates:
+      - *amd64_linux_image
+      - *arm64v8_linux_image
+
+  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}"
+    image_templates:
+      - *amd64_linux_image
+      - *arm64v8_linux_image
+
+  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}"
+    image_templates:
+      - *amd64_linux_image
+      - *arm64v8_linux_image
+
+  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - *amd64_linux_image
+      - *arm64v8_linux_image
+
+
+
+
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -57,8 +144,3 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
-release:
-  github:
-  name_template: "{{.Version}}"
-  prerelease: auto
-  mode: append

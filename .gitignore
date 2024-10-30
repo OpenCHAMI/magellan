@@ -6,3 +6,4 @@ emulator/rf-emulator
 **.part
 dist/*
 **coverage.out**
+magellan.1
