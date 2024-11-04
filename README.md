@@ -1,4 +1,4 @@
-# OpenCHAMI Magellan
+# Magellan
 
 The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/tree/master) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of using independently of other tools or services.
 
@@ -25,7 +25,7 @@ See the [TODO](#todo) section for a list of soon-ish goals planned.
 The `magellan` tool can be built to run on bare metal. Install the required Go tools, clone the repo, and then build the binary in the root directory with the following:
 
 ```bash
-git clone https://github.com/OpenCHAMI/magellan 
+git clone https://github.com/davidallendj/magellan 
 cd magellan
 go mod tidy && go build
 ```
@@ -58,10 +58,10 @@ This might take some time to complete initially because of the `go-sqlite3` driv
 
 ### Docker
 
-The tool can also run using Docker. To build the Docker container, run `docker build -t magellan:testing .` in the project's directory. This is useful if you to run `magellan` on a different system through Docker desktop without having to install and build with Go (or if you can't do so for some reason). [Prebuilt images](https://github.com/OpenCHAMI/magellan/pkgs/container/magellan) are available as well on `ghcr`. Images can be pulled directly from the repository:
+The tool can also run using Docker. To build the Docker container, run `docker build -t magellan:testing .` in the project's directory. This is useful if you to run `magellan` on a different system through Docker desktop without having to install and build with Go (or if you can't do so for some reason). [Prebuilt images](https://github.com/davidallendj/magellan/pkgs/container/magellan) are available as well on `ghcr`. Images can be pulled directly from the repository:
 
 ```bash
-docker pull ghcr.io/openchami/magellan:latest
+docker pull ghcr.io/davidallendj/magellan:latest
 ```
 
 See the ["Running with Docker"](#running-with-docker) section below about running with the Docker container.
@@ -195,7 +195,7 @@ watch -n 1 "./magellan update 172.16.0.110 --status --username $USERNAME --passw
 
 ### Getting an Access Token (WIP)
 
-The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
+The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/davidallendj/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
 
 ```bash
 # must have a running OPAAL instance
@@ -218,8 +218,7 @@ export ACCESS_TOKEN=$(gen_access_token)
 The `magellan` tool can be ran in a Docker container after pulling the latest image:
 
 ```bash
-docker pull ghcr.io/openchami/magellan:latest
-
+docker pull ghcr.io/davidallendj/magellan:latest
 ```
 
 Then, run either with the helper script found in `bin/magellan.sh` or the binary in the container:
@@ -250,7 +249,7 @@ In summary, `magellan` needs at minimum the following configured to work on each
 
 ## TODO
 
-See the [issue list](https://github.com/OpenCHAMI/magellan/issues) for plans for `magellan`. Here is a list of other features left to add, fix, or do (and some ideas!):
+See the [issue list](https://github.com/davidallendj/magellan/issues) for plans for `magellan`. Here is a list of other features left to add, fix, or do (and some ideas!):
 
 * [X] Confirm loading different components into SMD
 * [X] Add ability to set subnet mask for scanning
