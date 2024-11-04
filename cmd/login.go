@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"os"
 
-	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/pkg/auth"
+	magellan "github.com/davidallendj/magellan/internal"
+	"github.com/davidallendj/magellan/pkg/auth"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

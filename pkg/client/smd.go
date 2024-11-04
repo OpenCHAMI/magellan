@@ -1,8 +1,8 @@
 package client
 
 // See ref for API docs:
-//	https://github.com/OpenCHAMI/hms-smd/blob/master/docs/examples.adoc
-//	https://github.com/OpenCHAMI/hms-smd
+//	https://github.com/davidallendj/hms-smd/blob/master/docs/examples.adoc
+//	https://github.com/davidallendj/hms-smd
 import (
 	"fmt"
 	"net/http"

@@ -14,15 +14,15 @@ builds:
     # export GO_VERSION=$(go version | awk '{print $3}')
     # export BUILD_USER=$(whoami)
     ldflags:
-      - "-X github.com/OpenCHAMI/magellan/internal/version.GitCommit={{ .Commit }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.BuildTime={{ .Timestamp }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.Version={{ .Version }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.GitBranch={{ .Branch }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.GitTag={{ .Tag }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.GitState={{ .Env.GIT_STATE }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.BuildHost={{ .Env.BUILD_HOST }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.GoVersion={{ .Env.GO_VERSION }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.BuildUser={{ .Env.BUILD_USER }} "
+      - "-X github.com/davidallendj/magellan/internal/version.GitCommit={{ .Commit }} \
+        -X github.com/davidallendj/magellan/internal/version.BuildTime={{ .Timestamp }} \
+        -X github.com/davidallendj/magellan/internal/version.Version={{ .Version }} \
+        -X github.com/davidallendj/magellan/internal/version.GitBranch={{ .Branch }} \
+        -X github.com/davidallendj/magellan/internal/version.GitTag={{ .Tag }} \
+        -X github.com/davidallendj/magellan/internal/version.GitState={{ .Env.GIT_STATE }} \
+        -X github.com/davidallendj/magellan/internal/version.BuildHost={{ .Env.BUILD_HOST }} \
+        -X github.com/davidallendj/magellan/internal/version.GoVersion={{ .Env.GO_VERSION }} \
+        -X github.com/davidallendj/magellan/internal/version.BuildUser={{ .Env.BUILD_USER }} "
     tags:
       - version
     goos:

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/OpenCHAMI/magellan/internal/version"
+	"github.com/davidallendj/magellan/internal/version"
 	"github.com/spf13/cobra"
 )
 
