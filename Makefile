@@ -100,9 +100,9 @@ diff: ## git diff
 .PHONY: docs
 docs: ## go docs
 	$(call print-target)
-	go doc github.com/OpenCHAMI/magellan/cmd
-	go doc github.com/OpenCHAMI/magellan/internal
-	go doc github.com/OpenCHAMI/magellan/pkg/crawler
+	go doc github.com/davidallendj/magellan/cmd
+	go doc github.com/davidallendj/magellan/internal
+	go doc github.com/davidallendj/magellan/pkg/crawler
 
 .PHONY: emulator
 emulator:

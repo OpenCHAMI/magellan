@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	urlx "github.com/davidallendj/magellan/internal/url"
+	"github.com/davidallendj/magellan/pkg/crawler"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

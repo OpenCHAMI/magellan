@@ -271,7 +271,7 @@ Tidied up CLI flag names
 
  * Ability to update firmware
  * Refactored connection handling for faster scanning
- * Updated to reflect home at github.com/OpenCHAMI
+ * Updated to reflect home at github.com/davidallendj
  * Updated to reflect ghcr.io as container home
 
  ## [Unreleased]

@@ -3,7 +3,7 @@ package magellan
 import (
 	"fmt"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/davidallendj/magellan/internal/util"
 	"github.com/spf13/viper"
 )
 

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/OpenCHAMI/magellan/pkg/client"
+	"github.com/davidallendj/magellan/pkg/client"
 )
 
 type UpdateParams struct {

@@ -1,6 +1,6 @@
 # Magellan
 
-The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/tree/master) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of using independently of other tools or services.
+The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/davidallendj/smd/tree/master) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of using independently of other tools or services.
 
 **Note: `magellan` v0.1.0 is incompatible with SMD v2.15.3 and earlier.**
 
@@ -205,7 +205,7 @@ The `magellan` tool has a `login` subcommand that works with the [`opaal`](https
 export ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIs...
 ```
 
-Alternatively, if you are running the OpenCHAMI quickstart in the [deployment recipes](https://github.com/OpenCHAMI/deployment-recipes), you can run the provided script to generate a token and set the environment variable that way.
+Alternatively, if you are running the OpenCHAMI quickstart in the [deployment recipes](https://github.com/davidallendj/deployment-recipes), you can run the provided script to generate a token and set the environment variable that way.
 
 ```bash
 quickstart_dir=path/to/deployment/recipes/quickstart

@@ -7,12 +7,12 @@ import (
 	"os"
 	"path"
 
-	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	magellan "github.com/davidallendj/magellan/internal"
+	"github.com/davidallendj/magellan/internal/cache/sqlite"
 	"github.com/rs/zerolog/log"
 
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/cznic/mathutil"
+	urlx "github.com/davidallendj/magellan/internal/url"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
