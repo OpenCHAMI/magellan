@@ -6,8 +6,8 @@ import (
 	"os"
 	"strconv"
 
-	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	magellan "github.com/davidallendj/magellan/internal"
+	"github.com/davidallendj/magellan/internal/cache/sqlite"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
