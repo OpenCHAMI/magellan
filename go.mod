@@ -1,4 +1,4 @@
-module github.com/OpenCHAMI/magellan
+module github.com/davidallendj/magellan
 
 go 1.21
 
