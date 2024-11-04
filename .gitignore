@@ -4,3 +4,6 @@ emulator/rf-emulator
 **.tar.gz
 **.tar.zst
 **.part
+dist/*
+**coverage.out**
+magellan.1

@@ -52,13 +52,16 @@ inst: ## go install tools
 	$(call print-target)
 	go install github.com/client9/misspell/cmd/misspell@v0.3.4
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
-	go install github.com/goreleaser/goreleaser@v1.18.2
+	go install github.com/goreleaser/goreleaser/v2@v2.3.2
 	go install github.com/cpuguy83/go-md2man/v2@latest
 
-.PHONY: goreleaser
+.PHONY: release
 release: ## goreleaser build
 	$(call print-target)
 	$(GOPATH)/bin/goreleaser build --clean --single-target --snapshot
+
+.PHONY: binaries
+binaries: build
 
 .PHONY: build
 build: ## go build
@@ -83,7 +86,9 @@ lint: ## golangci-lint
 .PHONY: test
 test: ## go test
 	$(call print-target)
-	go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... ./...
+	./emulator/setup.sh &
+	sleep 10
+	go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... tests/api_test.go tests/compatibility_test.go
 	go tool cover -html=coverage.out -o coverage.html
 
 .PHONY: diff
