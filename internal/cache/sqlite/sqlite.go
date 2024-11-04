@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"fmt"
+	"strings"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/util"
@@ -59,20 +60,40 @@ func InsertScannedAssets(path string, assets ...magellan.RemoteAsset) error {
 	return nil
 }
 
-func DeleteScannedAssets(path string, results ...magellan.RemoteAsset) error {
-	if results == nil {
+func DeleteScannedAssets(path string, assets ...magellan.RemoteAsset) error {
+	var (
+		db  *sqlx.DB
+		tx  *sqlx.Tx
+		err error
+	)
+	if assets == nil {
 		return fmt.Errorf("no assets found")
 	}
-	db, err := sqlx.Open("sqlite3", path)
+	db, err = sqlx.Open("sqlite3", path)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
-	tx := db.MustBegin()
-	for _, state := range results {
-		sql := fmt.Sprintf(`DELETE FROM %s WHERE host = :host, port = :port;`, TABLE_NAME)
-		_, err := tx.NamedExec(sql, &state)
+	tx = db.MustBegin()
+	for _, asset := range assets {
+		// skip if neither host nor port are specified
+		if asset.Host == "" && asset.Port <= 0 {
+			continue
+		}
+		sql := fmt.Sprintf(`DELETE FROM %s`, TABLE_NAME)
+		where := []string{}
+		if asset.Port > 0 {
+			where = append(where, "port=:port")
+		}
+		if asset.Host != "" {
+			where = append(where, "host=:host")
+		}
+		if len(where) <= 0 {
+			continue
+		}
+		sql += fmt.Sprintf(" WHERE %s;", strings.Join(where, " AND "))
+		_, err := tx.NamedExec(sql, &asset)
 		if err != nil {
-			fmt.Printf("failed to execute transaction: %v\n", err)
+			fmt.Printf("failed to execute DELETE transaction: %v\n", err)
 		}
 	}
 
