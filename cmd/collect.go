@@ -17,7 +17,7 @@ import (
 // The `collect` command fetches data from a collection of BMC nodes.
 // This command should be ran after the `scan` to find available hosts
 // on a subnet.
-var collectCmd = &cobra.Command{
+var CollectCmd = &cobra.Command{
 	Use:   "collect",
 	Short: "Collect system information by interrogating BMC node",
 	Long: "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\n" +
@@ -75,28 +75,28 @@ var collectCmd = &cobra.Command{
 
 func init() {
 	currentUser, _ = user.Current()
-	collectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
-	collectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the BMC user")
-	collectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the BMC password")
-	collectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the scheme used to query")
-	collectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	collectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
-	collectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	collectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to CA cert. (defaults to system CAs)")
+	CollectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
+	CollectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the BMC user")
+	CollectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the BMC password")
+	CollectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the scheme used to query")
+	CollectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
+	CollectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
+	CollectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
+	CollectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to CA cert. (defaults to system CAs)")
 
 	// set flags to only be used together
-	collectCmd.MarkFlagsRequiredTogether("username", "password")
+	CollectCmd.MarkFlagsRequiredTogether("username", "password")
 
 	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("collect.host", collectCmd.Flags().Lookup("host")))
-	checkBindFlagError(viper.BindPFlag("collect.username", collectCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("collect.password", collectCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("collect.scheme", collectCmd.Flags().Lookup("scheme")))
-	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("collect.output", collectCmd.Flags().Lookup("output")))
-	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update")))
-	checkBindFlagError(viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlags(collectCmd.Flags()))
+	checkBindFlagError(viper.BindPFlag("collect.host", CollectCmd.Flags().Lookup("host")))
+	checkBindFlagError(viper.BindPFlag("collect.username", CollectCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("collect.password", CollectCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("collect.scheme", CollectCmd.Flags().Lookup("scheme")))
+	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("collect.output", CollectCmd.Flags().Lookup("output")))
+	checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
+	checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
 
-	rootCmd.AddCommand(collectCmd)
+	rootCmd.AddCommand(CollectCmd)
 }
