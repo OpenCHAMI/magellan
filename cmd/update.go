@@ -67,7 +67,7 @@ var updateCmd = &cobra.Command{
 				TransferProtocol: strings.ToUpper(transferProtocol),
 				Insecure:         Insecure,
 				CollectParams: magellan.CollectParams{
-					URI:      host,
+					URI:      arg,
 					Username: username,
 					Password: password,
 					Timeout:  timeout,
