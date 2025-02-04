@@ -32,7 +32,7 @@ var (
 //
 // See the `ScanForAssets()` function in 'internal/scan.go' for details
 // related to the implementation.
-var scanCmd = &cobra.Command{
+var ScanCmd = &cobra.Command{
 	Use:   "scan urls...",
 	Short: "Scan to discover BMC nodes on a network",
 	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response.\n" +
@@ -175,23 +175,23 @@ var scanCmd = &cobra.Command{
 
 func init() {
 	// scanCmd.Flags().StringSliceVar(&hosts, "host", []string{}, "set additional hosts to scan")
-	scanCmd.Flags().StringSliceVar(&hosts, "host", nil, "Add individual hosts to scan. (example: https://my.bmc.com:5000; same as using positional args)")
-	scanCmd.Flags().IntSliceVar(&ports, "port", nil, "Adds additional ports to scan for each host with unspecified ports.")
-	scanCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme to use if not specified in host URI. (default is 'https')")
-	scanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan. (default is 'tcp')")
-	scanCmd.Flags().StringSliceVar(&subnets, "subnet", nil, "Add additional hosts from specified subnets to scan.")
-	scanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
-	scanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
-	scanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
+	ScanCmd.Flags().StringSliceVar(&hosts, "host", nil, "Add individual hosts to scan. (example: https://my.bmc.com:5000; same as using positional args)")
+	ScanCmd.Flags().IntSliceVar(&ports, "port", nil, "Adds additional ports to scan for each host with unspecified ports.")
+	ScanCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme to use if not specified in host URI. (default is 'https')")
+	ScanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan. (default is 'tcp')")
+	ScanCmd.Flags().StringSliceVar(&subnets, "subnet", nil, "Add additional hosts from specified subnets to scan.")
+	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
+	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
+	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 
-	checkBindFlagError(viper.BindPFlag("scan.hosts", scanCmd.Flags().Lookup("host")))
-	checkBindFlagError(viper.BindPFlag("scan.ports", scanCmd.Flags().Lookup("port")))
-	checkBindFlagError(viper.BindPFlag("scan.scheme", scanCmd.Flags().Lookup("scheme")))
-	checkBindFlagError(viper.BindPFlag("scan.protocol", scanCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("scan.subnets", scanCmd.Flags().Lookup("subnet")))
-	checkBindFlagError(viper.BindPFlag("scan.subnet-masks", scanCmd.Flags().Lookup("subnet-mask")))
-	checkBindFlagError(viper.BindPFlag("scan.disable-probing", scanCmd.Flags().Lookup("disable-probing")))
-	checkBindFlagError(viper.BindPFlag("scan.disable-cache", scanCmd.Flags().Lookup("disable-cache")))
+	checkBindFlagError(viper.BindPFlag("scan.hosts", ScanCmd.Flags().Lookup("host")))
+	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
+	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
+	checkBindFlagError(viper.BindPFlag("scan.protocol", ScanCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("scan.subnets", ScanCmd.Flags().Lookup("subnet")))
+	checkBindFlagError(viper.BindPFlag("scan.subnet-masks", ScanCmd.Flags().Lookup("subnet-mask")))
+	checkBindFlagError(viper.BindPFlag("scan.disable-probing", ScanCmd.Flags().Lookup("disable-probing")))
+	checkBindFlagError(viper.BindPFlag("scan.disable-cache", ScanCmd.Flags().Lookup("disable-cache")))
 
-	rootCmd.AddCommand(scanCmd)
+	rootCmd.AddCommand(ScanCmd)
 }

@@ -19,7 +19,7 @@ var (
 // The `list` command provides an easy way to show what was found
 // and stored in a cache database from a scan. The data that's stored
 // is what is consumed by the `collect` command with the --cache flag.
-var listCmd = &cobra.Command{
+var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List information stored in cache from a scan",
 	Long: "Prints all of the host and associated data found from performing a scan.\n" +
@@ -55,7 +55,7 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
-	listCmd.Flags().StringVar(&format, "format", "", "Set the output format (json|default)")
-	listCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
-	rootCmd.AddCommand(listCmd)
+	ListCmd.Flags().StringVar(&format, "format", "", "Set the output format (json|default)")
+	ListCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
+	rootCmd.AddCommand(ListCmd)
 }
