@@ -14,7 +14,7 @@ import (
 // The `crawl` command walks a collection of Redfish endpoints to collect
 // specfic inventory detail. This command only expects host names and does
 // not require a scan to be performed beforehand.
-var crawlCmd = &cobra.Command{
+var CrawlCmd = &cobra.Command{
 	Use:   "crawl [uri]",
 	Short: "Crawl a single BMC for inventory information",
 	Long: "Crawl a single BMC for inventory information. This command does NOT store information\n" +
@@ -57,13 +57,13 @@ var crawlCmd = &cobra.Command{
 }
 
 func init() {
-	crawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
-	crawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
-	crawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	CrawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
+	CrawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
+	CrawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
 
-	checkBindFlagError(viper.BindPFlag("crawl.username", crawlCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("crawl.password", crawlCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", crawlCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("crawl.username", CrawlCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("crawl.password", CrawlCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 
-	rootCmd.AddCommand(crawlCmd)
+	rootCmd.AddCommand(CrawlCmd)
 }
