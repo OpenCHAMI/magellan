@@ -27,18 +27,20 @@ builds:
       - version
     goos:
       - linux
-      - darwin
-      - windows
     goarch:
       - amd64
       - arm64
     goamd64:
       - v3
+    goarm:
+      - 7
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+      - CC={{ if eq .Arch "arm64" }}aarch64-linux-gnu-gcc{{ else }}gcc{{ end }}
+      - CXX={{ if eq .Arch "arm64" }}aarch64-linux-gnu-g++{{ else }}g++{{ end }}
 
 archives:
-  - format: tar.gz
+  - formats: [ 'tar.gz' ]
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
       {{ .ProjectName }}_
@@ -54,23 +56,22 @@ archives:
       - magellan.1
 
 nfpms:
-        - id: magellan
-          formats: 
-          - deb
-          - rpm
-          - apk
-          - archlinux
-          maintainer: "David J. Allen <allend@lanl.gov>"
-          description: "Magellan is a discovery tool for BMCs."
-          homepage: "https://www.openchami.org"
-          license: MIT
-          section: utils
-          priority: optional
-          contents:
-            - src: dist/magellan_{{ .Os }}_{{ if eq .Arch "amd64" }}{{ .Arch }}_{{ .Amd64 }}{{ else }}{{ .Arch }}{{ end }}/magellan
-              dst: /usr/local/bin/magellan
-            - src: magellan.1
-              dst: /usr/share/man/man1/
+  - id: magellan
+    formats: 
+      - deb
+      - rpm
+      - apk
+      - archlinux
+    maintainer: "David J. Allen <allend@lanl.gov>"
+    description: "Magellan is a discovery tool for BMCs."
+    homepage: "https://www.openchami.org"
+    license: MIT
+    section: utils
+    priority: optional
+    contents:
+      - src: magellan.1
+        dst: /usr/share/man/man1/
+
 
 
 dockers:
@@ -93,7 +94,7 @@ dockers:
       - CHANGELOG.md
       - README.md
   - image_templates:
-      - &arm64v8_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-arm64
+      - &arm64v7_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-arm64
       - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-arm64
       - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-arm64
     use: buildx
@@ -114,25 +115,22 @@ docker_manifests:
   - name_template: "ghcr.io/openchami/{{.ProjectName}}:latest"
     image_templates:
       - *amd64_linux_image
-      - *arm64v8_linux_image
+      - *arm64v7_linux_image
 
   - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}"
     image_templates:
       - *amd64_linux_image
-      - *arm64v8_linux_image
+      - *arm64v7_linux_image
 
   - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}"
     image_templates:
       - *amd64_linux_image
-      - *arm64v8_linux_image
+      - *arm64v7_linux_image
 
   - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}"
     image_templates:
       - *amd64_linux_image
-      - *arm64v8_linux_image
-
-
-
+      - *arm64v7_linux_image
 
 checksum:
   name_template: 'checksums.txt'
