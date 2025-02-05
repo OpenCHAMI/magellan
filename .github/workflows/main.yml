@@ -53,6 +53,6 @@ jobs:
           args: release --clean
         id: goreleaser
       - name: Attest Binaries
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v2
         with:
-          subject-path: '${{ github.workspace }}/dist/magellan_linux_amd64_v3/magellan'
+          subject-checksums: dist/checksums.txt
