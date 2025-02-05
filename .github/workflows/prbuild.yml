@@ -20,6 +20,13 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
+        
+      - name: Install dependencies
+        run: |
+          sudo apt update && sudo apt install -y curl git gcc g++ make \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            libc6-dev-arm64-cross software-properties-common
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
