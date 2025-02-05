@@ -15,7 +15,7 @@ export GO_VERSION=$(go version | awk '{print $3}')
 export BUILD_USER=$(whoami)
 
 # Start a new disposable Ubuntu 24.04 container with the current directory mounted
-docker run --rm -it \
+${CONTAINER_CMD:-docker} run --rm -it \
     --name "$CONTAINER_NAME" \
     -v "$(pwd)":/workspace \
     -w /workspace \

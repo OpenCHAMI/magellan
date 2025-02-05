@@ -69,8 +69,6 @@ nfpms:
     section: utils
     priority: optional
     contents:
-      - src: dist/magellan_{{ .Os }}_{{ .Arch }}{{ if .Amd64 }}_{{ .Amd64 }}{{ else if .Arm64 }}_{{ .Arm64 }}{{ end }}/magellan
-        dst: /usr/local/bin/magellan
       - src: magellan.1
         dst: /usr/share/man/man1/
 
