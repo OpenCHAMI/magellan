@@ -27,7 +27,10 @@ func CreateScannedAssetIfNotExists(path string) (*sqlx.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
-	db.MustExec(schema)
+	_, err = db.Exec(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scanned assets cache: %v", err)
+	}
 	return db, nil
 }
 
