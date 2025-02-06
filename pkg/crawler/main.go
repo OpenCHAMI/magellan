@@ -130,6 +130,24 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 }
 
 // CrawlBMCForSystems pulls BMC manager information.
+// CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
+// retrieves the ServiceRoot, and then fetches the list of managers from the ServiceRoot.
+//
+// Parameters:
+//   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
+//
+// Returns:
+//   - []Manager: A slice of Manager structs representing the managers retrieved from the BMC.
+//   - error: An error object if any error occurs during the connection or retrieval process.
+//
+// The function performs the following steps:
+//  1. Initializes a gofish client with the provided configuration.
+//  2. Attempts to connect to the BMC using the gofish client.
+//  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
+//  4. Logs out from the client after the operations are completed.
+//  5. Retrieves the ServiceRoot from the connected BMC.
+//  6. Fetches the list of managers from the ServiceRoot.
+//  7. Returns the list of managers and any error encountered during the process.
 func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 	// initialize gofish client
 	var managers []Manager
@@ -165,6 +183,27 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 	return walkManagers(rf_managers, config.URI)
 }
 
+// walkSystems processes a list of Redfish computer systems and their associated chassis,
+// and returns a list of inventory details for each system.
+//
+// Parameters:
+//   - rf_systems: A slice of pointers to redfish.ComputerSystem objects representing the computer systems to be processed.
+//   - rf_chassis: A pointer to a redfish.Chassis object representing the chassis associated with the computer systems.
+//   - baseURI: A string representing the base URI for constructing resource URIs.
+//
+// Returns:
+//   - A slice of InventoryDetail objects containing detailed information about each computer system.
+//   - An error if any issues occur while processing the computer systems or their associated resources.
+//
+// The function performs the following steps:
+//  1. Iterates over each computer system in rf_systems.
+//  2. Constructs an InventoryDetail object for each computer system, populating fields such as URI, UUID, Name, Manufacturer, SystemType, Model, Serial, BiosVersion, PowerState, ProcessorCount, ProcessorType, and MemoryTotal.
+//  3. If rf_chassis is not nil, populates additional chassis-related fields in the InventoryDetail object.
+//  4. Retrieves and processes Ethernet interfaces for each computer system, adding them to the EthernetInterfaces field of the InventoryDetail object.
+//  5. Retrieves and processes Network interfaces and their associated network adapters for each computer system, adding them to the NetworkInterfaces field of the InventoryDetail object.
+//  6. Processes trusted modules for each computer system, adding them to the TrustedModules field of the InventoryDetail object.
+//  7. Appends the populated InventoryDetail object to the systems slice.
+//  8. Returns the systems slice and any error encountered during processing.
 func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chassis, baseURI string) ([]InventoryDetail, error) {
 	systems := []InventoryDetail{}
 	for _, rf_computersystem := range rf_systems {
@@ -253,6 +292,23 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 	return systems, nil
 }
 
+// walkManagers processes a list of Redfish managers and extracts relevant information
+// to create a slice of Manager objects.
+//
+// Parameters:
+//
+//	rf_managers - A slice of pointers to redfish.Manager objects representing the Redfish managers to be processed.
+//	baseURI - A string representing the base URI to be used for constructing URIs for the managers and their Ethernet interfaces.
+//
+// Returns:
+//
+//	A slice of Manager objects containing the extracted information from the provided Redfish managers.
+//	An error if any issues occur while retrieving Ethernet interfaces from the managers.
+//
+// The function iterates over each Redfish manager, retrieves its Ethernet interfaces,
+// and constructs a Manager object with the relevant details, including Ethernet interface information.
+// If an error occurs while retrieving Ethernet interfaces, the function logs the error and returns the managers
+// collected so far along with the error.
 func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, error) {
 	var managers []Manager
 	for _, rf_manager := range rf_managers {

@@ -1,12 +1,13 @@
 package magellan
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/OpenCHAMI/magellan/pkg/client"
+	"github.com/stmcginnis/gofish"
+	"github.com/stmcginnis/gofish/redfish"
 )
 
 type UpdateParams struct {
@@ -20,38 +21,47 @@ type UpdateParams struct {
 // UpdateFirmwareRemote() uses 'gofish' to update the firmware of a BMC node.
 // The function expects the firmware URL, firmware version, and component flags to be
 // set from the CLI to perform a firmware update.
+// Example:
+// ./magellan update https://192.168.23.40 --username root --password 0penBmc
+// --firmware-url http://192.168.23.19:1337/obmc-phosphor-image.static.mtd.tar
+// --scheme TFTP
+//
+// being:
+// q.URI https://192.168.23.40
+// q.TransferProtocol TFTP
+// q.FirmwarePath http://192.168.23.19:1337/obmc-phosphor-image.static.mtd.tar
 func UpdateFirmwareRemote(q *UpdateParams) error {
 	// parse URI to set up full address
 	uri, err := url.ParseRequestURI(q.URI)
 	if err != nil {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
-	uri.User = url.UserPassword(q.Username, q.Password)
 
-	// set up other vars
-	updateUrl := fmt.Sprintf("%s/redfish/v1/UpdateService/Actions/SimpleUpdate", uri.String())
-	headers := map[string]string{
-		"Content-Type":  "application/json",
-		"cache-control": "no-cache",
-	}
-	b := map[string]any{
-		"UpdateComponent":  q.Component, // BMC, BIOS
-		"TransferProtocol": q.TransferProtocol,
-		"ImageURI":         q.FirmwarePath,
-	}
-	data, err := json.Marshal(b)
+	// Connect to the Redfish service using gofish (using insecure connection for this example)
+	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: true})
 	if err != nil {
-		return fmt.Errorf("failed to marshal data: %v", err)
+		return fmt.Errorf("failed to connect to Redfish service: %w", err)
 	}
-	res, body, err := client.MakeRequest(nil, updateUrl, "POST", data, headers)
+	defer client.Logout()
+
+	// Retrieve the UpdateService from the Redfish client
+	updateService, err := client.Service.UpdateService()
 	if err != nil {
-		return fmt.Errorf("something went wrong: %v", err)
-	} else if res == nil {
-		return fmt.Errorf("no response returned (url: %s)", updateUrl)
+		return fmt.Errorf("failed to get update service: %w", err)
 	}
-	if len(body) > 0 {
-		fmt.Printf("%d: %v\n", res.StatusCode, string(body))
+
+	// Build the update request payload
+	req := redfish.SimpleUpdateParameters{
+		ImageURI:         q.FirmwarePath,
+		TransferProtocol: redfish.TransferProtocolType(q.TransferProtocol),
 	}
+
+	// Execute the SimpleUpdate action
+	err = updateService.SimpleUpdate(&req)
+	if err != nil {
+		return fmt.Errorf("firmware update failed: %w", err)
+	}
+	fmt.Println("Firmware update initiated successfully.")
 	return nil
 }
 
