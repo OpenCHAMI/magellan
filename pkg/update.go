@@ -1,20 +1,14 @@
 package magellan
 
 import (
-<<<<<<< HEAD
 	"fmt"
 	"net/url"
 
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
-=======
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/url"
 
-	"github.com/OpenCHAMI/magellan/pkg/client"
->>>>>>> 81116ec (refactor: moved internal functions to pkg and updated refs)
+	"github.com/stmcginnis/gofish"
+	"github.com/stmcginnis/gofish/redfish"
 )
 
 type UpdateParams struct {
@@ -23,10 +17,7 @@ type UpdateParams struct {
 	FirmwareVersion  string
 	Component        string
 	TransferProtocol string
-<<<<<<< HEAD
 	Insecure         bool
-=======
->>>>>>> 81116ec (refactor: moved internal functions to pkg and updated refs)
 }
 
 // UpdateFirmwareRemote() uses 'gofish' to update the firmware of a BMC node.
