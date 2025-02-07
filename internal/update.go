@@ -2,10 +2,8 @@ package magellan
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 
-	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 )
@@ -37,7 +35,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
 
-	// Connect to the Redfish service using gofish (using insecure connection for this example)
+	// Connect to the Redfish service using gofish (using insecure connection for this)
 	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: true})
 	if err != nil {
 		return fmt.Errorf("failed to connect to Redfish service: %w", err)
@@ -71,18 +69,23 @@ func GetUpdateStatus(q *UpdateParams) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
-	uri.User = url.UserPassword(q.Username, q.Password)
-	updateUrl := fmt.Sprintf("%s/redfish/v1/UpdateService", uri.String())
-	res, body, err := client.MakeRequest(nil, updateUrl, "GET", nil, nil)
+
+	// Connect to the Redfish service using gofish (using insecure connection for this)
+	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: true})
 	if err != nil {
-		return fmt.Errorf("something went wrong: %v", err)
-	} else if res == nil {
-		return fmt.Errorf("no response returned (url: %s)", updateUrl)
-	} else if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("returned status code %d", res.StatusCode)
+		return fmt.Errorf("failed to connect to Redfish service: %w", err)
 	}
-	if len(body) > 0 {
-		fmt.Printf("%v\n", string(body))
+	defer client.Logout()
+
+	// Retrieve the UpdateService from the Redfish client
+	updateService, err := client.Service.UpdateService()
+	if err != nil {
+		return fmt.Errorf("failed to get update service: %w", err)
 	}
+
+	// Get the update status
+	status := updateService.Status
+	fmt.Printf("Update Status: %v\n", status)
+
 	return nil
 }
