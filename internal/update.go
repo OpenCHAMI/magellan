@@ -14,6 +14,7 @@ type UpdateParams struct {
 	FirmwareVersion  string
 	Component        string
 	TransferProtocol string
+	Insecure         bool
 }
 
 // UpdateFirmwareRemote() uses 'gofish' to update the firmware of a BMC node.
@@ -35,8 +36,8 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
 
-	// Connect to the Redfish service using gofish (using insecure connection for this)
-	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: true})
+	// Connect to the Redfish service using gofish
+	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: q.Insecure})
 	if err != nil {
 		return fmt.Errorf("failed to connect to Redfish service: %w", err)
 	}
@@ -70,8 +71,8 @@ func GetUpdateStatus(q *UpdateParams) error {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
 
-	// Connect to the Redfish service using gofish (using insecure connection for this)
-	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: true})
+	// Connect to the Redfish service using gofish
+	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: q.Insecure})
 	if err != nil {
 		return fmt.Errorf("failed to connect to Redfish service: %w", err)
 	}

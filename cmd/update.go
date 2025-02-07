@@ -17,6 +17,7 @@ var (
 	component        string
 	transferProtocol string
 	showStatus       bool
+	Insecure         bool
 )
 
 // The `update` command provides an interface to easily update firmware
@@ -27,8 +28,8 @@ var updateCmd = &cobra.Command{
 	Short: "Update BMC node firmware",
 	Long: "Perform an firmware update using Redfish by providing a remote firmware URL and component.\n\n" +
 		"Examples:\n" +
-		"  magellan update 172.16.0.108:443 --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
-		"  magellan update 172.16.0.108:443 --status --username bmc_username --password bmc_password",
+		"  magellan update 172.16.0.108:443 --insecure --username bmc_username --password bmc_password --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU --component BIOS\n" +
+		"  magellan update 172.16.0.108:443 --insecure --status --username bmc_username --password bmc_password",
 	Run: func(cmd *cobra.Command, args []string) {
 		// check that we have at least one host
 		if len(args) <= 0 {
@@ -44,6 +45,7 @@ var updateCmd = &cobra.Command{
 					FirmwareVersion:  firmwareVersion,
 					Component:        component,
 					TransferProtocol: transferProtocol,
+					Insecure:         Insecure,
 					CollectParams: magellan.CollectParams{
 						URI:      arg,
 						Username: username,
@@ -63,6 +65,7 @@ var updateCmd = &cobra.Command{
 				FirmwareVersion:  firmwareVersion,
 				Component:        component,
 				TransferProtocol: strings.ToUpper(transferProtocol),
+				Insecure:         Insecure,
 				CollectParams: magellan.CollectParams{
 					URI:      host,
 					Username: username,
@@ -85,6 +88,7 @@ func init() {
 	updateCmd.Flags().StringVar(&firmwareVersion, "firmware-version", "", "Set the version of firmware to be installed")
 	updateCmd.Flags().StringVar(&component, "component", "", "Set the component to upgrade (BMC|BIOS)")
 	updateCmd.Flags().BoolVar(&showStatus, "status", false, "Get the status of the update")
+	updateCmd.Flags().BoolVar(&Insecure, "insecure", false, "Allow insecure connections to the server")
 
 	checkBindFlagError(viper.BindPFlag("update.username", updateCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("update.password", updateCmd.Flags().Lookup("password")))
@@ -93,6 +97,7 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("update.firmware-version", updateCmd.Flags().Lookup("firmware-version")))
 	checkBindFlagError(viper.BindPFlag("update.component", updateCmd.Flags().Lookup("component")))
 	checkBindFlagError(viper.BindPFlag("update.status", updateCmd.Flags().Lookup("status")))
+	checkBindFlagError(viper.BindPFlag("update.insecure", updateCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(updateCmd)
 }
