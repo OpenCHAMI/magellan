@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	magellan "github.com/OpenCHAMI/magellan/internal"
+	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
