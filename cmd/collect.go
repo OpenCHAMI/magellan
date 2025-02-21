@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os/user"
 
-	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
+	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
