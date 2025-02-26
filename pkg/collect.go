@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,19 +48,20 @@ type CollectParams struct {
 //
 // Requests can be made to several of the nodes using a goroutine by setting the q.Concurrency
 // property value between 1 and 10000.
-func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
+func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[string]any, error) {
 	// check for available remote assets found from scan
 	if assets == nil {
-		return fmt.Errorf("no assets found")
+		return nil, fmt.Errorf("no assets found")
 	}
 	if len(*assets) <= 0 {
-		return fmt.Errorf("no assets found")
+		return nil, fmt.Errorf("no assets found")
 	}
 
 	// collect bmc information asynchronously
 	var (
 		offset     = 0
 		wg         sync.WaitGroup
+		collection = make([]map[string]any, 0)
 		found      = make([]string, 0, len(*assets))
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
@@ -73,7 +74,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 	if params.CaCertPath != "" {
 		cacert, err := os.ReadFile(params.CaCertPath)
 		if err != nil {
-			return fmt.Errorf("failed to read CA cert path: %w", err)
+			return nil, fmt.Errorf("failed to read CA cert path: %w", err)
 		}
 		certPool := x509.NewCertPool()
 		certPool.AppendCertsFromPEM(cacert)
@@ -169,6 +170,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 					fmt.Printf("%v\n", string(body))
 				}
 
+				// add data output to collections
+				collection = append(collection, data)
+
 				// write JSON data to file if output path is set using hive partitioning strategy
 				if outputPath != "" {
 					var (
@@ -241,7 +245,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) error {
 	wg.Wait()
 	close(done)
 
-	return nil
+	return collection, nil
 }
 
 // FindMACAddressWithIP() returns the MAC address of an ethernet interface with
