@@ -55,7 +55,7 @@ var CollectCmd = &cobra.Command{
 		if concurrency <= 0 {
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
-		err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
+		_, err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
 			URI:         host,
 			Username:    username,
 			Password:    password,
