@@ -1,19 +1,29 @@
 package crawler
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 )
 
 type CrawlerConfig struct {
-	URI      string // URI of the BMC
-	Username string // Username for the BMC
-	Password string // Password for the BMC
-	Insecure bool   // Whether to ignore SSL errors
+	URI             string // URI of the BMC
+	Insecure        bool   // Whether to ignore SSL errors
+	CredentialStore secrets.SecretStore
+}
+
+func (cc *CrawlerConfig) GetUserPass() (BMCUsernamePassword, error) {
+	return loadBMCCreds(*cc)
+}
+
+type BMCUsernamePassword struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type EthernetInterface struct {
@@ -82,11 +92,20 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 		systems    []InventoryDetail
 		rf_systems []*redfish.ComputerSystem
 	)
+	// get username and password from secret store
+	bmc_creds, err := loadBMCCreds(config)
+	if err != nil {
+		event := log.Error()
+		event.Err(err)
+		event.Msg("failed to load BMC credentials")
+		return nil, err
+	}
+
 	// initialize gofish client
 	client, err := gofish.Connect(gofish.ClientConfig{
 		Endpoint:  config.URI,
-		Username:  config.Username,
-		Password:  config.Password,
+		Username:  bmc_creds.Username,
+		Password:  bmc_creds.Password,
 		Insecure:  config.Insecure,
 		BasicAuth: true,
 	})
@@ -149,12 +168,21 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 //  6. Fetches the list of managers from the ServiceRoot.
 //  7. Returns the list of managers and any error encountered during the process.
 func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
+
+	// get username and password from secret store
+	bmc_creds, err := loadBMCCreds(config)
+	if err != nil {
+		event := log.Error()
+		event.Err(err)
+		event.Msg("failed to load BMC credentials")
+		return nil, err
+	}
 	// initialize gofish client
 	var managers []Manager
 	client, err := gofish.Connect(gofish.ClientConfig{
 		Endpoint:  config.URI,
-		Username:  config.Username,
-		Password:  config.Password,
+		Username:  bmc_creds.Username,
+		Password:  bmc_creds.Password,
 		Insecure:  config.Insecure,
 		BasicAuth: true,
 	})
@@ -343,4 +371,23 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 		})
 	}
 	return managers, nil
+}
+
+func loadBMCCreds(config CrawlerConfig) (BMCUsernamePassword, error) {
+	creds, err := config.CredentialStore.GetSecretByID(config.URI)
+	if err != nil {
+		event := log.Error()
+		event.Err(err)
+		event.Msg("failed to get credentials from secret store")
+		return BMCUsernamePassword{}, err
+	}
+	var bmc_creds BMCUsernamePassword
+	err = json.Unmarshal([]byte(creds), &bmc_creds)
+	if err != nil {
+		event := log.Error()
+		event.Err(err)
+		event.Msg("failed to unmarshal credentials")
+		return BMCUsernamePassword{}, err
+	}
+	return bmc_creds, nil
 }

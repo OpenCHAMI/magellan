@@ -203,7 +203,7 @@ func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnl
 	)
 
 	// try to conntect to host (expects host in format [10.0.0.0]:443)
-	target := fmt.Sprintf("%s:%s", uri.Hostname(), uri.Port())
+	target := net.JoinHostPort(uri.Hostname(), uri.Port())
 	conn, err := net.DialTimeout(protocol, target, timeoutDuration)
 	if err != nil {
 		asset.State = false
