@@ -7,6 +7,7 @@ import (
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -35,11 +36,14 @@ var CrawlCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		staticStore := &secrets.StaticStore{
+			Username: viper.GetString("crawl.username"),
+			Password: viper.GetString("crawl.password"),
+		}
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
-			URI:      args[0],
-			Username: cmd.Flag("username").Value.String(),
-			Password: cmd.Flag("password").Value.String(),
-			Insecure: cmd.Flag("insecure").Value.String() == "true",
+			URI:             args[0],
+			CredentialStore: staticStore,
+			Insecure:        cmd.Flag("insecure").Value.String() == "true",
 		})
 		if err != nil {
 			log.Fatalf("Error crawling BMC: %v", err)

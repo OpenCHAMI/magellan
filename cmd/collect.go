@@ -8,6 +8,7 @@ import (
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
+	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -55,10 +56,10 @@ var CollectCmd = &cobra.Command{
 		if concurrency <= 0 {
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
+		// Create a StaticSecretStore to hold the username and password
+		secrets := secrets.NewStaticStore(username, password)
 		_, err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
 			URI:         host,
-			Username:    username,
-			Password:    password,
 			Timeout:     timeout,
 			Concurrency: concurrency,
 			Verbose:     verbose,
@@ -66,7 +67,7 @@ var CollectCmd = &cobra.Command{
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
-		})
+		}, secrets)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to collect data")
 		}

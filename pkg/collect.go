@@ -17,6 +17,7 @@ import (
 
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/OpenCHAMI/magellan/pkg/secrets"
 
 	"github.com/rs/zerolog/log"
 
@@ -48,7 +49,7 @@ type CollectParams struct {
 //
 // Requests can be made to several of the nodes using a goroutine by setting the q.Concurrency
 // property value between 1 and 10000.
-func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[string]any, error) {
+func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secrets.SecretStore) ([]map[string]any, error) {
 	// check for available remote assets found from scan
 	if assets == nil {
 		return nil, fmt.Errorf("no assets found")
@@ -117,10 +118,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					systems  []crawler.InventoryDetail
 					managers []crawler.Manager
 					config   = crawler.CrawlerConfig{
-						URI:      fmt.Sprintf("%s:%d", sr.Host, sr.Port),
-						Username: params.Username,
-						Password: params.Password,
-						Insecure: true,
+						URI:             fmt.Sprintf("%s:%d", sr.Host, sr.Port),
+						CredentialStore: store,
+						Insecure:        true,
 					}
 				)
 				systems, err := crawler.CrawlBMCForSystems(config)
@@ -260,10 +260,15 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 	// gofish (at least for now). If there's a need for grabbing more
 	// manager information in the future, we can move the logic into
 	// the crawler.
+	bmc_creds, err := config.GetUserPass()
+	if err != nil {
+		return "", fmt.Errorf("failed to get credentials for URI: %s", config.URI)
+	}
+
 	client, err := gofish.Connect(gofish.ClientConfig{
 		Endpoint:  config.URI,
-		Username:  config.Username,
-		Password:  config.Password,
+		Username:  bmc_creds.Username,
+		Password:  bmc_creds.Password,
 		Insecure:  config.Insecure,
 		BasicAuth: true,
 	})
