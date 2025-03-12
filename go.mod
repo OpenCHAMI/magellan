@@ -16,7 +16,10 @@ require (
 	golang.org/x/exp v0.0.0-20240409090435-93d18d7e34b8
 )
 
-require github.com/rs/zerolog v1.33.0
+require (
+	github.com/rs/zerolog v1.33.0
+	golang.org/x/crypto v0.32.0
+)
 
 require (
 	github.com/google/go-cmp v0.6.0 // indirect
@@ -49,7 +52,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
