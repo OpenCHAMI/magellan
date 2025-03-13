@@ -6,9 +6,6 @@ import (
 
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
-
-	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
 )
 
 type UpdateParams struct {
@@ -38,7 +35,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
-  
+
 	// Connect to the Redfish service using gofish
 	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: q.Insecure})
 	if err != nil {
