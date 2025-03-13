@@ -64,7 +64,7 @@ var updateCmd = &cobra.Command{
 				Component:        component,
 				TransferProtocol: strings.ToUpper(transferProtocol),
 				CollectParams: magellan.CollectParams{
-					URI:      host,
+					URI:      arg,
 					Username: username,
 					Password: password,
 					Timeout:  timeout,
