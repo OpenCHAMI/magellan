@@ -101,6 +101,21 @@ func (l *LocalSecretStore) ListSecrets() (map[string]string, error) {
 	return secretsCopy, nil
 }
 
+// openStore tries to create or open the LocalSecretStore based on the environment
+// variable MASTER_KEY. If not found, it prints an error.
+func OpenStore(filename string) (SecretStore, error) {
+	masterKey := os.Getenv("MASTER_KEY")
+	if masterKey == "" {
+		return nil, fmt.Errorf("MASTER_KEY environment variable not set")
+	}
+
+	store, err := NewLocalSecretStore(masterKey, filename, true)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open secrets store: %v", err)
+	}
+	return store, nil
+}
+
 // Saves secrets back to the JSON file
 func saveSecrets(jsonFile string, store map[string]string) error {
 	file, err := os.OpenFile(jsonFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)

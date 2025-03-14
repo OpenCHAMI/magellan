@@ -18,9 +18,11 @@ func NewStaticStore(username, password string) *StaticStore {
 func (s *StaticStore) GetSecretByID(secretID string) (string, error) {
 	return fmt.Sprintf(`{"username":"%s","password":"%s"}`, s.Username, s.Password), nil
 }
+
 func (s *StaticStore) StoreSecretByID(secretID, secret string) error {
 	return nil
 }
+
 func (s *StaticStore) ListSecrets() (map[string]string, error) {
 	return map[string]string{
 		"static_creds": fmt.Sprintf(`{"username":"%s","password":"%s"}`, s.Username, s.Password),
