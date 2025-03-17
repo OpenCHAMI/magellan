@@ -41,6 +41,7 @@ type CollectParams struct {
 	OutputPath  string // set the path to save output with 'output' flag
 	ForceUpdate bool   // set whether to force updating SMD with 'force-update' flag
 	AccessToken string // set the access token to include in request with 'access-token' flag
+	SecretsFile string // set the path to secrets file
 }
 
 // This is the main function used to collect information from the BMC nodes via Redfish.
@@ -60,15 +61,18 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 
 	// collect bmc information asynchronously
 	var (
-		offset     = 0
-		wg         sync.WaitGroup
-		collection = make([]map[string]any, 0)
-		found      = make([]string, 0, len(*assets))
-		done       = make(chan struct{}, params.Concurrency+1)
-		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
-		outputPath = path.Clean(params.OutputPath)
-		smdClient  = &client.SmdClient{Client: &http.Client{}}
+		offset       = 0
+		wg           sync.WaitGroup
+		collection                       = make([]map[string]any, 0)
+		found                            = make([]string, 0, len(*assets))
+		done                             = make(chan struct{}, params.Concurrency+1)
+		chanAssets                       = make(chan RemoteAsset, params.Concurrency+1)
+		outputPath                       = path.Clean(params.OutputPath)
+		smdClient                        = &client.SmdClient{Client: &http.Client{}}
+		initialStore secrets.SecretStore = store
+		err          error
 	)
+
 	// set the client's params from CLI
 	// NOTE: temporary solution until client.NewClient() is fixed
 	smdClient.URI = params.URI
@@ -103,27 +107,46 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 					return
 				}
 
+				// use initial store to check for creds for specific node
+				store = initialStore
+
 				// generate custom xnames for bmcs
 				// TODO: add xname customization via CLI
-				node := xnames.Node{
-					Cabinet:       1000,
-					Chassis:       1,
-					ComputeModule: 7,
-					NodeBMC:       offset,
-				}
+				var (
+					uri  = fmt.Sprintf("%s:%d", sr.Host, sr.Port)
+					node = xnames.Node{
+						Cabinet:       1000,
+						Chassis:       1,
+						ComputeModule: 7,
+						NodeBMC:       offset,
+					}
+				)
 				offset += 1
+
+				// determine if local store exists and has credentials for
+				// the provided secretID...
+				// if it does not, create a static store and use the username
+				// and password provided instead
+				_, err = store.GetSecretByID(uri)
+				if store == nil || err != nil {
+					log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials", uri)
+					store = secrets.NewStaticStore(params.Username, params.Password)
+				}
 
 				// crawl BMC node to fetch inventory data via Redfish
 				var (
 					systems  []crawler.InventoryDetail
 					managers []crawler.Manager
 					config   = crawler.CrawlerConfig{
-						URI:             fmt.Sprintf("%s:%d", sr.Host, sr.Port),
+						URI:             uri,
 						CredentialStore: store,
 						Insecure:        true,
 					}
+					err error
 				)
-				systems, err := crawler.CrawlBMCForSystems(config)
+
+				// crawl for node and BMC information
+				systems, err = crawler.CrawlBMCForSystems(config)
 				if err != nil {
 					log.Error().Err(err).Msg("failed to crawl BMC for systems")
 				}
