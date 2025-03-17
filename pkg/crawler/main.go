@@ -148,7 +148,6 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	return walkSystems(rf_systems, nil, config.URI)
 }
 
-// CrawlBMCForSystems pulls BMC manager information.
 // CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
 // retrieves the ServiceRoot, and then fetches the list of managers from the ServiceRoot.
 //
@@ -374,6 +373,10 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 }
 
 func loadBMCCreds(config CrawlerConfig) (BMCUsernamePassword, error) {
+	// NOTE: it is possible for the SecretStore to be nil, so we need a check
+	if config.CredentialStore == nil {
+		return BMCUsernamePassword{}, fmt.Errorf("credential store is invalid")
+	}
 	creds, err := config.CredentialStore.GetSecretByID(config.URI)
 	if err != nil {
 		event := log.Error()

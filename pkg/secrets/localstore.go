@@ -104,6 +104,10 @@ func (l *LocalSecretStore) ListSecrets() (map[string]string, error) {
 // openStore tries to create or open the LocalSecretStore based on the environment
 // variable MASTER_KEY. If not found, it prints an error.
 func OpenStore(filename string) (SecretStore, error) {
+	if filename == "" {
+		return nil, fmt.Errorf("no path to secret store provided")
+	}
+
 	masterKey := os.Getenv("MASTER_KEY")
 	if masterKey == "" {
 		return nil, fmt.Errorf("MASTER_KEY environment variable not set")
