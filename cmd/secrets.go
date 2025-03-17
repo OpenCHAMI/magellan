@@ -165,6 +165,8 @@ func init() {
 	secretsCmd.AddCommand(secretsRetrieveCmd)
 	secretsCmd.AddCommand(secretsListCmd)
 
+	rootCmd.AddCommand(secretsCmd)
+
 	checkBindFlagError(viper.BindPFlags(secretsCmd.Flags()))
 	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
 	checkBindFlagError(viper.BindPFlags(secretsStoreCmd.Flags()))
