@@ -25,7 +25,11 @@ var CollectCmd = &cobra.Command{
 		"See the 'scan' command on how to perform a scan.\n\n" +
 		"Examples:\n" +
 		"  magellan collect --cache ./assets.db --output ./logs --timeout 30 --cacert cecert.pem\n" +
-		"  magellan collect --host smd.example.com --port 27779 --username username --password password",
+		"  magellan collect --host smd.example.com --port 27779 --username $username --password $password\n\n" +
+		// example using `collect`
+		"  export MASTER_KEY=$(magellan secrets generatekey)\n" +
+		"  magellan secrets store $node_creds_json -f nodes.json" +
+		"  magellan collect --host openchami.cluster --username $username --password $password \\\n",
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
@@ -48,17 +52,13 @@ var CollectCmd = &cobra.Command{
 			}
 		}
 
-		if verbose {
-			log.Debug().Str("Access Token", accessToken)
-		}
-
-		//
+		// set the minimum/maximum number of concurrent processes
 		if concurrency <= 0 {
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
-		// Create a StaticSecretStore to hold the username and password
-		secrets := secrets.NewStaticStore(username, password)
-		_, err = magellan.CollectInventory(&scannedResults, &magellan.CollectParams{
+
+		// set the collect parameters from CLI params
+		params := &magellan.CollectParams{
 			URI:         host,
 			Timeout:     timeout,
 			Concurrency: concurrency,
@@ -67,9 +67,26 @@ var CollectCmd = &cobra.Command{
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
-		}, secrets)
+		}
+
+		// show all of the 'collect' parameters being set from CLI if verbose
+		if verbose {
+			log.Debug().Any("params", params)
+		}
+
+		// load the secrets file to get node credentials by ID (i.e. the BMC node's URI)
+		store, err := secrets.OpenStore(params.SecretsFile)
 		if err != nil {
-			log.Error().Err(err).Msgf("failed to collect data")
+			// Something went wrong with the store so try using
+			// Create a StaticSecretStore to hold the username and password
+			fmt.Println(err)
+			store = secrets.NewStaticStore(username, password)
+		} else {
+		}
+
+		_, err = magellan.CollectInventory(&scannedResults, params, store)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to collect data")
 		}
 	},
 }
@@ -77,13 +94,14 @@ var CollectCmd = &cobra.Command{
 func init() {
 	currentUser, _ = user.Current()
 	CollectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
-	CollectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the BMC user")
-	CollectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the BMC password")
-	CollectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the scheme used to query")
+	CollectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the master BMC username")
+	CollectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the master BMC password")
+	CollectCmd.PersistentFlags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
+	CollectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
 	CollectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
 	CollectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
 	CollectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	CollectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to CA cert. (defaults to system CAs)")
+	CollectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
 
 	// set flags to only be used together
 	CollectCmd.MarkFlagsRequiredTogether("username", "password")
