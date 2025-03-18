@@ -2,12 +2,20 @@ package cmd
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+var (
+	secretsFile           string
+	secretsStoreFormat    string
+	secretsStoreInputFile string
 )
 
 var secretsCmd = &cobra.Command{
@@ -33,6 +41,7 @@ var secretsCmd = &cobra.Command{
 
 var secretsGenerateKeyCmd = &cobra.Command{
 	Use:   "generatekey",
+	Args:  cobra.NoArgs,
 	Short: "Generates a new 32-byte master key (in hex).",
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := secrets.GenerateMasterKey()
@@ -45,18 +54,73 @@ var secretsGenerateKeyCmd = &cobra.Command{
 }
 
 var secretsStoreCmd = &cobra.Command{
-	Use:   "store secretID secretValue",
-	Args:  cobra.ExactArgs(2),
+	Use:   "store secretID <json(default)|base64>",
+	Args:  cobra.MinimumNArgs(1),
 	Short: "Stores the given string value under secretID.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			secretID    = args[0]
-			secretValue = args[1]
+			secretID       string = args[0]
+			secretValue    string
+			store          secrets.SecretStore
+			inputFileBytes []byte
+			err            error
 		)
 
-		store, err := secrets.OpenStore(secretsFile)
-		if err != nil {
-			fmt.Println(err)
+		// require either the args or input file
+		if len(args) < 1 && secretsStoreInputFile == "" {
+			log.Error().Msg("no input data or file")
+			os.Exit(1)
+		} else if len(args) > 1 && secretsStoreInputFile == "" {
+			secretValue = args[1]
+		}
+
+		switch secretsStoreFormat {
+		case "base64":
+			decoded, err := base64.StdEncoding.DecodeString(secretValue)
+			if err != nil {
+				fmt.Printf("Error decoding base64 data: %v\n", err)
+				os.Exit(1)
+			}
+
+			// check the decoded string if it's a valid JSON and has creds
+			if !isValidCredsJSON(string(decoded)) {
+				log.Error().Msg("value is not a valid JSON or is missing credentials")
+				os.Exit(1)
+			}
+
+			store, err = secrets.OpenStore(secretsFile)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			secretValue = string(decoded)
+		case "json":
+			// read input from file if set and override
+			if secretsStoreInputFile != "" {
+				if secretValue != "" {
+					log.Error().Msg("cannot use -i/--input-file with positional argument")
+					os.Exit(1)
+				}
+				inputFileBytes, err = os.ReadFile(secretsStoreInputFile)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to read input file")
+					os.Exit(1)
+				}
+				secretValue = string(inputFileBytes)
+			}
+
+			// make sure we have valid JSON with "username" and "password" properties
+			if !isValidCredsJSON(string(secretValue)) {
+				log.Error().Err(err).Msg("not a valid JSON or creds")
+				os.Exit(1)
+			}
+			store, err = secrets.OpenStore(secretsFile)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+		default:
+			log.Error().Msg("no input format set")
 			os.Exit(1)
 		}
 
@@ -68,58 +132,39 @@ var secretsStoreCmd = &cobra.Command{
 	},
 }
 
-var secretsStoreBase64Cmd = &cobra.Command{
-	Use:   "storebase64 base64String",
-	Args:  cobra.ExactArgs(1),
-	Short: "Decodes the base64-encoded string before storing.",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(os.Args) < 4 {
-			fmt.Println("Not enough arguments. Usage: go run main.go storebase64 <secretID> <base64String> [filename]")
-			os.Exit(1)
-		}
-		secretID := os.Args[2]
-		base64Value := os.Args[3]
-		filename := "mysecrets.json"
-		if len(os.Args) == 5 {
-			filename = os.Args[4]
-		}
-
-		decoded, err := base64.StdEncoding.DecodeString(base64Value)
-		if err != nil {
-			fmt.Printf("Error decoding base64 data: %v\n", err)
-			os.Exit(1)
-		}
-
-		store, err := secrets.OpenStore(filename)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		if err := store.StoreSecretByID(secretID, string(decoded)); err != nil {
-			fmt.Printf("Error storing base64-decoded secret: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Base64-decoded secret stored successfully.")
-	},
+func isValidCredsJSON(val string) bool {
+	var (
+		valid bool = !json.Valid([]byte(val))
+		creds map[string]string
+		err   error
+	)
+	err = json.Unmarshal([]byte(val), &creds)
+	if err != nil {
+		return false
+	}
+	_, valid = creds["username"]
+	_, valid = creds["password"]
+	return valid
 }
 
 var secretsRetrieveCmd = &cobra.Command{
-	Use: "retrieve secretID",
+	Use:  "retrieve secretID",
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(os.Args) < 3 {
-			fmt.Println("Not enough arguments. Usage: go run main.go retrieve <secretID> [filename]")
-			os.Exit(1)
-		}
-		secretID := os.Args[2]
+		var (
+			secretID    = args[0]
+			secretValue string
+			store       secrets.SecretStore
+			err         error
+		)
 
-		store, err := secrets.OpenStore(secretsFile)
+		store, err = secrets.OpenStore(secretsFile)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		secretValue, err := store.GetSecretByID(secretID)
+		secretValue, err = store.GetSecretByID(secretID)
 		if err != nil {
 			fmt.Printf("Error retrieving secret: %v\n", err)
 			os.Exit(1)
@@ -130,13 +175,9 @@ var secretsRetrieveCmd = &cobra.Command{
 
 var secretsListCmd = &cobra.Command{
 	Use:   "list",
+	Args:  cobra.MinimumNArgs(1),
 	Short: "Lists all the secret IDs and their values.",
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 2 {
-			fmt.Println("Not enough arguments. Usage: go run main.go list [filename]")
-			os.Exit(1)
-		}
-
 		store, err := secrets.OpenStore(secretsFile)
 		if err != nil {
 			fmt.Println(err)
@@ -158,10 +199,11 @@ var secretsListCmd = &cobra.Command{
 
 func init() {
 	secretsCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "")
+	secretsStoreCmd.Flags().StringVar(&secretsStoreFormat, "format", "json", "set the input format for the secrets file (json|base64)")
+	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "set the file to read as input")
 
 	secretsCmd.AddCommand(secretsGenerateKeyCmd)
 	secretsCmd.AddCommand(secretsStoreCmd)
-	secretsCmd.AddCommand(secretsStoreBase64Cmd)
 	secretsCmd.AddCommand(secretsRetrieveCmd)
 	secretsCmd.AddCommand(secretsListCmd)
 

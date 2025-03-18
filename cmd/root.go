@@ -38,7 +38,6 @@ var (
 	cacertPath  string
 	username    string
 	password    string
-	secretsFile string
 	cachePath   string
 	outputPath  string
 	configPath  string
