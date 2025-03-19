@@ -70,7 +70,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 		outputPath                       = path.Clean(params.OutputPath)
 		smdClient                        = &client.SmdClient{Client: &http.Client{}}
 		initialStore secrets.SecretStore = store
-		err          error
 	)
 
 	// set the client's params from CLI
@@ -127,9 +126,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 				// the provided secretID...
 				// if it does not, create a static store and use the username
 				// and password provided instead
-				_, err = store.GetSecretByID(uri)
-				if store == nil || err != nil {
-					log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials", uri)
+				if store != nil {
+					_, err := store.GetSecretByID(uri)
+					if err != nil {
+						log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials", uri)
+						store = secrets.NewStaticStore(params.Username, params.Password)
+					}
+				} else {
+					log.Warn().Msgf("invalid store...falling back to default provided credentials for %s", uri)
 					store = secrets.NewStaticStore(params.Username, params.Password)
 				}
 
