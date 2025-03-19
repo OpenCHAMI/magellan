@@ -101,6 +101,11 @@ func (l *LocalSecretStore) ListSecrets() (map[string]string, error) {
 	return secretsCopy, nil
 }
 
+// RemoveSecretByID removes the specified secretID stored locally
+func (l *LocalSecretStore) RemoveSecretByID(secretID string) {
+	delete(l.Secrets, secretID)
+}
+
 // openStore tries to create or open the LocalSecretStore based on the environment
 // variable MASTER_KEY. If not found, it prints an error.
 func OpenStore(filename string) (SecretStore, error) {

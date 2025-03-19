@@ -197,6 +197,23 @@ var secretsListCmd = &cobra.Command{
 	},
 }
 
+var secretsRemoveCmd = &cobra.Command{
+	Use:   "remove secretIDs...",
+	Args:  cobra.MinimumNArgs(2),
+	Short: "Remove secrets by IDs from secret store.",
+	Run: func(cmd *cobra.Command, args []string) {
+		for _, secretID := range args {
+			store, err := secrets.OpenStore(secretsFile)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
+			store.RemoveSecretByID(secretID)
+		}
+	},
+}
+
 func init() {
 	secretsCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "")
 	secretsStoreCmd.Flags().StringVar(&secretsStoreFormat, "format", "json", "set the input format for the secrets file (json|base64)")
@@ -206,6 +223,7 @@ func init() {
 	secretsCmd.AddCommand(secretsStoreCmd)
 	secretsCmd.AddCommand(secretsRetrieveCmd)
 	secretsCmd.AddCommand(secretsListCmd)
+	secretsCmd.AddCommand(secretsRemoveCmd)
 
 	rootCmd.AddCommand(secretsCmd)
 
