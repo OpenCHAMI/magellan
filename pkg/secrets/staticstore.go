@@ -28,3 +28,7 @@ func (s *StaticStore) ListSecrets() (map[string]string, error) {
 		"static_creds": fmt.Sprintf(`{"username":"%s","password":"%s"}`, s.Username, s.Password),
 	}, nil
 }
+
+func (s *StaticStore) RemoveSecretByID(secretID string) {
+	// Nothing to do here, since nothing is being stored
+}
