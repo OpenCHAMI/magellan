@@ -67,6 +67,7 @@ var CollectCmd = &cobra.Command{
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
+			SecretsFile: secretsFile,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
@@ -81,7 +82,6 @@ var CollectCmd = &cobra.Command{
 			// Create a StaticSecretStore to hold the username and password
 			fmt.Println(err)
 			store = secrets.NewStaticStore(username, password)
-		} else {
 		}
 
 		_, err = magellan.CollectInventory(&scannedResults, params, store)
