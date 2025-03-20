@@ -36,13 +36,17 @@ var CrawlCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		staticStore := &secrets.StaticStore{
-			Username: viper.GetString("crawl.username"),
-			Password: viper.GetString("crawl.password"),
+		store, err := secrets.OpenStore(secretsFile)
+		if err != nil {
+			fmt.Println(err)
+			store = &secrets.StaticStore{
+				Username: viper.GetString("crawl.username"),
+				Password: viper.GetString("crawl.password"),
+			}
 		}
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
 			URI:             args[0],
-			CredentialStore: staticStore,
+			CredentialStore: store,
 			Insecure:        cmd.Flag("insecure").Value.String() == "true",
 		})
 		if err != nil {
