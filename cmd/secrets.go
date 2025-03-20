@@ -215,7 +215,7 @@ var secretsRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	secretsCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "")
+	secretsCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "set the secrets file with BMC credentials")
 	secretsStoreCmd.Flags().StringVar(&secretsStoreFormat, "format", "json", "set the input format for the secrets file (json|base64)")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "set the file to read as input")
 

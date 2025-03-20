@@ -68,6 +68,7 @@ func init() {
 	CrawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
 	CrawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
 	CrawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	CrawlCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "set the secrets file with BMC credentials")
 
 	checkBindFlagError(viper.BindPFlag("crawl.username", CrawlCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("crawl.password", CrawlCmd.Flags().Lookup("password")))
