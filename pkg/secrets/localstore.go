@@ -84,7 +84,7 @@ func (l *LocalSecretStore) StoreSecretByID(secretID, secret string) error {
 
 	l.mu.Lock()
 	l.Secrets[secretID] = encryptedSecret
-	err = saveSecrets(l.filename, l.Secrets)
+	err = SaveSecrets(l.filename, l.Secrets)
 	l.mu.Unlock()
 	return err
 }
@@ -134,7 +134,7 @@ func OpenStore(filename string) (SecretStore, error) {
 }
 
 // Saves secrets back to the JSON file
-func saveSecrets(jsonFile string, store map[string]string) error {
+func SaveSecrets(jsonFile string, store map[string]string) error {
 	file, err := os.OpenFile(jsonFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
