@@ -203,13 +203,22 @@ var secretsRemoveCmd = &cobra.Command{
 	Short: "Remove secrets by IDs from secret store.",
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, secretID := range args {
+			// open secret store from file
 			store, err := secrets.OpenStore(secretsFile)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			store.RemoveSecretByID(secretID)
+			// remove secret from store by it's ID
+			err = store.RemoveSecretByID(secretID)
+			if err != nil {
+				fmt.Println("failed to remove secret: ", err)
+				os.Exit(1)
+			}
+
+			// update store by saving to original file
+			secrets.SaveSecrets(secretsFile, store.(*secrets.LocalSecretStore).Secrets)
 		}
 	},
 }
