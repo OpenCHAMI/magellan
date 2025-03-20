@@ -175,7 +175,7 @@ var secretsRetrieveCmd = &cobra.Command{
 
 var secretsListCmd = &cobra.Command{
 	Use:   "list",
-	Args:  cobra.MinimumNArgs(1),
+	Args:  cobra.ExactArgs(0),
 	Short: "Lists all the secret IDs and their values.",
 	Run: func(cmd *cobra.Command, args []string) {
 		store, err := secrets.OpenStore(secretsFile)
