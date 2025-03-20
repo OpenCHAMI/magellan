@@ -199,7 +199,7 @@ var secretsListCmd = &cobra.Command{
 
 var secretsRemoveCmd = &cobra.Command{
 	Use:   "remove secretIDs...",
-	Args:  cobra.MinimumNArgs(2),
+	Args:  cobra.MinimumNArgs(1),
 	Short: "Remove secrets by IDs from secret store.",
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, secretID := range args {
