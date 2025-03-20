@@ -29,6 +29,7 @@ func (s *StaticStore) ListSecrets() (map[string]string, error) {
 	}, nil
 }
 
-func (s *StaticStore) RemoveSecretByID(secretID string) {
-	// Nothing to do here, since nothing is being stored
+func (s *StaticStore) RemoveSecretByID(secretID string) error {
+	// Nothing to do here, since nothing is being stored. With different implementations, we could return an error when no secret is found for a specific ID.
+	return nil
 }

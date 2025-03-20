@@ -102,10 +102,16 @@ func (l *LocalSecretStore) ListSecrets() (map[string]string, error) {
 }
 
 // RemoveSecretByID removes the specified secretID stored locally
-func (l *LocalSecretStore) RemoveSecretByID(secretID string) {
+func (l *LocalSecretStore) RemoveSecretByID(secretID string) error {
 	l.mu.RLock()
+	// Let user know if there was nothing to delete
+	_, err := l.GetSecretByID(secretID)
+	if err != nil {
+		return err
+	}
 	delete(l.Secrets, secretID)
 	l.mu.RUnlock()
+	return nil
 }
 
 // openStore tries to create or open the LocalSecretStore based on the environment
