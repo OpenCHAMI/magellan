@@ -118,7 +118,7 @@ func (l *LocalSecretStore) RemoveSecretByID(secretID string) error {
 // variable MASTER_KEY. If not found, it prints an error.
 func OpenStore(filename string) (SecretStore, error) {
 	if filename == "" {
-		return nil, fmt.Errorf("no path to secret store provided")
+		return nil, fmt.Errorf("path to secret store required")
 	}
 
 	masterKey := os.Getenv("MASTER_KEY")
@@ -128,7 +128,7 @@ func OpenStore(filename string) (SecretStore, error) {
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
-		return nil, fmt.Errorf("cannot open secrets store: %v", err)
+		return nil, fmt.Errorf("failed to create new local secret store: %v", err)
 	}
 	return store, nil
 }
