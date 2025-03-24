@@ -80,7 +80,7 @@ var CollectCmd = &cobra.Command{
 		if err != nil {
 			// Something went wrong with the store so try using
 			// Create a StaticSecretStore to hold the username and password
-			fmt.Println(err)
+			log.Warn().Err(err).Msg("failed to open local store")
 			store = secrets.NewStaticStore(username, password)
 		}
 

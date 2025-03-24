@@ -74,6 +74,7 @@ var secretsStoreCmd = &cobra.Command{
 			secretValue = args[1]
 		}
 
+		// handle input file format
 		switch secretsStoreFormat {
 		case "base64":
 			decoded, err := base64.StdEncoding.DecodeString(secretValue)
