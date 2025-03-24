@@ -37,28 +37,37 @@ var CrawlCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		var (
+			uri   = args[0]
+			store secrets.SecretStore
+			err   error
+		)
 		// try and load credentials from local store first
-		store, err := secrets.OpenStore(secretsFile)
+		store, err = secrets.OpenStore(secretsFile)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to open store")
+			log.Warn().Err(err).Msg("failed to open local store...falling back to default provided arguments")
 			// try and use the `username` and `password` arguments instead
-			store = &secrets.StaticStore{
-				Username: username,
-				Password: password,
-			}
+			store = secrets.NewStaticStore(username, password)
 		}
+
+		// found the store so try to load the creds
+		_, err = store.GetSecretByID(uri)
+		if err != nil {
+			store = secrets.NewStaticStore(username, password)
+		}
+
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
-			URI:             args[0],
+			URI:             uri,
 			CredentialStore: store,
 			Insecure:        insecure,
 		})
 		if err != nil {
-			log.Error().Err(err).Msg("error crawling BMC")
+			log.Error().Err(err).Msg("failed to crawl BMC")
 		}
 		// Marshal the inventory details to JSON
 		jsonData, err := json.MarshalIndent(systems, "", "  ")
 		if err != nil {
-			log.Error().Err(err).Msg("error marshalling to JSON:")
+			log.Error().Err(err).Msg("failed to marshal JSON")
 			return
 		}
 
