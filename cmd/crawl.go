@@ -3,7 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+
+	"github.com/rs/zerolog/log"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -36,9 +37,11 @@ var CrawlCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// try and load credentials from local store first
 		store, err := secrets.OpenStore(secretsFile)
 		if err != nil {
-			fmt.Println(err)
+			log.Error().Err(err).Msg("failed to open store")
+			// try and use the `username` and `password` arguments instead
 			store = &secrets.StaticStore{
 				Username: username,
 				Password: password,
@@ -47,15 +50,15 @@ var CrawlCmd = &cobra.Command{
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
 			URI:             args[0],
 			CredentialStore: store,
-			Insecure:        cmd.Flag("insecure").Value.String() == "true",
+			Insecure:        insecure,
 		})
 		if err != nil {
-			log.Fatalf("Error crawling BMC: %v", err)
+			log.Error().Err(err).Msg("error crawling BMC")
 		}
 		// Marshal the inventory details to JSON
 		jsonData, err := json.MarshalIndent(systems, "", "  ")
 		if err != nil {
-			fmt.Println("Error marshalling to JSON:", err)
+			log.Error().Err(err).Msg("error marshalling to JSON:")
 			return
 		}
 
