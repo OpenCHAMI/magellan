@@ -40,8 +40,8 @@ var CrawlCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println(err)
 			store = &secrets.StaticStore{
-				Username: viper.GetString("crawl.username"),
-				Password: viper.GetString("crawl.password"),
+				Username: username,
+				Password: password,
 			}
 		}
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
@@ -65,9 +65,9 @@ var CrawlCmd = &cobra.Command{
 }
 
 func init() {
-	CrawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
-	CrawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
-	CrawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
+	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
+	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "set the secrets file with BMC credentials")
 
 	checkBindFlagError(viper.BindPFlag("crawl.username", CrawlCmd.Flags().Lookup("username")))
