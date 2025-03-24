@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
@@ -54,7 +55,7 @@ var secretsGenerateKeyCmd = &cobra.Command{
 }
 
 var secretsStoreCmd = &cobra.Command{
-	Use:   "store secretID <json(default)|base64>",
+	Use:   "store secretID <basic(default)|json|base64>",
 	Args:  cobra.MinimumNArgs(1),
 	Short: "Stores the given string value under secretID.",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -71,31 +72,59 @@ var secretsStoreCmd = &cobra.Command{
 			log.Error().Msg("no input data or file")
 			os.Exit(1)
 		} else if len(args) > 1 && secretsStoreInputFile == "" {
+			// use args[1] here because args[0] is the secretID
 			secretValue = args[1]
 		}
 
 		// handle input file format
 		switch secretsStoreFormat {
-		case "base64":
+		case "basic": // format: $username:$password
+			var (
+				values   []string
+				username string
+				password string
+			)
+			// seperate username and password provided
+			values = strings.Split(secretValue, ":")
+			if len(values) != 2 {
+				log.Error().Msgf("expected 2 arguments in [username:password] format but got %d", len(values))
+				os.Exit(1)
+			}
+
+			// open secret store to save credentials
+			store, err = secrets.OpenStore(secretsFile)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to open secrets store")
+				os.Exit(1)
+			}
+
+			// extract username/password from input (for clarity)
+			username = values[0]
+			password = values[1]
+
+			// create JSON formatted string from input
+			secretValue = fmt.Sprintf("{\"username\": \"%s\", \"password\": \"%s\"}", username, password)
+
+		case "base64": // format: ($encoded_base64_string)
 			decoded, err := base64.StdEncoding.DecodeString(secretValue)
 			if err != nil {
-				fmt.Printf("Error decoding base64 data: %v\n", err)
+				log.Error().Err(err).Msg("error decoding base64 data")
 				os.Exit(1)
 			}
 
 			// check the decoded string if it's a valid JSON and has creds
 			if !isValidCredsJSON(string(decoded)) {
-				log.Error().Msg("value is not a valid JSON or is missing credentials")
+				log.Error().Err(err).Msg("value is not a valid JSON or is missing credentials")
 				os.Exit(1)
 			}
 
 			store, err = secrets.OpenStore(secretsFile)
 			if err != nil {
-				fmt.Println(err)
+				log.Error().Err(err).Msg("failed to open secrets store")
 				os.Exit(1)
 			}
 			secretValue = string(decoded)
-		case "json":
+		case "json": // format: {"username": $username, "password": $password}
 			// read input from file if set and override
 			if secretsStoreInputFile != "" {
 				if secretValue != "" {
@@ -129,7 +158,6 @@ var secretsStoreCmd = &cobra.Command{
 			fmt.Printf("Error storing secret: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("Secret stored successfully.")
 	},
 }
 
@@ -191,7 +219,6 @@ var secretsListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Println("Secrets:")
 		for key, value := range secrets {
 			fmt.Printf("%s: %s\n", key, value)
 		}
@@ -225,8 +252,8 @@ var secretsRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	secretsCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "set the secrets file with BMC credentials")
-	secretsStoreCmd.Flags().StringVar(&secretsStoreFormat, "format", "json", "set the input format for the secrets file (json|base64)")
+	secretsCmd.Flags().StringVarP(&secretsFile, "output-file", "o", "nodes.json", "set the secrets file with BMC credentials")
+	secretsStoreCmd.Flags().StringVarP(&secretsStoreFormat, "format", "f", "basic", "set the input format for the secrets file (basic|json|base64)")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "set the file to read as input")
 
 	secretsCmd.AddCommand(secretsGenerateKeyCmd)
