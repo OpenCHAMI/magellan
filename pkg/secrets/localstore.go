@@ -84,7 +84,7 @@ func (l *LocalSecretStore) StoreSecretByID(secretID, secret string) error {
 
 	l.mu.Lock()
 	l.Secrets[secretID] = encryptedSecret
-	err = saveSecrets(l.filename, l.Secrets)
+	err = SaveSecrets(l.filename, l.Secrets)
 	l.mu.Unlock()
 	return err
 }
@@ -101,8 +101,40 @@ func (l *LocalSecretStore) ListSecrets() (map[string]string, error) {
 	return secretsCopy, nil
 }
 
+// RemoveSecretByID removes the specified secretID stored locally
+func (l *LocalSecretStore) RemoveSecretByID(secretID string) error {
+	l.mu.RLock()
+	// Let user know if there was nothing to delete
+	_, err := l.GetSecretByID(secretID)
+	if err != nil {
+		return err
+	}
+	delete(l.Secrets, secretID)
+	l.mu.RUnlock()
+	return nil
+}
+
+// openStore tries to create or open the LocalSecretStore based on the environment
+// variable MASTER_KEY. If not found, it prints an error.
+func OpenStore(filename string) (SecretStore, error) {
+	if filename == "" {
+		return nil, fmt.Errorf("path to secret store required")
+	}
+
+	masterKey := os.Getenv("MASTER_KEY")
+	if masterKey == "" {
+		return nil, fmt.Errorf("MASTER_KEY environment variable not set")
+	}
+
+	store, err := NewLocalSecretStore(masterKey, filename, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new local secret store: %v", err)
+	}
+	return store, nil
+}
+
 // Saves secrets back to the JSON file
-func saveSecrets(jsonFile string, store map[string]string) error {
+func SaveSecrets(jsonFile string, store map[string]string) error {
 	file, err := os.OpenFile(jsonFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err

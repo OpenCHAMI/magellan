@@ -3,7 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+
+	"github.com/rs/zerolog/log"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -18,8 +19,8 @@ import (
 var CrawlCmd = &cobra.Command{
 	Use:   "crawl [uri]",
 	Short: "Crawl a single BMC for inventory information",
-	Long: "Crawl a single BMC for inventory information. This command does NOT store information\n" +
-		"about the scan into cache after completion. To do so, use the 'collect' command instead\n\n" +
+	Long: "Crawl a single BMC for inventory information with URI. This command does NOT scan subnets nor store scan information\n" +
+		"in cache after completion. To do so, use the 'collect' command instead\n\n" +
 		"Examples:\n" +
 		"  magellan crawl https://bmc.example.com\n" +
 		"  magellan crawl https://bmc.example.com -i -u username -p password",
@@ -36,22 +37,37 @@ var CrawlCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		staticStore := &secrets.StaticStore{
-			Username: viper.GetString("crawl.username"),
-			Password: viper.GetString("crawl.password"),
+		var (
+			uri   = args[0]
+			store secrets.SecretStore
+			err   error
+		)
+		// try and load credentials from local store first
+		store, err = secrets.OpenStore(secretsFile)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to open local store...falling back to default provided arguments")
+			// try and use the `username` and `password` arguments instead
+			store = secrets.NewStaticStore(username, password)
 		}
+
+		// found the store so try to load the creds
+		_, err = store.GetSecretByID(uri)
+		if err != nil {
+			store = secrets.NewStaticStore(username, password)
+		}
+
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
-			URI:             args[0],
-			CredentialStore: staticStore,
-			Insecure:        cmd.Flag("insecure").Value.String() == "true",
+			URI:             uri,
+			CredentialStore: store,
+			Insecure:        insecure,
 		})
 		if err != nil {
-			log.Fatalf("Error crawling BMC: %v", err)
+			log.Error().Err(err).Msg("failed to crawl BMC")
 		}
 		// Marshal the inventory details to JSON
 		jsonData, err := json.MarshalIndent(systems, "", "  ")
 		if err != nil {
-			fmt.Println("Error marshalling to JSON:", err)
+			log.Error().Err(err).Msg("failed to marshal JSON")
 			return
 		}
 
@@ -61,9 +77,10 @@ var CrawlCmd = &cobra.Command{
 }
 
 func init() {
-	CrawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
-	CrawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
-	CrawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
+	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
+	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
+	CrawlCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "set the secrets file with BMC credentials")
 
 	checkBindFlagError(viper.BindPFlag("crawl.username", CrawlCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("crawl.password", CrawlCmd.Flags().Lookup("password")))

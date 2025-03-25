@@ -21,6 +21,7 @@ var (
 // is what is consumed by the `collect` command with the --cache flag.
 var ListCmd = &cobra.Command{
 	Use:   "list",
+	Args:  cobra.ExactArgs(0),
 	Short: "List information stored in cache from a scan",
 	Long: "Prints all of the host and associated data found from performing a scan.\n" +
 		"See the 'scan' command on how to perform a scan.\n\n" +

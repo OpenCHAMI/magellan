@@ -44,6 +44,7 @@ var (
 	verbose     bool
 	debug       bool
 	forceUpdate bool
+	insecure    bool
 )
 
 // The `root` command doesn't do anything on it's own except display

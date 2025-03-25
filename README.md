@@ -1,8 +1,33 @@
 # OpenCHAMI Magellan
 
-The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of using independently of other tools or services.
+The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of being used independently of other tools or services.
 
-**Note: `magellan` v0.1.0 is incompatible with SMD v2.15.3 and earlier.**
+> [!NOTE]
+> The v0.1.0 version of `magellan` is incompatible with `smd` v2.15.3 and earlier due to `smd` lacking the inventory parsing code used with `magellan`'s output.**
+
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
+  * [Main Features](#main-features)
+  * [Getting Started](#getting-started)
+  * [Building the Executable](#building-the-executable)
+    + [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+    + [Docker](#docker)
+    + [Arch Linux (AUR)](#arch-linux-aur)
+  * [Usage](#usage)
+    + [Checking for Redfish](#checking-for-redfish)
+    + [Running the Tool](#running-the-tool)
+    + [Managing Secrets](#managing-secrets)
+    + [Starting the Emulator](#starting-the-emulator)
+    + [Updating Firmware](#updating-firmware)
+    + [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+    + [Running with Docker](#running-with-docker)
+  * [How It Works](#how-it-works)
+  * [TODO](#todo)
+  * [Copyright](#copyright)
+
+<!-- TOC end -->
+
+<!-- TOC --><a name="openchami-magellan"></a>
 
 ## Main Features
 
@@ -13,6 +38,7 @@ The `magellan` tool comes packed with a handleful of features for doing discover
 - Redfish-based firmware updating
 - Integration with OpenCHAMI SMD
 - Write inventory data to JSON
+- Store and manage BMC secrets
 
 See the [TODO](#todo) section for a list of soon-ish goals planned.
 
@@ -25,7 +51,7 @@ See the [TODO](#todo) section for a list of soon-ish goals planned.
 The `magellan` tool can be built to run on bare metal. Install the required Go tools, clone the repo, and then build the binary in the root directory with the following:
 
 ```bash
-git clone https://github.com/OpenCHAMI/magellan 
+git clone https://github.com/OpenCHAMI/magellan
 cd magellan
 go mod tidy && go build
 ```
@@ -40,7 +66,7 @@ Getting the `magellan` tool to work with Go 1.21 on Debian 12 may require instal
 apt install gcc golang-1.21/bookworm-backport
 ```
 
-The binary executable for the `golang-1.21` executable can then be found using `dpkg`.
+The binary executable for the `golang-1.21` executable can then be found using `dpkg`.v2.0.1
 
 ```bash
 dpkg -L golang-1.21-go
@@ -49,7 +75,7 @@ dpkg -L golang-1.21-go
 Using the correct binary, set the `CGO_ENABLED` environment variable and build the executable with `cgo` enabled:
 
 ```bash
-export GOBIN=/usr/bin/golang-1.21/bin/go 
+export GOBIN=/usr/bin/golang-1.21/bin/go
 go env -w CGO_ENABLED=1
 go mod tidy && go build
 ```
@@ -65,6 +91,17 @@ docker pull ghcr.io/openchami/magellan:latest
 ```
 
 See the ["Running with Docker"](#running-with-docker) section below about running with the Docker container.
+
+
+### Arch Linux (AUR)
+
+The `magellan` tool is in the AUR as a binary package and can be installed via your favorite AUR helper.
+
+```bash
+yay -S magellan-bin
+```
+> [!NOTE]
+> The AUR package may not always be in sync with the latest release. It is recommended to install `magellan` from source for the latest version.
 
 ## Usage
 
@@ -173,14 +210,95 @@ This will initiate a crawler that will find as much inventory data as possible. 
 
 Note: If the `cache` flag is not set, `magellan` will use `/tmp/$USER/magellan.db` by default.
 
+### Managing Secrets
+
+When connecting to an array of BMC nodes, some nodes may have different secret credentials than the rest. These secrets can be stored and used automatically by `magellan` when performing a `collect` or a `crawl`. All secrets are encrypted and are only accessible using the same `MASTER_KEY` as when stored originally.
+
+To store secrets using `magellan`:
+
+1. Set the `MASTER_KEY` environment variable. This can be generated using `magellan secrets generatekey`.
+
+```bash
+export MASTER_KEY=$(magellan secrets generatekey)
+```
+
+2. Store secret credentials for hosts shown by `magellan list`:
+
+```bash
+export bmc_host=https://172.16.0.105:443
+magellan secrets store $bmc_host $bmc_username:$bmc_password
+```
+
+There should be no output unless an error occurred.
+
+3. Print the list of hosts to confirm secrets are stored.
+
+```bash
+magellan secrets list
+```
+
+If you see your `bmc_host` listed in the output, that means that your secrets were stored successfully.
+
+Additionally, if you want to see the actually contents, make sure the `MASTER_KEY` environment variable is correctly set and do the following:
+
+```bash
+magellan secrets retrieve $bmc_host
+```
+
+4. Run either a `crawl` or `collect` and `magellan` should be a do find the credentials for each host.
+
+```bash
+magellan crawl -i $bmc_host
+magellan collect \
+  --username $default_bmc_username \
+  --password $default_bmc_password
+```
+
+If you pass agruments with the `--username/--password` flags, they will be used as a fallback if no credentials are found in the store. However, the secret store credentials are always used first if they exists.
+
+> [!NOTE]
+> Make sure that the `secretID` is EXACTLY as show with `magellan list`. Otherwise, `magellan` will not be able to do the lookup from the secret store correctly.
+
+### Starting the Emulator
+
+This repository includes a quick and dirty way to test `magellan` using a Redfish emulator with little to no effort to get running.
+
+1. Make sure you have `docker` with Docker compose and optionally `make`.
+
+2. Run the `emulator/setup.sh` script or alternatively `make emulator`.
+
+This will start a flask server that you can make requests to using `curl`.
+
+```bash
+export emulator_host=https://172.21.0.2:5000
+export emulator_username=root           # set in the `rf_emulator.yml` file
+export emulator_password=root_password  # set in the `rf_emulator.yml` file
+curl -k $emulator_host/redfish/v1 -u $emulator_username:$emulator_password
+```
+
+...or with `magellan` using the secret store...
+
+```bash
+magellan scan --subnet 172.21.0.0/24
+magellan secrets store \
+  $emulator_host \
+  $emulator_username:$emulator_password
+magellan collect --host https://smd.openchami.cluster
+```
+
+This example should work just like running on real hardware.
+
+> [!NOTE]
+> The emulator host may be different from the one in the README. Make sure to double-check the host!
+
 ### Updating Firmware
 
 The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessible URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag (optional) with all the other usual arguments like in the example below:
 
 ```bash
 ./magellan update 172.16.0.108:443 \
-  --username $USERNAME \ 
-  --password $PASSWORD \
+  --username $bmc_username \
+  --password $bmc_password \
   --firmware-path http://172.16.0.255:8005/firmware/bios/image.RBU \
   --component BIOS
 ```
@@ -188,9 +306,12 @@ The `magellan` tool is capable of updating firmware with using the `update` subc
 Then, the update status can be viewed by including the `--status` flag along with the other usual arguments or with the `watch` command:
 
 ```bash
-./magellan update 172.16.0.110 --status --username $USERNAME --pass $PASSWORD | jq '.'
+./magellan update 172.16.0.110 \
+  --status \
+  --username $bmc_username \
+  --password $bmc_password | jq '.'
 # ...or...
-watch -n 1 "./magellan update 172.16.0.110 --status --username $USERNAME --password $PASSWORD | jq '.'"
+watch -n 1 "./magellan update 172.16.0.110 --status --username $bmc_username --password $bmc_password | jq '.'"
 ```
 
 ### Getting an Access Token (WIP)
@@ -219,7 +340,6 @@ The `magellan` tool can be ran in a Docker container after pulling the latest im
 
 ```bash
 docker pull ghcr.io/openchami/magellan:latest
-
 ```
 
 Then, run either with the helper script found in `bin/magellan.sh` or the binary in the container:
@@ -259,8 +379,10 @@ See the [issue list](https://github.com/OpenCHAMI/magellan/issues) for plans for
 * [ ] Separate `collect` subcommand with making request to endpoint
 * [X] Support logging in with `opaal` to get access token
 * [X] Support using CA certificates with HTTP requests to SMD
-* [ ] Add tests for the regressions and compatibility
+* [X] Add tests for the regressions and compatibility
 * [X] Clean up, remove unused, and tidy code (first round)
+* [X] Add `secrets` command to manage secret credentials
+* [ ] Add server component to make `magellan` a micro-service
 
 ## Copyright
 
