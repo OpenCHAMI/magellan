@@ -81,7 +81,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore s
 		}
 		certPool := x509.NewCertPool()
 		certPool.AppendCertsFromPEM(cacert)
-		smdClient.Client.Transport = &http.Transport{
+		smdClient.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs:            certPool,
 				InsecureSkipVerify: true,

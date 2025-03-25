@@ -78,7 +78,7 @@ func TestRedfishV1ServiceRootAvailability(t *testing.T) {
 // Simple test to ensure an expected Redfish version minimum requirement.
 func TestRedfishV1Version(t *testing.T) {
 	var (
-		url        string            = fmt.Sprintf("%s/redfish/v1/", *host)
+		url                          = fmt.Sprintf("%s/redfish/v1/", *host)
 		body       client.HTTPBody   = []byte{}
 		headers    client.HTTPHeader = map[string]string{}
 		testClient                   = &http.Client{

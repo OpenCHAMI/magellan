@@ -60,7 +60,7 @@ var secretsStoreCmd = &cobra.Command{
 	Short: "Stores the given string value under secretID.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			secretID       string = args[0]
+			secretID       = args[0]
 			secretValue    string
 			store          secrets.SecretStore
 			inputFileBytes []byte
@@ -163,7 +163,7 @@ var secretsStoreCmd = &cobra.Command{
 
 func isValidCredsJSON(val string) bool {
 	var (
-		valid bool = !json.Valid([]byte(val))
+		valid = !json.Valid([]byte(val))
 		creds map[string]string
 		err   error
 	)
