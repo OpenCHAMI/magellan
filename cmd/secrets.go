@@ -219,8 +219,8 @@ var secretsListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		for key, value := range secrets {
-			fmt.Printf("%s: %s\n", key, value)
+		for key := range secrets {
+			fmt.Printf("%s\n", key)
 		}
 	},
 }

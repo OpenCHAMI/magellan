@@ -68,6 +68,8 @@ var CollectCmd = &cobra.Command{
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
 			SecretsFile: secretsFile,
+			Username:    username,
+			Password:    password,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
