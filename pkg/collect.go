@@ -50,7 +50,7 @@ type CollectParams struct {
 //
 // Requests can be made to several of the nodes using a goroutine by setting the q.Concurrency
 // property value between 1 and 10000.
-func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secrets.SecretStore) ([]map[string]any, error) {
+func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore secrets.SecretStore) ([]map[string]any, error) {
 	// check for available remote assets found from scan
 	if assets == nil {
 		return nil, fmt.Errorf("no assets found")
@@ -125,7 +125,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 					managers      []crawler.Manager
 					config        = crawler.CrawlerConfig{
 						URI:             uri,
-						CredentialStore: store,
+						CredentialStore: localStore,
 						Insecure:        true,
 					}
 					err error
@@ -135,14 +135,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 				// the provided secretID...
 				// if it does not, use the fallback static store instead with
 				// the username and password provided as arguments
-				if store != nil {
-					_, err := store.GetSecretByID(uri)
+				if localStore != nil {
+					_, err := localStore.GetSecretByID(uri)
 					if err != nil {
-						log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials", uri)
+						log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials for user '%s'", uri, params.Username)
 						config.CredentialStore = fallbackStore
 					}
 				} else {
-					log.Warn().Msgf("invalid store...falling back to default provided credentials for %s", uri)
+					log.Warn().Msgf("invalid store for %s...falling back to default provided credentials for user '%s'", uri, params.Username)
 					config.CredentialStore = fallbackStore
 				}
 
