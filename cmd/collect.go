@@ -96,8 +96,8 @@ var CollectCmd = &cobra.Command{
 func init() {
 	currentUser, _ = user.Current()
 	CollectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
-	CollectCmd.PersistentFlags().StringVar(&username, "username", "", "Set the master BMC username")
-	CollectCmd.PersistentFlags().StringVar(&password, "password", "", "Set the master BMC password")
+	CollectCmd.PersistentFlags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
+	CollectCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
 	CollectCmd.PersistentFlags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
 	CollectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
 	CollectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
