@@ -61,15 +61,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 
 	// collect bmc information asynchronously
 	var (
-		offset       = 0
-		wg           sync.WaitGroup
-		collection                       = make([]map[string]any, 0)
-		found                            = make([]string, 0, len(*assets))
-		done                             = make(chan struct{}, params.Concurrency+1)
-		chanAssets                       = make(chan RemoteAsset, params.Concurrency+1)
-		outputPath                       = path.Clean(params.OutputPath)
-		smdClient                        = &client.SmdClient{Client: &http.Client{}}
-		initialStore secrets.SecretStore = store
+		offset     = 0
+		wg         sync.WaitGroup
+		collection = make([]map[string]any, 0)
+		found      = make([]string, 0, len(*assets))
+		done       = make(chan struct{}, params.Concurrency+1)
+		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
+		outputPath = path.Clean(params.OutputPath)
+		smdClient  = &client.SmdClient{Client: &http.Client{}}
 	)
 
 	// set the client's params from CLI
@@ -106,9 +105,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 					return
 				}
 
-				// use initial store to check for creds for specific node
-				store = initialStore
-
 				// generate custom xnames for bmcs
 				// TODO: add xname customization via CLI
 				var (
@@ -122,32 +118,33 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, store secret
 				)
 				offset += 1
 
-				// determine if local store exists and has credentials for
-				// the provided secretID...
-				// if it does not, create a static store and use the username
-				// and password provided instead
-				if store != nil {
-					_, err := store.GetSecretByID(uri)
-					if err != nil {
-						log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials", uri)
-						store = secrets.NewStaticStore(params.Username, params.Password)
-					}
-				} else {
-					log.Warn().Msgf("invalid store...falling back to default provided credentials for %s", uri)
-					store = secrets.NewStaticStore(params.Username, params.Password)
-				}
-
 				// crawl BMC node to fetch inventory data via Redfish
 				var (
-					systems  []crawler.InventoryDetail
-					managers []crawler.Manager
-					config   = crawler.CrawlerConfig{
+					fallbackStore = secrets.NewStaticStore(params.Username, params.Password)
+					systems       []crawler.InventoryDetail
+					managers      []crawler.Manager
+					config        = crawler.CrawlerConfig{
 						URI:             uri,
 						CredentialStore: store,
 						Insecure:        true,
 					}
 					err error
 				)
+
+				// determine if local store exists and has credentials for
+				// the provided secretID...
+				// if it does not, use the fallback static store instead with
+				// the username and password provided as arguments
+				if store != nil {
+					_, err := store.GetSecretByID(uri)
+					if err != nil {
+						log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials", uri)
+						config.CredentialStore = fallbackStore
+					}
+				} else {
+					log.Warn().Msgf("invalid store...falling back to default provided credentials for %s", uri)
+					config.CredentialStore = fallbackStore
+				}
 
 				// crawl for node and BMC information
 				systems, err = crawler.CrawlBMCForSystems(config)
