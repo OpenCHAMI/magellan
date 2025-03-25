@@ -51,7 +51,7 @@ mod: ## go mod tidy
 inst: ## go install tools
 	$(call print-target)
 	go install github.com/client9/misspell/cmd/misspell@v0.3.4
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.0.1
 	go install github.com/goreleaser/goreleaser/v2@v2.3.2
 	go install github.com/cpuguy83/go-md2man/v2@latest
 
@@ -71,7 +71,7 @@ build: ## go build
 container: ## docker build
 container:
 	$(call print-target)
-	docker build . --build-arg REGISTRY_HOST=${REGISTRY_HOST} --no-cache --pull --tag '${NAME}:${VERSION}' 
+	docker build . --build-arg REGISTRY_HOST=${REGISTRY_HOST} --no-cache --pull --tag '${NAME}:${VERSION}'
 
 .PHONY: spell
 spell: ## misspell
