@@ -10,9 +10,7 @@ import (
 
 type UpdateParams struct {
 	CollectParams
-	FirmwarePath     string
-	FirmwareVersion  string
-	Component        string
+	FirmwareURI      string
 	TransferProtocol string
 	Insecure         bool
 }
@@ -51,7 +49,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 
 	// Build the update request payload
 	req := redfish.SimpleUpdateParameters{
-		ImageURI:         q.FirmwarePath,
+		ImageURI:         q.FirmwareURI,
 		TransferProtocol: redfish.TransferProtocolType(q.TransferProtocol),
 	}
 

@@ -17,13 +17,11 @@ import (
 // specfic inventory detail. This command only expects host names and does
 // not require a scan to be performed beforehand.
 var CrawlCmd = &cobra.Command{
-	Use:   "crawl [uri]",
+	Use: "crawl [uri]",
+	Example: `  magellan crawl https://bmc.example.com
+  magellan crawl https://bmc.example.com -i -u username -p password`,
 	Short: "Crawl a single BMC for inventory information",
-	Long: "Crawl a single BMC for inventory information with URI. This command does NOT scan subnets nor store scan information\n" +
-		"in cache after completion. To do so, use the 'collect' command instead\n\n" +
-		"Examples:\n" +
-		"  magellan crawl https://bmc.example.com\n" +
-		"  magellan crawl https://bmc.example.com -i -u username -p password",
+	Long:  "Crawl a single BMC for inventory information with URI.\n\n NOTE: This command does not scan subnets, store scan information in cache, nor make a request to a specified host. It is used only to retrieve inventory data directly. Otherwise, use 'scan' and 'collect' instead.",
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Validate that the only argument is a valid URI
 		var err error
@@ -82,8 +80,6 @@ func init() {
 	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "set the secrets file with BMC credentials")
 
-	checkBindFlagError(viper.BindPFlag("crawl.username", CrawlCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("crawl.password", CrawlCmd.Flags().Lookup("password")))
 	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(CrawlCmd)

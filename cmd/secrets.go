@@ -20,17 +20,21 @@ var (
 )
 
 var secretsCmd = &cobra.Command{
-	Use:   "secrets",
+	Use: "secrets",
+	Example: `
+  // generate new key and set environment variable
+  export MASTER_KEY=$(magellan secrets generatekey)
+
+  // store specific BMC node creds for collect and crawl in default secrets store (--file/-f flag not set)
+  magellan secrets store $bmc_host $bmc_creds
+
+  // retrieve creds from secrets store
+  magellan secrets retrieve $bmc_host -f nodes.json
+
+  // list creds from specific secrets
+  magellan secrets list -f nodes.json`,
 	Short: "Manage credentials for BMC nodes",
-	Long: "Manage credentials for BMC nodes to for querying information through redfish. This requires generating a key and setting the 'MASTER_KEY' environment variable for the secrets store.\n" +
-		"Examples:\n\n" +
-		"    export MASTER_KEY=$(magellan secrets generatekey)\n" +
-		// store specific BMC node creds for `collect` and `crawl` in default secrets store (`--file/-f`` flag not set)
-		"    magellan secrets store $bmc_host $bmc_creds" +
-		// retrieve creds from secrets store
-		"    magellan secrets retrieve $bmc_host -f nodes.json" +
-		// list creds from specific secrets
-		"    magellan secrets list -f nodes.json",
+	Long:  "Manage credentials for BMC nodes to for querying information through redfish. This requires generating a key and setting the 'MASTER_KEY' environment variable for the secrets store.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// show command help and exit
 		if len(args) < 1 {
@@ -60,7 +64,7 @@ var secretsStoreCmd = &cobra.Command{
 	Short: "Stores the given string value under secretID.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			secretID       = args[0]
+			secretID       string = args[0]
 			secretValue    string
 			store          secrets.SecretStore
 			inputFileBytes []byte
@@ -163,7 +167,7 @@ var secretsStoreCmd = &cobra.Command{
 
 func isValidCredsJSON(val string) bool {
 	var (
-		valid = !json.Valid([]byte(val))
+		valid bool = !json.Valid([]byte(val))
 		creds map[string]string
 		err   error
 	)
@@ -219,8 +223,8 @@ var secretsListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		for key := range secrets {
-			fmt.Printf("%s\n", key)
+		for key, value := range secrets {
+			fmt.Printf("%s: %s\n", key, value)
 		}
 	},
 }

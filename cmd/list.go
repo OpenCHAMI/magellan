@@ -20,14 +20,15 @@ var (
 // and stored in a cache database from a scan. The data that's stored
 // is what is consumed by the `collect` command with the --cache flag.
 var ListCmd = &cobra.Command{
-	Use:   "list",
+	Use: "list",
+	Example: `  magellan list
+  magellan list --cache ./assets.db
+  magellan list --cache-info
+	`,
 	Args:  cobra.ExactArgs(0),
 	Short: "List information stored in cache from a scan",
 	Long: "Prints all of the host and associated data found from performing a scan.\n" +
-		"See the 'scan' command on how to perform a scan.\n\n" +
-		"Examples:\n" +
-		"  magellan list\n" +
-		"  magellan list --cache ./assets.db",
+		"See the 'scan' command on how to perform a scan.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// check if we just want to show cache-related info and exit
 		if showCache {
