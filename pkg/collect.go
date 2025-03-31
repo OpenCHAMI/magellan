@@ -127,6 +127,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore s
 						URI:             uri,
 						CredentialStore: localStore,
 						Insecure:        true,
+						UseDefault:      true,
 					}
 					err error
 				)
@@ -138,8 +139,13 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore s
 				if localStore != nil {
 					_, err := localStore.GetSecretByID(uri)
 					if err != nil {
-						log.Warn().Err(err).Msgf("could not retrieve secrets for %s...falling back to default provided credentials for user '%s'", uri, params.Username)
-						config.CredentialStore = fallbackStore
+						log.Warn().Err(err).Msgf("could not retrieve secrets for '%s'...falling back to credentials provided with flags -u/-p for user '%s'", uri, params.Username)
+						if params.Username != "" && params.Password != "" {
+							config.CredentialStore = fallbackStore
+						} else if !config.UseDefault {
+							log.Warn().Msgf("no fallback credentials provided for '%s'", params.Username)
+							continue
+						}
 					}
 				} else {
 					log.Warn().Msgf("invalid store for %s...falling back to default provided credentials for user '%s'", uri, params.Username)

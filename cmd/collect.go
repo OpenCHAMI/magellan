@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/user"
 
@@ -8,6 +9,7 @@ import (
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
+	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
@@ -82,10 +84,33 @@ var CollectCmd = &cobra.Command{
 		// load the secrets file to get node credentials by ID (i.e. the BMC node's URI)
 		store, err := secrets.OpenStore(params.SecretsFile)
 		if err != nil {
-			// Something went wrong with the store so try using
-			// Create a StaticSecretStore to hold the username and password
-			log.Warn().Err(err).Msg("failed to open local store")
+			log.Warn().Err(err).Msg("failed to open local store...falling back to default provided arguments")
+			// try and use the `username` and `password` arguments instead
 			store = secrets.NewStaticStore(username, password)
+		}
+
+		// found the store so try to load the creds
+		_, err = store.GetSecretByID(host)
+		if err != nil {
+			// if we have CLI flags set, then we want to override default stored creds
+			if username != "" && password != "" {
+				// finally, use the CLI arguments passed instead
+				store = secrets.NewStaticStore(username, password)
+			} else {
+				// try and get a default *stored* username/password
+				secret, err := store.GetSecretByID("default")
+				if err != nil {
+					// no default found, so use CLI arguments
+					log.Warn().Err(err).Msg("no default credentials found")
+				} else {
+					// found default values in local store so use them
+					var creds crawler.BMCUsernamePassword
+					err = json.Unmarshal([]byte(secret), &creds)
+					if err != nil {
+						log.Warn().Err(err).Msg("failed to unmarshal default store credentials")
+					}
+				}
+			}
 		}
 
 		_, err = magellan.CollectInventory(&scannedResults, params, store)

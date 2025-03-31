@@ -51,13 +51,32 @@ var CrawlCmd = &cobra.Command{
 		// found the store so try to load the creds
 		_, err = store.GetSecretByID(uri)
 		if err != nil {
-			store = secrets.NewStaticStore(username, password)
+			// if we have CLI flags set, then we want to override default stored creds
+			if username != "" && password != "" {
+				// finally, use the CLI arguments passed instead
+				store = secrets.NewStaticStore(username, password)
+			} else {
+				// try and get a default *stored* username/password
+				secret, err := store.GetSecretByID(secrets.DEFAULT_KEY)
+				if err != nil {
+					// no default found, so use CLI arguments
+					log.Warn().Err(err).Msg("no default credentials found")
+				} else {
+					// found default values in local store so use them
+					var creds crawler.BMCUsernamePassword
+					err = json.Unmarshal([]byte(secret), &creds)
+					if err != nil {
+						log.Warn().Err(err).Msg("failed to unmarshal default store credentials")
+					}
+				}
+			}
 		}
 
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
 			URI:             uri,
 			CredentialStore: store,
 			Insecure:        insecure,
+			UseDefault:      true,
 		})
 		if err != nil {
 			log.Error().Err(err).Msg("failed to crawl BMC")
