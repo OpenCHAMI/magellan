@@ -15,6 +15,7 @@ type CrawlerConfig struct {
 	URI             string // URI of the BMC
 	Insecure        bool   // Whether to ignore SSL errors
 	CredentialStore secrets.SecretStore
+	UseDefault      bool
 }
 
 func (cc *CrawlerConfig) GetUserPass() (BMCUsernamePassword, error) {
@@ -382,7 +383,19 @@ func loadBMCCreds(config CrawlerConfig) (BMCUsernamePassword, error) {
 		event := log.Error()
 		event.Err(err)
 		event.Msg("failed to get credentials from secret store")
-		return BMCUsernamePassword{}, err
+		// try to get default if parameter is set
+		if config.UseDefault {
+			creds, err = config.CredentialStore.GetSecretByID(secrets.DEFAULT_KEY)
+			// no default credentials
+			if err != nil {
+				event := log.Error()
+				event.Err(err)
+				event.Msg("failed to get default credentials from secret store")
+				return BMCUsernamePassword{}, err
+			}
+		} else {
+			return BMCUsernamePassword{}, err
+		}
 	}
 	var bmc_creds BMCUsernamePassword
 	err = json.Unmarshal([]byte(creds), &bmc_creds)

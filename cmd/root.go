@@ -52,7 +52,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "magellan",
 	Short: "Redfish-based BMC discovery tool",
-	Long:  "",
+	Long:  "Redfish-based BMC discovery tool with dynamic discovery features.",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			err := cmd.Help()
@@ -75,8 +75,8 @@ func Execute() {
 func init() {
 	currentUser, _ = user.Current()
 	cobra.OnInitialize(InitializeConfig)
-	rootCmd.PersistentFlags().IntVar(&concurrency, "concurrency", -1, "Set the number of concurrent processes")
-	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 5, "Set the timeout for requests")
+	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "j", -1, "Set the number of concurrent processes")
+	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Set to enable/disable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Set to enable/disable debug messages")
@@ -94,7 +94,7 @@ func init() {
 
 func checkBindFlagError(err error) {
 	if err != nil {
-		log.Error().Err(err).Msg("failed to bind flag")
+		log.Error().Err(err).Msg("failed to bind cobra/viper flag")
 	}
 }
 
