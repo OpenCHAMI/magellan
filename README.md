@@ -259,6 +259,12 @@ If you pass agruments with the `--username/--password` flags, they will be used 
 > [!NOTE]
 > Make sure that the `secretID` is EXACTLY as show with `magellan list`. Otherwise, `magellan` will not be able to do the lookup from the secret store correctly.
 
+> [!TIP]
+> You can set default fallback credentials by storing a secret with the `secretID` of "default". This is used if no `secretID` is found in the local store for the specified host. Otherwise, the `--username/--password` arguments are used.
+> ```bash
+> magellan secrets default $username:$password
+>
+
 ### Starting the Emulator
 
 This repository includes a quick and dirty way to test `magellan` using a Redfish emulator with little to no effort to get running.
