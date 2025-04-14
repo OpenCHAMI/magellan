@@ -95,15 +95,17 @@ var CollectCmd = &cobra.Command{
 			// if we have CLI flags set, then we want to override default stored creds
 			if username != "" && password != "" {
 				// finally, use the CLI arguments passed instead
+				log.Info().Msg("...using provided arguments for credentials")
 				store = secrets.NewStaticStore(username, password)
 			} else {
 				// try and get a default *stored* username/password
-				secret, err := store.GetSecretByID("default")
+				secret, err := store.GetSecretByID(secrets.DEFAULT_KEY)
 				if err != nil {
 					// no default found, so use CLI arguments
-					log.Warn().Err(err).Msg("no default credentials found")
+					log.Warn().Err(err).Msg("failed to get default credentials...")
 				} else {
 					// found default values in local store so use them
+					log.Info().Msg("...using default store for credentials")
 					var creds crawler.BMCUsernamePassword
 					err = json.Unmarshal([]byte(secret), &creds)
 					if err != nil {
