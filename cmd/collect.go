@@ -87,6 +87,7 @@ var CollectCmd = &cobra.Command{
 					s.Password = password
 				}
 			case *secrets.LocalSecretStore:
+				tmpSecrets := make(map[string]string)
 				for k, _ := range s.Secrets {
 					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
 						log.Error().Str("id", k).Err(err).Msg("failed to get BMC credentials from secret store")
@@ -101,10 +102,11 @@ var CollectCmd = &cobra.Command{
 						if newCreds, err := json.Marshal(creds); err != nil {
 							log.Error().Str("id", k).Err(err).Msg("failed to marshal updated BMC credentials")
 						} else {
-							s.Secrets[k] = string(newCreds)
+							tmpSecrets[k] = string(newCreds)
 						}
 					}
 				}
+				store.(*secrets.LocalSecretStore).Secrets = tmpSecrets
 			}
 		}
 
