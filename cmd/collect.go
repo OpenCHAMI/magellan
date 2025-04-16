@@ -147,9 +147,6 @@ func init() {
 	CollectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	CollectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
 
-	// set flags to only be used together
-	CollectCmd.MarkFlagsRequiredTogether("username", "password")
-
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.host", CollectCmd.Flags().Lookup("host")))
 	checkBindFlagError(viper.BindPFlag("collect.scheme", CollectCmd.Flags().Lookup("scheme")))
