@@ -78,14 +78,18 @@ var CollectCmd = &cobra.Command{
 			// Temporarily override username/password of each BMC if one of those
 			// flags is passed. The expectation is that if the flag is specified
 			// on the command line, it should be used.
+			if username != "" {
+				log.Info().Msg("--username passed, overriding all usernames with value")
+			}
+			if password != "" {
+				log.Info().Msg("--password passed, overriding all passwords with value")
+			}
 			switch s := store.(type) {
 			case *secrets.StaticStore:
 				if username != "" {
-					log.Info().Msg("--username passed, overriding all usernames with value")
 					s.Username = username
 				}
 				if password != "" {
-					log.Info().Msg("--password passed, overriding all passwords with value")
 					s.Password = password
 				}
 			case *secrets.LocalSecretStore:
@@ -94,11 +98,9 @@ var CollectCmd = &cobra.Command{
 						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
 					} else {
 						if username != "" {
-							log.Info().Msg("--username passed, overriding all usernames with value")
 							creds.Username = username
 						}
 						if password != "" {
-							log.Info().Msg("--password passed, overriding all passwords with value")
 							creds.Password = password
 						}
 
