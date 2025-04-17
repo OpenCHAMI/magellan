@@ -94,9 +94,11 @@ var CollectCmd = &cobra.Command{
 						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
 					} else {
 						if username != "" {
+							log.Info().Msg("--username passed, overriding all usernames with value")
 							creds.Username = username
 						}
 						if password != "" {
+							log.Info().Msg("--password passed, overriding all passwords with value")
 							creds.Password = password
 						}
 
