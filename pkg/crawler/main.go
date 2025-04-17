@@ -1,10 +1,10 @@
 package crawler
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
@@ -374,32 +374,9 @@ func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
 	if config.CredentialStore == nil {
 		return bmc.BMCCredentials{}, fmt.Errorf("credential store is invalid")
 	}
-	creds, err := config.CredentialStore.GetSecretByID(config.URI)
-	if err != nil {
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to get credentials from secret store")
-		// try to get default if parameter is set
-		if config.UseDefault {
-			creds, err = config.CredentialStore.GetSecretByID(secrets.DEFAULT_KEY)
-			// no default credentials
-			if err != nil {
-				event := log.Error()
-				event.Err(err)
-				event.Msg("failed to get default credentials from secret store")
-				return bmc.BMCCredentials{}, err
-			}
-		} else {
-			return bmc.BMCCredentials{}, err
-		}
+	if creds := util.GetBMCCredentials(config.CredentialStore, config.URI); creds == (bmc.BMCCredentials{}) {
+		return creds, fmt.Errorf("%s: credentials blank for BNC", config.URI)
+	} else {
+		return creds, nil
 	}
-	var bmc_creds bmc.BMCCredentials
-	err = json.Unmarshal([]byte(creds), &bmc_creds)
-	if err != nil {
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to unmarshal credentials")
-		return bmc.BMCCredentials{}, err
-	}
-	return bmc_creds, nil
 }

@@ -81,15 +81,17 @@ var CollectCmd = &cobra.Command{
 			switch s := store.(type) {
 			case *secrets.StaticStore:
 				if username != "" {
+					log.Info().Msg("--username passed, overriding all usernames with value")
 					s.Username = username
 				}
 				if password != "" {
+					log.Info().Msg("--password passed, overriding all passwords with value")
 					s.Password = password
 				}
 			case *secrets.LocalSecretStore:
 				for k, _ := range s.Secrets {
 					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to get BMC credentials from secret store")
+						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
 					} else {
 						if username != "" {
 							creds.Username = username
@@ -99,7 +101,7 @@ var CollectCmd = &cobra.Command{
 						}
 
 						if newCreds, err := json.Marshal(creds); err != nil {
-							log.Error().Str("id", k).Err(err).Msg("failed to marshal updated BMC credentials")
+							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
 						} else {
 							s.StoreSecretByID(k, string(newCreds))
 						}
