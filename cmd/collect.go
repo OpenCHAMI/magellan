@@ -79,10 +79,10 @@ var CollectCmd = &cobra.Command{
 			// flags is passed. The expectation is that if the flag is specified
 			// on the command line, it should be used.
 			if username != "" {
-				log.Info().Msg("--username passed, overriding all usernames with value")
+				log.Info().Msg("--username passed, temporarily overriding all usernames from secret store with value")
 			}
 			if password != "" {
-				log.Info().Msg("--password passed, overriding all passwords with value")
+				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
 			}
 			switch s := store.(type) {
 			case *secrets.StaticStore:
