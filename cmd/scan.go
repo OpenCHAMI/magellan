@@ -33,7 +33,28 @@ var (
 // See the `ScanForAssets()` function in 'internal/scan.go' for details
 // related to the implementation.
 var ScanCmd = &cobra.Command{
-	Use:   "scan urls...",
+	Use: "scan urls...",
+	Example: `
+  // assumes host https://10.0.0.101:443
+  magellan scan 10.0.0.101
+
+  // assumes subnet using HTTPS and port 443 except for specified host
+  magellan scan http://10.0.0.101:80 https://user:password@10.0.0.102:443 http://172.16.0.105:8080 --subnet 172.16.0.0/24
+
+  // assumes hosts http://10.0.0.101:8080 and http://10.0.0.102:8080
+  magellan scan 10.0.0.101 10.0.0.102 https://172.16.0.10:443 --port 8080 --protocol tcp
+
+  // assumes subnet using default unspecified subnet-masks
+  magellan scan --subnet 10.0.0.0
+
+  // assumes subnet using HTTPS and port 443 with specified CIDR
+  magellan scan --subnet 10.0.0.0/16
+
+  // assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16
+  magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
+
+  // assumes subnet without CIDR has a subnet-mask of 255.255.0.0
+  magellan scan --subnet 10.0.0.0/24 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db`,
 	Short: "Scan to discover BMC nodes on a network",
 	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response.\n" +
 		"Each host is passed *with a full URL* including the protocol and port. Additional subnets can be added\n" +
@@ -46,22 +67,7 @@ var ScanCmd = &cobra.Command{
 		"'--protocol' flag.\n\n" +
 		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available.\n" +
 		"Redfish services. This is not recommended, since the extra request makes the scan a bit more reliable\n" +
-		"for determining which hosts to collect inventory data.\n\n" +
-		"Examples:\n" +
-		// assumes host https://10.0.0.101:443
-		"  magellan scan 10.0.0.101\n" +
-		// assumes subnet using HTTPS and port 443 except for specified host
-		"  magellan scan http://10.0.0.101:80 https://user:password@10.0.0.102:443 http://172.16.0.105:8080 --subnet 172.16.0.0/24\n" +
-		// assumes hosts http://10.0.0.101:8080 and http://10.0.0.102:8080
-		"  magellan scan 10.0.0.101 10.0.0.102 https://172.16.0.10:443 --port 8080 --protocol tcp\n" +
-		// assumes subnet using default unspecified subnet-masks
-		"  magellan scan --subnet 10.0.0.0\n" +
-		// assumes subnet using HTTPS and port 443 with specified CIDR
-		"  magellan scan --subnet 10.0.0.0/16\n" +
-		// assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16
-		"  magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0\n" +
-		// assumes subnet without CIDR has a subnet-mask of 255.255.0.0
-		"  magellan scan --subnet 10.0.0.0/24 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db\n",
+		"for determining which hosts to collect inventory data.\n\n",
 	Run: func(cmd *cobra.Command, args []string) {
 		// add default ports for hosts if none are specified with flag
 		if len(ports) == 0 {

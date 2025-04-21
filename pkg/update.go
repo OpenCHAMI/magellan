@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 )
 
 type UpdateParams struct {
 	CollectParams
-	FirmwarePath     string
-	FirmwareVersion  string
-	Component        string
+	FirmwareURI      string
 	TransferProtocol string
 	Insecure         bool
 }
@@ -36,8 +35,14 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
 
+	// Get BMC credentials from secret store in update parameters
+	bmcCreds, err := bmc.GetBMCCredentials(q.SecretStore, q.URI)
+	if err != nil {
+		return fmt.Errorf("failed to get BMC credentials: %w", err)
+	}
+
 	// Connect to the Redfish service using gofish
-	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: q.Insecure})
+	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: bmcCreds.Username, Password: bmcCreds.Password, Insecure: q.Insecure})
 	if err != nil {
 		return fmt.Errorf("failed to connect to Redfish service: %w", err)
 	}
@@ -51,7 +56,7 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 
 	// Build the update request payload
 	req := redfish.SimpleUpdateParameters{
-		ImageURI:         q.FirmwarePath,
+		ImageURI:         q.FirmwareURI,
 		TransferProtocol: redfish.TransferProtocolType(q.TransferProtocol),
 	}
 
@@ -72,8 +77,14 @@ func GetUpdateStatus(q *UpdateParams) error {
 		return fmt.Errorf("failed to parse URI: %w", err)
 	}
 
+	// Get BMC credentials from secret store in update parameters
+	bmcCreds, err := bmc.GetBMCCredentials(q.SecretStore, q.URI)
+	if err != nil {
+		return fmt.Errorf("failed to get BMC credentials: %w", err)
+	}
+
 	// Connect to the Redfish service using gofish
-	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: q.Username, Password: q.Password, Insecure: q.Insecure})
+	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: uri.String(), Username: bmcCreds.Username, Password: bmcCreds.Password, Insecure: q.Insecure})
 	if err != nil {
 		return fmt.Errorf("failed to connect to Redfish service: %w", err)
 	}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/user"
 
@@ -8,6 +9,7 @@ import (
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
+	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
@@ -19,17 +21,19 @@ import (
 // This command should be ran after the `scan` to find available hosts
 // on a subnet.
 var CollectCmd = &cobra.Command{
-	Use:   "collect",
+	Use: "collect",
+	Example: `  // basic collect after scan without making a follow-up request
+  magellan collect --cache ./assets.db --cacert ochami.pem -o ./logs -t 30
+
+  // set username and password for all nodes and make request to specified host
+  magellan collect --host https://smd.openchami.cluster -u $bmc_username -p $bmc_password
+
+  // run a collect using secrets manager with fallback username and password
+  export MASTER_KEY=$(magellan secrets generatekey)
+  magellan secrets store $node_creds_json -f nodes.json
+  magellan collect --host https://smd.openchami.cluster -u $fallback_bmc_username -p $fallback_bmc_password`,
 	Short: "Collect system information by interrogating BMC node",
-	Long: "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\n" +
-		"See the 'scan' command on how to perform a scan.\n\n" +
-		"Examples:\n" +
-		"  magellan collect --cache ./assets.db --output ./logs --timeout 30 --cacert cecert.pem\n" +
-		"  magellan collect --host smd.example.com --port 27779 --username $username --password $password\n\n" +
-		// example using `collect`
-		"  export MASTER_KEY=$(magellan secrets generatekey)\n" +
-		"  magellan secrets store $node_creds_json -f nodes.json" +
-		"  magellan collect --host openchami.cluster --username $username --password $password \\\n",
+	Long:  "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
@@ -57,6 +61,59 @@ var CollectCmd = &cobra.Command{
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
 
+		// use secret store for BMC credentials, and/or credential CLI flags
+		var store secrets.SecretStore
+		if username != "" && password != "" {
+			// First, try and load credentials from --username and --password if both are set.
+			log.Debug().Msgf("--username and --password specified, using them for BMC credentials")
+			store = secrets.NewStaticStore(username, password)
+		} else {
+			// Alternatively, locate specific credentials (falling back to default) and override those
+			// with --username or --password if either are passed.
+			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
+			if store, err = secrets.OpenStore(secretsFile); err != nil {
+				log.Error().Err(err).Msg("failed to open local secrets store")
+			}
+
+			// Temporarily override username/password of each BMC if one of those
+			// flags is passed. The expectation is that if the flag is specified
+			// on the command line, it should be used.
+			if username != "" {
+				log.Info().Msg("--username passed, temporarily overriding all usernames from secret store with value")
+			}
+			if password != "" {
+				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
+			}
+			switch s := store.(type) {
+			case *secrets.StaticStore:
+				if username != "" {
+					s.Username = username
+				}
+				if password != "" {
+					s.Password = password
+				}
+			case *secrets.LocalSecretStore:
+				for k, _ := range s.Secrets {
+					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
+						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
+					} else {
+						if username != "" {
+							creds.Username = username
+						}
+						if password != "" {
+							creds.Password = password
+						}
+
+						if newCreds, err := json.Marshal(creds); err != nil {
+							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
+						} else {
+							s.StoreSecretByID(k, string(newCreds))
+						}
+					}
+				}
+			}
+		}
+
 		// set the collect parameters from CLI params
 		params := &magellan.CollectParams{
 			URI:         host,
@@ -67,9 +124,7 @@ var CollectCmd = &cobra.Command{
 			OutputPath:  outputPath,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
-			SecretsFile: secretsFile,
-			Username:    username,
-			Password:    password,
+			SecretStore: store,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
@@ -77,16 +132,7 @@ var CollectCmd = &cobra.Command{
 			log.Debug().Any("params", params)
 		}
 
-		// load the secrets file to get node credentials by ID (i.e. the BMC node's URI)
-		store, err := secrets.OpenStore(params.SecretsFile)
-		if err != nil {
-			// Something went wrong with the store so try using
-			// Create a StaticSecretStore to hold the username and password
-			log.Warn().Err(err).Msg("failed to open local store")
-			store = secrets.NewStaticStore(username, password)
-		}
-
-		_, err = magellan.CollectInventory(&scannedResults, params, store)
+		_, err = magellan.CollectInventory(&scannedResults, params)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to collect data")
 		}
@@ -95,23 +141,18 @@ var CollectCmd = &cobra.Command{
 
 func init() {
 	currentUser, _ = user.Current()
-	CollectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
-	CollectCmd.PersistentFlags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
-	CollectCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
-	CollectCmd.PersistentFlags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
-	CollectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
-	CollectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
-	CollectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	CollectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
-
-	// set flags to only be used together
-	CollectCmd.MarkFlagsRequiredTogether("username", "password")
+	CollectCmd.Flags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
+	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
+	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
+	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
+	CollectCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
+	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
+	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
+	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
+	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
 
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.host", CollectCmd.Flags().Lookup("host")))
-	checkBindFlagError(viper.BindPFlag("collect.username", CollectCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("collect.password", CollectCmd.Flags().Lookup("password")))
 	checkBindFlagError(viper.BindPFlag("collect.scheme", CollectCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
 	checkBindFlagError(viper.BindPFlag("collect.output", CollectCmd.Flags().Lookup("output")))
