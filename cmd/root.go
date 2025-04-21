@@ -45,6 +45,7 @@ var (
 	debug       bool
 	forceUpdate bool
 	insecure    bool
+	useHive     bool
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -79,7 +80,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Set to enable/disable verbose output")
-	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Set to enable/disable debug messages")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Set to enable/disable debug messages")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Set the access token")
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "Set the scanning result cache path")
 

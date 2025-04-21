@@ -74,6 +74,7 @@ var CollectCmd = &cobra.Command{
 			SecretsFile: secretsFile,
 			Username:    username,
 			Password:    password,
+			Format:      format,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
@@ -122,15 +123,17 @@ var CollectCmd = &cobra.Command{
 
 func init() {
 	currentUser, _ = user.Current()
-	CollectCmd.PersistentFlags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
-	CollectCmd.PersistentFlags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
-	CollectCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
-	CollectCmd.PersistentFlags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
-	CollectCmd.PersistentFlags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
-	CollectCmd.PersistentFlags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.PersistentFlags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
-	CollectCmd.PersistentFlags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	CollectCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
+	CollectCmd.Flags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
+	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
+	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
+	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
+	CollectCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
+	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
+	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
+	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
+	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
+	CollectCmd.Flags().StringVarP(&format, "format", "F", "hive", "Set the output format (json|yaml)")
+	CollectCmd.Flags().BoolVar(&useHive, "use-hive", true, "Set the output format")
 
 	// set flags to only be used together
 	CollectCmd.MarkFlagsRequiredTogether("username", "password")
@@ -143,6 +146,7 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
 	checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
+	checkBindFlagError(viper.BindPFlag("collect.use-hive", CollectCmd.Flags().Lookup("use-hive")))
 
 	rootCmd.AddCommand(CollectCmd)
 }

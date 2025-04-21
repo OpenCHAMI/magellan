@@ -5,11 +5,11 @@ import (
 	"net/http"
 )
 
-type MagellanClient struct {
+type DefaultClient struct {
 	*http.Client
 }
 
-func (c *MagellanClient) Name() string {
+func (c *DefaultClient) Name() string {
 	return "default"
 }
 
@@ -18,7 +18,7 @@ func (c *MagellanClient) Name() string {
 // the first argument with no data processing or manipulation. The function sends
 // the data to a set callback URL (which may be changed to use a configurable value
 // instead).
-func (c *MagellanClient) Add(data HTTPBody, headers HTTPHeader) error {
+func (c *DefaultClient) Add(data HTTPBody, headers HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("no data found")
 	}
@@ -35,7 +35,7 @@ func (c *MagellanClient) Add(data HTTPBody, headers HTTPHeader) error {
 	return err
 }
 
-func (c *MagellanClient) Update(data HTTPBody, headers HTTPHeader) error {
+func (c *DefaultClient) Update(data HTTPBody, headers HTTPHeader) error {
 	if data == nil {
 		return fmt.Errorf("no data found")
 	}

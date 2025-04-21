@@ -18,6 +18,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"gopkg.in/yaml.v3"
 
 	"github.com/rs/zerolog/log"
 
@@ -39,6 +40,7 @@ type CollectParams struct {
 	CaCertPath  string // set the cert path with the 'cacert' flag
 	Verbose     bool   // set whether to include verbose output with 'verbose' flag
 	OutputPath  string // set the path to save output with 'output' flag
+	Format      string // set the output format
 	ForceUpdate bool   // set whether to force updating SMD with 'force-update' flag
 	AccessToken string // set the access token to include in request with 'access-token' flag
 	SecretsFile string // set the path to secrets file
@@ -191,9 +193,18 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore s
 				headers.Authorization(params.AccessToken)
 				headers.ContentType("application/json")
 
-				body, err := json.MarshalIndent(data, "", "    ")
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to marshal output to JSON")
+				var body []byte
+				switch params.Format {
+				case "json":
+					body, err = json.MarshalIndent(data, "", "    ")
+					if err != nil {
+						log.Error().Err(err).Msgf("failed to marshal output to JSON")
+					}
+				case "yaml":
+					body, err = yaml.Marshal(data)
+					if err != nil {
+						log.Error().Err(err).Msgf("failed to marshal output to YAML")
+					}
 				}
 
 				if params.Verbose {
@@ -203,22 +214,28 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore s
 				// add data output to collections
 				collection = append(collection, data)
 
-				// write JSON data to file if output path is set using hive partitioning strategy
+				// write data to file if output path is set using set format
 				if outputPath != "" {
-					var (
-						finalPath = fmt.Sprintf("./%s/%s/%d.json", outputPath, data["ID"], time.Now().Unix())
-						finalDir  = filepath.Dir(finalPath)
-					)
-					// if it doesn't, make the directory and write file
-					err = os.MkdirAll(finalDir, 0o777)
-					if err == nil { // no error
-						err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
-						if err != nil {
-							log.Error().Err(err).Msgf("failed to write collect output to file")
+					switch params.Format {
+					case "hive":
+						var (
+							finalPath = fmt.Sprintf("./%s/%s/%d.json", outputPath, data["ID"], time.Now().Unix())
+							finalDir  = filepath.Dir(finalPath)
+						)
+						// if it doesn't, make the directory and write file
+						err = os.MkdirAll(finalDir, 0o777)
+						if err == nil { // no error
+							err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
+							if err != nil {
+								log.Error().Err(err).Msgf("failed to write collect output to file")
+							}
+						} else { // error is set
+							log.Error().Err(err).Msg("failed to make directory for collect output")
 						}
+					case "json":
+					case "yaml":
 
-					} else { // error is set
-						log.Error().Err(err).Msg("failed to make directory for collect output")
+					default:
 					}
 				}
 

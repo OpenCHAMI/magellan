@@ -126,17 +126,17 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 
 	// Obtain the ServiceRoot
 	rf_service := client.GetService()
-	log.Info().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
 	// Nodes are sometimes only found under Chassis, but they should be found under Systems.
 	rf_chassis, err := rf_service.Chassis()
 	if err == nil {
-		log.Info().Msgf("found %d chassis in ServiceRoot", len(rf_chassis))
+		log.Debug().Msgf("found %d chassis in ServiceRoot", len(rf_chassis))
 		for _, chassis := range rf_chassis {
 			rf_chassis_systems, err := chassis.ComputerSystems()
 			if err == nil {
 				rf_systems = append(rf_systems, rf_chassis_systems...)
-				log.Info().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
+				log.Debug().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
 			}
 		}
 	}
@@ -144,7 +144,7 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get systems from ServiceRoot")
 	}
-	log.Info().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
+	log.Debug().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
 	rf_systems = append(rf_systems, rf_root_systems...)
 	return walkSystems(rf_systems, nil, config.URI)
 }
@@ -202,7 +202,7 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 
 	// Obtain the ServiceRoot
 	rf_service := client.GetService()
-	log.Info().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
 	rf_managers, err := rf_service.Managers()
 	if err != nil {
