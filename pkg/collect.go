@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -32,18 +33,16 @@ import (
 // CollectParams is a collection of common parameters passed to the CLI
 // for the 'collect' subcommand.
 type CollectParams struct {
-	URI         string // set by the 'host' flag
-	Username    string // set the BMC username with the 'username' flag
-	Password    string // set the BMC password with the 'password' flag
-	Concurrency int    // set the of concurrent jobs with the 'concurrency' flag
-	Timeout     int    // set the timeout with the 'timeout' flag
-	CaCertPath  string // set the cert path with the 'cacert' flag
-	Verbose     bool   // set whether to include verbose output with 'verbose' flag
-	OutputPath  string // set the path to save output with 'output' flag
-	Format      string // set the output format
-	ForceUpdate bool   // set whether to force updating SMD with 'force-update' flag
-	AccessToken string // set the access token to include in request with 'access-token' flag
-	SecretsFile string // set the path to secrets file
+	URI         string              // set by the 'host' flag
+	Concurrency int                 // set the of concurrent jobs with the 'concurrency' flag
+	Timeout     int                 // set the timeout with the 'timeout' flag
+	CaCertPath  string              // set the cert path with the 'cacert' flag
+	Verbose     bool                // set whether to include verbose output with 'verbose' flag
+	OutputPath  string              // set the path to save output with 'output' flag
+	Format      string              // set the output format
+	ForceUpdate bool                // set whether to force updating SMD with 'force-update' flag
+	AccessToken string              // set the access token to include in request with 'access-token' flag
+	SecretStore secrets.SecretStore // set BMC credentials
 }
 
 // This is the main function used to collect information from the BMC nodes via Redfish.
@@ -52,7 +51,7 @@ type CollectParams struct {
 //
 // Requests can be made to several of the nodes using a goroutine by setting the q.Concurrency
 // property value between 1 and 10000.
-func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore secrets.SecretStore) ([]map[string]any, error) {
+func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[string]any, error) {
 	// check for available remote assets found from scan
 	if assets == nil {
 		return nil, fmt.Errorf("no assets found")
@@ -122,46 +121,36 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore s
 
 				// crawl BMC node to fetch inventory data via Redfish
 				var (
-					fallbackStore = secrets.NewStaticStore(params.Username, params.Password)
-					systems       []crawler.InventoryDetail
-					managers      []crawler.Manager
-					config        = crawler.CrawlerConfig{
+					systems  []crawler.InventoryDetail
+					managers []crawler.Manager
+					config   = crawler.CrawlerConfig{
 						URI:             uri,
-						CredentialStore: localStore,
+						CredentialStore: params.SecretStore,
 						Insecure:        true,
 						UseDefault:      true,
 					}
 					err error
 				)
 
-				// determine if local store exists and has credentials for
-				// the provided secretID...
-				// if it does not, use the fallback static store instead with
-				// the username and password provided as arguments
-				if localStore != nil {
-					_, err := localStore.GetSecretByID(uri)
-					if err != nil {
-						log.Warn().Err(err).Msgf("could not retrieve secrets for '%s'...falling back to credentials provided with flags -u/-p for user '%s'", uri, params.Username)
-						if params.Username != "" && params.Password != "" {
-							config.CredentialStore = fallbackStore
-						} else if !config.UseDefault {
-							log.Warn().Msgf("no fallback credentials provided for '%s'", params.Username)
-							continue
-						}
-					}
-				} else {
-					log.Warn().Msgf("invalid store for %s...falling back to default provided credentials for user '%s'", uri, params.Username)
-					config.CredentialStore = fallbackStore
-				}
-
 				// crawl for node and BMC information
 				systems, err = crawler.CrawlBMCForSystems(config)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to crawl BMC for systems")
+					log.Error().Err(err).Str("uri", uri).Msg("failed to crawl BMC for systems")
 				}
 				managers, err = crawler.CrawlBMCForManagers(config)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to crawl BMC for managers")
+					log.Error().Err(err).Str("uri", uri).Msg("failed to crawl BMC for managers")
+				}
+
+				// we didn't find anything so do not proceed
+				if len(systems) == 0 && len(managers) == 0 {
+					continue
+				}
+
+				// get BMC username to send
+				bmcCreds := bmc.GetBMCCredentialsOrDefault(params.SecretStore, config.URI)
+				if bmcCreds == (bmc.BMCCredentials{}) {
+					log.Warn().Str("id", config.URI).Msg("username will be blank")
 				}
 
 				// data to be sent to smd
@@ -170,7 +159,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams, localStore s
 					"Type":               "",
 					"Name":               "",
 					"FQDN":               sr.Host,
-					"User":               params.Username,
+					"User":               bmcCreds.Username,
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
 					"Systems":            systems,

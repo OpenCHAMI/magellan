@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
+	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
@@ -40,36 +41,39 @@ var CrawlCmd = &cobra.Command{
 			store secrets.SecretStore
 			err   error
 		)
-		// try and load credentials from local store first
-		store, err = secrets.OpenStore(secretsFile)
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to open local store...falling back to default provided arguments")
-			// try and use the `username` and `password` arguments instead
-			store = secrets.NewStaticStore(username, password)
-		}
 
-		// found the store so try to load the creds
-		_, err = store.GetSecretByID(uri)
-		if err != nil {
-			// if we have CLI flags set, then we want to override default stored creds
-			if username != "" && password != "" {
-				// finally, use the CLI arguments passed instead
-				store = secrets.NewStaticStore(username, password)
-			} else {
-				// try and get a default *stored* username/password
-				secret, err := store.GetSecretByID(secrets.DEFAULT_KEY)
-				if err != nil {
-					// no default found, so use CLI arguments
-					log.Warn().Err(err).Msg("no default credentials found")
-				} else {
-					// found default values in local store so use them
-					var creds crawler.BMCUsernamePassword
-					err = json.Unmarshal([]byte(secret), &creds)
-					if err != nil {
-						log.Warn().Err(err).Msg("failed to unmarshal default store credentials")
-					}
-				}
+		if username != "" && password != "" {
+			// First, try and load credentials from --username and --password if both are set.
+			log.Debug().Str("id", uri).Msgf("--username and --password specified, using them for BMC credentials")
+			store = secrets.NewStaticStore(username, password)
+		} else {
+			// Alternatively, locate specific credentials (falling back to default) and override those
+			// with --username or --password if either are passed.
+			log.Debug().Str("id", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
+			if store, err = secrets.OpenStore(secretsFile); err != nil {
+				log.Error().Str("id", uri).Err(err).Msg("failed to open local secrets store")
 			}
+
+			// Either none of the flags were passed or only one of them were; get
+			// credentials from secrets store to fill in the gaps.
+			bmcCreds, _ := bmc.GetBMCCredentials(store, uri)
+			nodeCreds := secrets.StaticStore{
+				Username: bmcCreds.Username,
+				Password: bmcCreds.Password,
+			}
+
+			// If either of the flags were passed, override the fetched
+			// credentials with them.
+			if username != "" {
+				log.Info().Str("id", uri).Msg("--username was set, overriding username for this BMC")
+				nodeCreds.Username = username
+			}
+			if password != "" {
+				log.Info().Str("id", uri).Msg("--password was set, overriding password for this BMC")
+				nodeCreds.Password = password
+			}
+
+			store = &nodeCreds
 		}
 
 		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{

@@ -9,7 +9,7 @@ import (
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
@@ -61,6 +61,59 @@ var CollectCmd = &cobra.Command{
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
 
+		// use secret store for BMC credentials, and/or credential CLI flags
+		var store secrets.SecretStore
+		if username != "" && password != "" {
+			// First, try and load credentials from --username and --password if both are set.
+			log.Debug().Msgf("--username and --password specified, using them for BMC credentials")
+			store = secrets.NewStaticStore(username, password)
+		} else {
+			// Alternatively, locate specific credentials (falling back to default) and override those
+			// with --username or --password if either are passed.
+			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
+			if store, err = secrets.OpenStore(secretsFile); err != nil {
+				log.Error().Err(err).Msg("failed to open local secrets store")
+			}
+
+			// Temporarily override username/password of each BMC if one of those
+			// flags is passed. The expectation is that if the flag is specified
+			// on the command line, it should be used.
+			if username != "" {
+				log.Info().Msg("--username passed, temporarily overriding all usernames from secret store with value")
+			}
+			if password != "" {
+				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
+			}
+			switch s := store.(type) {
+			case *secrets.StaticStore:
+				if username != "" {
+					s.Username = username
+				}
+				if password != "" {
+					s.Password = password
+				}
+			case *secrets.LocalSecretStore:
+				for k, _ := range s.Secrets {
+					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
+						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
+					} else {
+						if username != "" {
+							creds.Username = username
+						}
+						if password != "" {
+							creds.Password = password
+						}
+
+						if newCreds, err := json.Marshal(creds); err != nil {
+							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
+						} else {
+							s.StoreSecretByID(k, string(newCreds))
+						}
+					}
+				}
+			}
+		}
+
 		// set the collect parameters from CLI params
 		params := &magellan.CollectParams{
 			URI:         host,
@@ -69,12 +122,10 @@ var CollectCmd = &cobra.Command{
 			Verbose:     verbose,
 			CaCertPath:  cacertPath,
 			OutputPath:  outputPath,
+			Format:      format,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
-			SecretsFile: secretsFile,
-			Username:    username,
-			Password:    password,
-			Format:      format,
+			SecretStore: store,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
@@ -82,39 +133,7 @@ var CollectCmd = &cobra.Command{
 			log.Debug().Any("params", params)
 		}
 
-		// load the secrets file to get node credentials by ID (i.e. the BMC node's URI)
-		store, err := secrets.OpenStore(params.SecretsFile)
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to open local store...falling back to default provided arguments")
-			// try and use the `username` and `password` arguments instead
-			store = secrets.NewStaticStore(username, password)
-		}
-
-		// found the store so try to load the creds
-		_, err = store.GetSecretByID(host)
-		if err != nil {
-			// if we have CLI flags set, then we want to override default stored creds
-			if username != "" && password != "" {
-				// finally, use the CLI arguments passed instead
-				store = secrets.NewStaticStore(username, password)
-			} else {
-				// try and get a default *stored* username/password
-				secret, err := store.GetSecretByID("default")
-				if err != nil {
-					// no default found, so use CLI arguments
-					log.Warn().Err(err).Msg("no default credentials found")
-				} else {
-					// found default values in local store so use them
-					var creds crawler.BMCUsernamePassword
-					err = json.Unmarshal([]byte(secret), &creds)
-					if err != nil {
-						log.Warn().Err(err).Msg("failed to unmarshal default store credentials")
-					}
-				}
-			}
-		}
-
-		_, err = magellan.CollectInventory(&scannedResults, params, store)
+		_, err = magellan.CollectInventory(&scannedResults, params)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to collect data")
 		}
@@ -134,9 +153,6 @@ func init() {
 	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
 	CollectCmd.Flags().StringVarP(&format, "format", "F", "hive", "Set the output format (json|yaml)")
 	CollectCmd.Flags().BoolVar(&useHive, "use-hive", true, "Set the output format")
-
-	// set flags to only be used together
-	CollectCmd.MarkFlagsRequiredTogether("username", "password")
 
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.host", CollectCmd.Flags().Lookup("host")))
