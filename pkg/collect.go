@@ -133,17 +133,22 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// crawl for node and BMC information
 				systems, err = crawler.CrawlBMCForSystems(config)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to crawl BMC for systems")
+					log.Error().Err(err).Str("uri", uri).Msg("failed to crawl BMC for systems")
 				}
 				managers, err = crawler.CrawlBMCForManagers(config)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to crawl BMC for managers")
+					log.Error().Err(err).Str("uri", uri).Msg("failed to crawl BMC for managers")
+				}
+
+				// we didn't find anything so do not proceed
+				if len(systems) == 0 && len(managers) == 0 {
+					continue
 				}
 
 				// get BMC username to send
 				bmcCreds := bmc.GetBMCCredentialsOrDefault(params.SecretStore, config.URI)
 				if bmcCreds == (bmc.BMCCredentials{}) {
-					log.Error().Str("id", config.URI).Msg("username will be blank")
+					log.Warn().Str("id", config.URI).Msg("username will be blank")
 				}
 
 				// data to be sent to smd
