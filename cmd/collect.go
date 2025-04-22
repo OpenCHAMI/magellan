@@ -161,8 +161,8 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("collect.output", CollectCmd.Flags().Lookup("output")))
 	checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
 	checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
 	checkBindFlagError(viper.BindPFlag("collect.use-hive", CollectCmd.Flags().Lookup("use-hive")))
+	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
 
 	rootCmd.AddCommand(CollectCmd)
 }

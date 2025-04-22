@@ -26,6 +26,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	FORMAT_JSON = "json"
+	FORMAT_YAML = "yaml"
+)
+
 var (
 	currentUser *user.User
 	accessToken string
