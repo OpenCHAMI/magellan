@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/user"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,8 +31,8 @@ const (
 	FORMAT_YAML = "yaml"
 )
 
+// CLI arguments as variables to not fiddle with error-prone strings
 var (
-	currentUser *user.User
 	accessToken string
 	format      string
 	timeout     int
@@ -79,7 +79,6 @@ func Execute() {
 }
 
 func init() {
-	currentUser, _ = user.Current()
 	cobra.OnInitialize(InitializeConfig)
 	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "j", -1, "Set the number of concurrent processes")
 	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests")
@@ -87,7 +86,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Set to enable/disable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Set to enable/disable debug messages")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Set the access token")
-	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username), "Set the scanning result cache path")
+	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
 
 	// bind viper config flags with cobra
 	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))
@@ -123,13 +122,12 @@ func InitializeConfig() {
 // TODO: This function should probably be moved to 'internal/config.go'
 // instead of in this file.
 func SetDefaults() {
-	currentUser, _ = user.Current()
 	viper.SetDefault("threads", 1)
 	viper.SetDefault("timeout", 5)
 	viper.SetDefault("config", "")
 	viper.SetDefault("verbose", false)
 	viper.SetDefault("debug", false)
-	viper.SetDefault("cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", currentUser.Username))
+	viper.SetDefault("cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()))
 	viper.SetDefault("scan.hosts", []string{})
 	viper.SetDefault("scan.ports", []int{})
 	viper.SetDefault("scan.subnets", []string{})
