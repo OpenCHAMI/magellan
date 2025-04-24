@@ -205,26 +205,19 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 				// write data to file if output path is set using set format
 				if outputPath != "" {
-					switch params.Format {
-					case "hive":
-						var (
-							finalPath = fmt.Sprintf("./%s/%s/%d.json", outputPath, data["ID"], time.Now().Unix())
-							finalDir  = filepath.Dir(finalPath)
-						)
-						// if it doesn't, make the directory and write file
-						err = os.MkdirAll(finalDir, 0o777)
-						if err == nil { // no error
-							err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
-							if err != nil {
-								log.Error().Err(err).Msgf("failed to write collect output to file")
-							}
-						} else { // error is set
-							log.Error().Err(err).Msg("failed to make directory for collect output")
+					var (
+						finalPath = fmt.Sprintf("./%s/%s/%d.json", outputPath, data["ID"], time.Now().Unix())
+						finalDir  = filepath.Dir(finalPath)
+					)
+					// if it doesn't, make the directory and write file
+					err = os.MkdirAll(finalDir, 0o777)
+					if err == nil { // no error
+						err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
+						if err != nil {
+							log.Error().Err(err).Msgf("failed to write collect output to file")
 						}
-					case "json":
-					case "yaml":
-
-					default:
+					} else { // error is set
+						log.Error().Err(err).Msg("failed to make directory for collect output")
 					}
 				}
 

@@ -36,7 +36,21 @@ func NewClient[T Client](opts ...func(T)) T {
 	return *client
 }
 
-func WithCertPool(client Client, certPool *x509.CertPool) error {
+func LoadCertificateFromPath(client Client, path string) error {
+	cacert, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read certificate at path: %s", path)
+	}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(cacert)
+	err = LoadCertificateFromPool(client, certPool)
+	if err != nil {
+		return fmt.Errorf("could not initialize certificate from pool: %v", err)
+	}
+	return nil
+}
+
+func LoadCertificateFromPool(client Client, certPool *x509.CertPool) error {
 	// make sure we have a valid cert pool
 	if certPool == nil {
 		return fmt.Errorf("invalid cert pool")
@@ -61,16 +75,6 @@ func WithCertPool(client Client, certPool *x509.CertPool) error {
 		ResponseHeaderTimeout: 120 * time.Second,
 	}
 	return nil
-}
-
-func WithSecureTLS(client Client, certPath string) error {
-	cacert, err := os.ReadFile(certPath)
-	if err != nil {
-		return fmt.Errorf("failed to read certificate from path '%s': %v", certPath, err)
-	}
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(cacert)
-	return WithCertPool(client, certPool)
 }
 
 // Post() is a simplified wrapper function that packages all of the
