@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
@@ -28,82 +26,89 @@ var sendCmd = &cobra.Command{
 	Short: "Send collected node information to specified host.",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// concatenate all of the data from `-d` flag to send
-		var (
-			smdClient = &client.SmdClient{Client: &http.Client{}}
-			inputData []byte
-		)
-
-		// load data either from file or directly from args
-		for _, dataArg := range sendDataArgs {
-			// determine if we're reading from file
-			if len(dataArg) > 0 {
-				// load from file
-				if dataArg[0] == '@' {
-					var (
-						path     string = dataArg[1:]
-						contents []byte
-						err      error
-					)
-					contents, err = os.ReadFile(path)
-					if err != nil {
-						log.Error().Err(err).Str("path", path).Msg("failed to read file")
-						continue
-					}
-					inputData = append(inputData, []byte(contents)...)
-					fmt.Println("file:\n", string(contents))
-				} else {
-					// read data directly
-					inputData = append(inputData, []byte(dataArg)...)
-					fmt.Println("data:\n", string(dataArg))
-				}
-			} else {
-				continue
-			}
-		}
-
-		// try to load access token either from env var, file, or config if var not set
-		if accessToken == "" {
-			var err error
-			accessToken, err = auth.LoadAccessToken(tokenPath)
-			if err != nil && verbose {
-				log.Warn().Err(err).Msgf("could not load access token")
-			}
-		}
-
-		// try and load cert if argument is passed
-		if cacertPath != "" {
-			cacert, err := os.ReadFile(cacertPath)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to read cert path")
-			}
-			certPool := x509.NewCertPool()
-			certPool.AppendCertsFromPEM(cacert)
-			// smdClient.WithCertPool(certPool)
-			// client.WithCertPool(smdClient, certPool)
-		}
-
-		// create and set headers for request
-		headers := client.HTTPHeader{}
-		headers.Authorization(accessToken)
-		headers.ContentType("application/json")
-
-		// unmarshal into map with specified format
-		var (
-			data = map[string]any{}
-			err  error
-		)
-		switch format {
-		case "json":
-			// NOTE: no need to convert if data is already in JSON
-		case "yaml":
-			inputData, err = yamlToJson(inputData)
-			if err != nil {
-				log.Error().Err(err)
-			}
-		}
-
+		// make one request be host positional argument
 		for _, host := range args {
+
+			// concatenate all of the data from `-d` flag to send
+			var (
+				// smdClient = &client.SmdClient{Client: &http.Client{}}
+				smdClient = client.NewClient[*client.SmdClient]()
+				inputData []byte
+				data      map[string]any
+			)
+
+			// load data either from file or directly from args
+			for _, dataArg := range sendDataArgs {
+				// determine if we're reading from file
+				if len(dataArg) > 0 {
+					// load from file
+					if dataArg[0] == '@' {
+						var (
+							path     string = dataArg[1:]
+							contents []byte
+							err      error
+						)
+						contents, err = os.ReadFile(path)
+						if err != nil {
+							log.Error().Err(err).Str("path", path).Msg("failed to read file")
+							continue
+						}
+
+						// unmarshal into map with specified format
+						switch format {
+						case "json":
+							// make sure that the input provided is actually JSON
+							isValid := json.Valid(inputData)
+							if !isValid {
+								log.Error().Err(err).
+									Str("format", format).
+									Str("hint", "Did you forget to set the input format with -F/--format?").
+									Msg("input data is not valid JSON")
+								os.Exit(1)
+							}
+						case "yaml":
+							inputData, err = yamlToJson(inputData)
+							if err != nil {
+								log.Error().Err(err).Msg("failed to convert YAML input data to JSON")
+								os.Exit(1)
+							}
+						}
+
+						inputData = append(inputData, []byte(contents)...)
+						fmt.Println("file:\n", string(contents))
+					} else {
+						// read data directly
+						inputData = append(inputData, []byte(dataArg)...)
+						fmt.Println("data:\n", string(dataArg))
+					}
+				} else {
+					continue
+				}
+			}
+
+			// try to load access token either from env var, file, or config if var not set
+			if accessToken == "" {
+				var err error
+				accessToken, err = auth.LoadAccessToken(tokenPath)
+				if err != nil && verbose {
+					log.Warn().Err(err).Msgf("could not load access token")
+				}
+			}
+
+			// try and load cert if argument is passed
+			if cacertPath != "" {
+				log.Debug().Str("path", cacertPath).Msg("using provided certificate path")
+				err := client.LoadCertificateFromPath(smdClient, cacertPath)
+				if err != nil {
+					log.Warn().Err(err).Msg("could not load certificate")
+				}
+			}
+
+			// create and set headers for request
+			headers := client.HTTPHeader{}
+			headers.Authorization(accessToken)
+			headers.ContentType("application/json")
+
 			host, err := urlx.Sanitize(host)
 			if err != nil {
 				log.Warn().Err(err).Str("host", host).Msg("could not sanitize host")
@@ -117,10 +122,10 @@ var sendCmd = &cobra.Command{
 					smdClient.Xname = data["ID"].(string)
 					err = smdClient.Update(inputData, headers)
 					if err != nil {
-						log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint")
+						log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint with ID %s", smdClient.Xname)
 					}
 				} else {
-					log.Error().Err(err).Msgf("failed to add Redfish endpoint")
+					log.Error().Err(err).Msgf("failed to add Redfish endpoint with ID %s", smdClient.Xname)
 				}
 			}
 		}
@@ -146,7 +151,7 @@ func yamlToJson(input []byte) ([]byte, error) {
 	// unmarshal YAML contents into map
 	err = yaml.Unmarshal(input, &data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal YAML input data")
+		return nil, fmt.Errorf("failed to unmarshal YAML input data: %v", err)
 	}
 
 	// marshal map into JSON
