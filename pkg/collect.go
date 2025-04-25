@@ -2,12 +2,9 @@
 package magellan
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -69,32 +67,15 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
 		outputPath = path.Clean(params.OutputPath)
-		smdClient  = &client.SmdClient{Client: &http.Client{}}
+		smdClient  = client.NewSmdClient()
 	)
 
 	// set the client's params from CLI
 	// NOTE: temporary solution until client.NewClient() is fixed
 	smdClient.URI = params.URI
 	if params.CaCertPath != "" {
-		cacert, err := os.ReadFile(params.CaCertPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read CA cert path: %w", err)
-		}
-		certPool := x509.NewCertPool()
-		certPool.AppendCertsFromPEM(cacert)
-		smdClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:            certPool,
-				InsecureSkipVerify: true,
-			},
-			DisableKeepAlives: true,
-			Dial: (&net.Dialer{
-				Timeout:   120 * time.Second,
-				KeepAlive: 120 * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout:   120 * time.Second,
-			ResponseHeaderTimeout: 120 * time.Second,
-		}
+		log.Debug().Str("path", params.CaCertPath).Msg("using provided certificate path")
+		client.LoadCertificateFromPath(smdClient, params.CaCertPath)
 	}
 	wg.Add(params.Concurrency)
 	for i := 0; i < params.Concurrency; i++ {
@@ -143,7 +124,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				}
 
 				// we didn't find anything so do not proceed
-				if len(systems) == 0 && len(managers) == 0 {
+				if util.IsEmpty(systems) && util.IsEmpty(managers) {
 					continue
 				}
 
@@ -182,6 +163,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				headers.Authorization(params.AccessToken)
 				headers.ContentType("application/json")
 
+				// add data output to collections
+				collection = append(collection, data)
+
 				var body []byte
 				switch params.Format {
 				case "json":
@@ -195,13 +179,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 						log.Error().Err(err).Msgf("failed to marshal output to YAML")
 					}
 				}
-
-				if params.Verbose {
-					fmt.Printf("%v\n", string(body))
-				}
-
-				// add data output to collections
-				collection = append(collection, data)
 
 				// write data to file if output path is set using set format
 				if outputPath != "" {
@@ -273,6 +250,27 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	close(chanAssets)
 	wg.Wait()
 	close(done)
+
+	// print the final combined output at the end to write to file
+	if params.Verbose {
+		var (
+			output []byte
+			err    error
+		)
+		switch params.Format {
+		case "json":
+			output, err = json.MarshalIndent(collection, "", "    ")
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to marshal output to JSON")
+			}
+		case "yaml":
+			output, err = yaml.Marshal(collection)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to marshal output to YAML")
+			}
+		}
+		fmt.Printf("%v\n", string(output))
+	}
 
 	return collection, nil
 }
@@ -350,6 +348,7 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 			continue
 		}
 	}
+
 	// no matches found, so return an empty string
 	return "", fmt.Errorf("no ethernet interfaces found with IP address")
 }
