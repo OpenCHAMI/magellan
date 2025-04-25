@@ -27,14 +27,14 @@ import (
 )
 
 const (
-	FORMAT_JSON = "json"
-	FORMAT_YAML = "yaml"
+	FORMAT_TABLE = "table"
+	FORMAT_JSON  = "json"
+	FORMAT_YAML  = "yaml"
 )
 
 // CLI arguments as variables to not fiddle with error-prone strings
 var (
 	accessToken string
-	format      string
 	timeout     int
 	concurrency int
 	ports       []int
