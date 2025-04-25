@@ -178,7 +178,6 @@ func init() {
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 
-	checkBindFlagError(viper.BindPFlag("scan.hosts", ScanCmd.Flags().Lookup("host")))
 	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
 	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("scan.protocol", ScanCmd.Flags().Lookup("protocol")))
