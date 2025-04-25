@@ -27,15 +27,6 @@ type Client interface {
 	Update(data HTTPBody, headers HTTPHeader) error
 }
 
-// NewClient() creates a new client
-func NewClient[T Client](opts ...func(T)) T {
-	client := new(T)
-	for _, opt := range opts {
-		opt(*client)
-	}
-	return *client
-}
-
 func LoadCertificateFromPath(client Client, path string) error {
 	cacert, err := os.ReadFile(path)
 	if err != nil {
@@ -64,7 +55,7 @@ func LoadCertificateFromPool(client Client, certPool *x509.CertPool) error {
 	internalClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:            certPool,
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: false,
 		},
 		DisableKeepAlives: true,
 		Dial: (&net.Dialer{
