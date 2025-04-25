@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var collectOutputFormat string
+
 // The `collect` command fetches data from a collection of BMC nodes.
 // This command should be ran after the `scan` to find available hosts
 // on a subnet.
@@ -122,7 +124,7 @@ var CollectCmd = &cobra.Command{
 			Verbose:     verbose,
 			CaCertPath:  cacertPath,
 			OutputPath:  outputPath,
-			Format:      format,
+			Format:      collectOutputFormat,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
 			SecretStore: store,
@@ -147,11 +149,10 @@ func init() {
 	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
 	CollectCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", util.GetCurrentUsername()+"/"), "Set the path to store collection data")
+	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%s/magellan/inventory/", util.GetCurrentUsername()), "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
-	CollectCmd.Flags().StringVarP(&format, "format", "F", "hive", "Set the output format (json|yaml)")
-	CollectCmd.Flags().BoolVar(&useHive, "use-hive", true, "Set the output format")
+	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
 
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.host", CollectCmd.Flags().Lookup("host")))
@@ -160,7 +161,6 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("collect.output", CollectCmd.Flags().Lookup("output")))
 	checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
 	checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlag("collect.use-hive", CollectCmd.Flags().Lookup("use-hive")))
 	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
 
 	rootCmd.AddCommand(CollectCmd)
