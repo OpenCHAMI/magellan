@@ -57,19 +57,19 @@ var ListCmd = &cobra.Command{
 				log.Error().Err(err).Msgf("failed to unmarshal cached data to YAML")
 			}
 			fmt.Printf("%s\n", string(b))
-		case FORMAT_TABLE:
+		case FORMAT_LIST:
 			for _, r := range scannedResults {
 				fmt.Printf("%s:%d (%s) @%s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate))
 			}
 		default:
-			log.Error().Msg("unknown format")
+			log.Error().Msg("unrecognized format")
 			os.Exit(1)
 		}
 	},
 }
 
 func init() {
-	ListCmd.Flags().StringVarP(&listOutputFormat, "format", "F", FORMAT_TABLE, "Set the output format (json|yaml|table)")
+	ListCmd.Flags().StringVarP(&listOutputFormat, "format", "F", FORMAT_LIST, "Set the output format (json|yaml|table)")
 	ListCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
 	rootCmd.AddCommand(ListCmd)
 }

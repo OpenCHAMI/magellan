@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,14 +21,22 @@ var (
 )
 
 var sendCmd = &cobra.Command{
-	Use: "send [host]",
-	Example: `  // send data from collect output
-  magellan send -d @collected-1.json -d @collected-2.json https://smd.openchami.cluster
-  magellan send -d '{...}' -d @collected-1.json https://api.exampe.com
-	`,
+	Use: "send [data]",
+	Example: `  // minimal working example
+  magellan send -d @inventory.json --host https://smd.openchami.cluster
+
+  // send data from multiple files (must specify -f/--format if not JSON)
+  magellan send -d @cluster-1.json -d @cluster-2.json --host https://smd.openchami.cluster
+  magellan send -d '{...}' -d @cluster-1.json --host https://proxy.example.com
+
+  // send data to remote host by piping output of collect directly
+  magellan collect -v -F yaml | magellan send -d @inventory.yaml -F yaml --host https://smd.openchami.cluster`,
 	Short: "Send collected node information to specified host.",
-	Args:  cobra.ExactArgs(1),
+	Args: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
+
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {
 			var err error
@@ -50,11 +59,16 @@ var sendCmd = &cobra.Command{
 		}
 
 		// make one request be host positional argument (restricted to 1 for now)
-		for _, host := range args {
+		var inputData = append(processDataArgs(cmd, args), processDataArgs(cmd, sendDataArgs)...)
+		if len(inputData) == 0 {
+			log.Error().Msg("must include data using positional arg or -d/--data flag")
+			fmt.Printf("args count: %d, data count: %d, size: %d", len(args), len(sendDataArgs), len(inputData))
+			os.Exit(1)
+		}
+		for _, host := range hosts {
 			var (
-				inputData = processDataArgs(sendDataArgs)
-				body      []byte
-				err       error
+				body []byte
+				err  error
 			)
 
 			smdClient.URI = host
@@ -72,13 +86,15 @@ var sendCmd = &cobra.Command{
 					}
 
 					// convert to JSON to send data
-					body, err = json.Marshal(dataObject)
+					body, err = json.MarshalIndent(dataObject, "", "  ")
 					if err != nil {
 						log.Error().Err(err).Msg("failed to marshal request data")
 						continue
 					}
 
-					fmt.Println(string(body))
+					if verbose {
+						fmt.Println(string(body))
+					}
 					err = smdClient.Add(body, headers)
 					if err != nil {
 						// try updating instead
@@ -99,86 +115,81 @@ var sendCmd = &cobra.Command{
 }
 
 func init() {
-	sendCmd.PersistentFlags().StringSliceVarP(&sendDataArgs, "data", "d", []string{}, "Set the data in to send to specified host")
-	sendCmd.PersistentFlags().StringVarP(&sendInputFormat, "format", "F", FORMAT_JSON, "Set the data input format (json|yaml)")
-	sendCmd.PersistentFlags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
-	sendCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	sendCmd.Flags().StringSliceVar(&hosts, "host", []string{}, "Set the host for the request")
+	sendCmd.Flags().StringSliceVarP(&sendDataArgs, "data", "d", []string{}, "Set the data in to send to specified host")
+	sendCmd.Flags().StringVarP(&sendInputFormat, "format", "F", FORMAT_JSON, "Set the data input format (json|yaml)")
+	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
+	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 
+	sendCmd.MarkFlagRequired("host")
 	rootCmd.AddCommand(sendCmd)
-}
-
-func yamlToJson(input []byte) ([]byte, error) {
-	var (
-		data   map[string]any
-		output []byte
-		err    error
-	)
-
-	// unmarshal YAML contents into map
-	err = yaml.Unmarshal(input, &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal YAML input data: %v", err)
-	}
-
-	// marshal map into JSON
-	output, err = json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal input data to JSON: %v", err)
-	}
-	return output, nil
 }
 
 // processDataArgs takes a slice of strings that check for the @ symbol and loads
 // the contents from the file specified in place (which replaces the path).
 //
 // NOTE: The purpose is to make the input arguments uniform for our request.
-func processDataArgs(args []string) [][]map[string]any {
+func processDataArgs(cmd *cobra.Command, args []string) [][]map[string]any {
 	// load data either from file or directly from args
 	type (
 		JSONObject = map[string]any
 		JSONArray  = []JSONObject
 		DataArgs   = []JSONArray
 	)
-	var (
-		newArgs = make(DataArgs, len(args))
-		err     error
-	)
-	for i, arg := range args {
-		// if arg is empty string, then continue
-		if len(arg) > 0 {
-			// determine if we're reading from file to load contents
-			if strings.HasPrefix(arg, "@") {
-				var (
-					path     string = strings.TrimLeft(arg, "@")
-					contents []byte
-					err      error
-				)
 
-				contents, err = os.ReadFile(path)
-				if err != nil {
-					log.Error().Err(err).Str("path", path).Msg("failed to read file")
-					continue
-				}
+	if cmd.Flag("data").Changed {
+		var newArgs = make(DataArgs, len(args))
+		for i, arg := range args {
+			// if arg is empty string, then continue
+			if len(arg) > 0 {
+				// determine if we're reading from file to load contents
+				if strings.HasPrefix(arg, "@") {
+					var (
+						path     string = strings.TrimLeft(arg, "@")
+						contents []byte
+						err      error
+					)
 
-				// convert/validate JSON input format
-				newArgs[i], err = validateInput(contents)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to validate input")
-				}
+					contents, err = os.ReadFile(path)
+					if err != nil {
+						log.Error().Err(err).Str("path", path).Msg("failed to read file")
+						continue
+					}
 
-			} else {
+					// convert/validate JSON input format
+					newArgs[i], err = validateInput(contents)
+					if err != nil {
+						log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
+					}
 
-				// nothing to load, so we just use the arg itself
-				newArgs[i], err = validateInput([]byte(arg))
-				if err != nil {
-					log.Error().Err(err).Msg("failed to validate input")
 				}
 			}
-		} else {
-			continue
 		}
+		return newArgs
+	} else {
+		// no file to load, so we just use the joined args (since each one is a new line)
+		// and then stop
+		var (
+			arr  JSONArray
+			data []byte
+			err  error
+		)
+		data, err = ReadStdin()
+		if err != nil {
+			log.Error().Err(err).Msg("faield to read from standard input")
+			return nil
+		}
+		if len(data) == 0 {
+			log.Warn().Msg("no data found from standard input")
+			return nil
+		}
+		fmt.Println(string(data))
+		arr, err = validateInput([]byte(data))
+		if err != nil {
+			log.Error().Err(err).Msg("failed to validate input from arg")
+		}
+		return DataArgs{arr}
 	}
-	return newArgs
 }
 
 func validateInput(contents []byte) ([]map[string]any, error) {
@@ -189,16 +200,32 @@ func validateInput(contents []byte) ([]map[string]any, error) {
 	// convert/validate JSON input format
 	switch sendInputFormat {
 	case FORMAT_JSON:
-		fmt.Println(string(contents))
 		err = json.Unmarshal(contents, &data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal input in JSON")
+			return nil, fmt.Errorf("failed to unmarshal input in JSON: %v", err)
 		}
 	case FORMAT_YAML:
 		err = yaml.Unmarshal(contents, &data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal input in YAML")
+			return nil, fmt.Errorf("failed to unmarshal input in YAML: %v", err)
 		}
+	default:
+		return nil, fmt.Errorf("unrecognized format")
 	}
 	return data, nil
+}
+
+// ReadStdin reads all of standard input and returns the bytes. If an error
+// occurs during scanning, it is returned.
+func ReadStdin() ([]byte, error) {
+	var b []byte
+	input := bufio.NewScanner(os.Stdin)
+	for input.Scan() {
+		b = append(b, input.Bytes()...)
+		b = append(b, byte('\n'))
+	}
+	if err := input.Err(); err != nil {
+		return b, fmt.Errorf("failed to read stdin: %w", err)
+	}
+	return b, nil
 }

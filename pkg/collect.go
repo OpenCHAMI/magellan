@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/client"
@@ -150,7 +151,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 				// optionally, add the MACAddr property if we find a matching IP
 				// from the correct ethernet interface
-				mac, err := FindMACAddressWithIP(config, net.ParseIP(sr.Host))
+				mac, err := FindMACAddressWithIP(config, net.ParseIP(url.TrimScheme(sr.Host)))
 				if err != nil {
 					log.Warn().Err(err).Msgf("failed to find MAC address with IP '%s'", sr.Host)
 				}
@@ -166,6 +167,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// add data output to collections
 				collection = append(collection, data)
 
+				// format output to write to files
 				var body []byte
 				switch params.Format {
 				case "json":
@@ -183,7 +185,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// write data to file if output path is set using set format
 				if outputPath != "" {
 					var (
-						finalPath = fmt.Sprintf("./%s/%s/%d.json", outputPath, data["ID"], time.Now().Unix())
+						finalPath = fmt.Sprintf("./%s/%s/%d.%s", outputPath, data["ID"], time.Now().Unix(), params.Format)
 						finalDir  = filepath.Dir(finalPath)
 					)
 					// if it doesn't, make the directory and write file

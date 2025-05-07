@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	FORMAT_TABLE = "table"
-	FORMAT_JSON  = "json"
-	FORMAT_YAML  = "yaml"
+	FORMAT_LIST = "list"
+	FORMAT_JSON = "json"
+	FORMAT_YAML = "yaml"
 )
 
 // CLI arguments as variables to not fiddle with error-prone strings
@@ -81,7 +81,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(InitializeConfig)
 	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "j", -1, "Set the number of concurrent processes")
-	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests")
+	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests in seconds")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Set to enable/disable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Set to enable/disable debug messages")
