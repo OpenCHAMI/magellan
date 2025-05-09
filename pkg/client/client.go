@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 type Option[T Client] func(client *T)
@@ -29,56 +27,51 @@ type Client interface {
 	Update(data HTTPBody, headers HTTPHeader) error
 }
 
-// NewClient() creates a new client
-func NewClient[T Client](opts ...func(T)) T {
-	client := new(T)
-	for _, opt := range opts {
-		opt(*client)
-	}
-	return *client
-}
-
-func WithCertPool[T Client](certPool *x509.CertPool) func(T) {
-	// make sure we have a valid cert pool
-	if certPool == nil {
-		return func(client T) {}
-	}
-	return func(client T) {
-		// make sure that we can access the internal client
-		if client.GetInternalClient() == nil {
-			log.Warn().Any("client", client.GetInternalClient()).Msg("invalid internal HTTP client ()")
-			return
-		}
-		client.GetInternalClient().Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:            certPool,
-				InsecureSkipVerify: true,
-			},
-			DisableKeepAlives: true,
-			Dial: (&net.Dialer{
-				Timeout:   120 * time.Second,
-				KeepAlive: 120 * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout:   120 * time.Second,
-			ResponseHeaderTimeout: 120 * time.Second,
-		}
-	}
-}
-
-func WithSecureTLS[T Client](certPath string) func(T) {
-	cacert, err := os.ReadFile(certPath)
+func LoadCertificateFromPath(client Client, path string) error {
+	cacert, err := os.ReadFile(path)
 	if err != nil {
-		return func(client T) {}
+		return fmt.Errorf("failed to read certificate at path: %s", path)
 	}
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(cacert)
-	return WithCertPool[T](certPool)
+	err = LoadCertificateFromPool(client, certPool)
+	if err != nil {
+		return fmt.Errorf("could not initialize certificate from pool: %v", err)
+	}
+	return nil
+}
+
+func LoadCertificateFromPool(client Client, certPool *x509.CertPool) error {
+	// make sure we have a valid cert pool
+	if certPool == nil {
+		return fmt.Errorf("invalid cert pool")
+	}
+
+	// make sure that we can access the internal client
+	internalClient := client.GetInternalClient()
+	if internalClient == nil {
+		return fmt.Errorf("invalid HTTP client")
+	}
+	internalClient.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:            certPool,
+			InsecureSkipVerify: false,
+		},
+		DisableKeepAlives: true,
+		Dial: (&net.Dialer{
+			Timeout:   120 * time.Second,
+			KeepAlive: 120 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout:   120 * time.Second,
+		ResponseHeaderTimeout: 120 * time.Second,
+	}
+	return nil
 }
 
 // Post() is a simplified wrapper function that packages all of the
 // that marshals a mapper into a JSON-formatted byte array, and then performs
 // a request to the specified URL.
-func (c *MagellanClient) Post(url string, data map[string]any, header HTTPHeader) (*http.Response, HTTPBody, error) {
+func (c *DefaultClient) Post(url string, data map[string]any, header HTTPHeader) (*http.Response, HTTPBody, error) {
 	// serialize data into byte array
 	body, err := json.Marshal(data)
 	if err != nil {

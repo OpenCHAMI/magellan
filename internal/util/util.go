@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"os/user"
 	"time"
 )
 
@@ -24,4 +25,12 @@ func CheckUntil(interval time.Duration, timeout time.Duration, predicate func() 
 			return fmt.Errorf("timeout of %ds reached", int64(timeout/time.Second))
 		}
 	}
+}
+
+func GetCurrentUsername() string {
+	currentUser, _ := user.Current()
+	if currentUser != nil {
+		return currentUser.Username
+	}
+	return ""
 }
