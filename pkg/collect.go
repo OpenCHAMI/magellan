@@ -69,16 +69,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
 		outputDir  = path.Clean(params.OutputDir)
-		smdClient  = client.NewSmdClient()
 	)
 
 	// set the client's params from CLI
-	// NOTE: temporary solution until client.NewClient() is fixed
-	smdClient.URI = params.URI
-	if params.CaCertPath != "" {
-		log.Debug().Str("path", params.CaCertPath).Msg("using provided certificate path")
-		client.LoadCertificateFromPath(smdClient, params.CaCertPath)
-	}
 	wg.Add(params.Concurrency)
 	for i := 0; i < params.Concurrency; i++ {
 		go func() {
@@ -211,28 +204,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 						}
 					} else { // error is set
 						log.Error().Err(err).Msg("failed to make directory for collect output")
-					}
-				}
-
-				// add all endpoints to SMD ONLY if a host is provided
-				if smdClient.URI != "" {
-					err = smdClient.Add(body, headers)
-					if err != nil {
-
-						// try updating instead
-						if params.ForceUpdate {
-							smdClient.Xname = data["ID"].(string)
-							err = smdClient.Update(body, headers)
-							if err != nil {
-								log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint")
-							}
-						} else {
-							log.Error().Err(err).Msgf("failed to add Redfish endpoint")
-						}
-					}
-				} else {
-					if params.Verbose {
-						log.Warn().Msg("no request made (host argument is empty)")
 					}
 				}
 

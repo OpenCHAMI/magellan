@@ -2,11 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
-	"github.com/OpenCHAMI/magellan/internal/util"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -144,13 +142,12 @@ var CollectCmd = &cobra.Command{
 }
 
 func init() {
-	CollectCmd.Flags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
 	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
 	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
 	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
 	CollectCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%s/magellan/inventory/", util.GetCurrentUsername()), "Set the path to store collection data using HIVE partitioning")
+	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
