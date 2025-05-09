@@ -124,6 +124,7 @@ var CollectCmd = &cobra.Command{
 			Verbose:     verbose,
 			CaCertPath:  cacertPath,
 			OutputPath:  outputPath,
+			OutputDir:   outputDir,
 			Format:      collectOutputFormat,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
@@ -150,15 +151,19 @@ func init() {
 	CollectCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
 	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%s/magellan/inventory/", util.GetCurrentUsername()), "Set the path to store collection data using HIVE partitioning")
+	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
+
+	CollectCmd.MarkFlagsMutuallyExclusive("output", "output-dir")
 
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.host", CollectCmd.Flags().Lookup("host")))
 	checkBindFlagError(viper.BindPFlag("collect.scheme", CollectCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
 	checkBindFlagError(viper.BindPFlag("collect.output", CollectCmd.Flags().Lookup("output")))
+	checkBindFlagError(viper.BindPFlag("collect.output-dir", CollectCmd.Flags().Lookup("output-dir")))
 	checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
 	checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))

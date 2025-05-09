@@ -38,19 +38,18 @@ var (
 	timeout     int
 	concurrency int
 	ports       []int
-	hosts       []string
 	protocol    string
 	cacertPath  string
 	username    string
 	password    string
 	cachePath   string
 	outputPath  string
+	outputDir   string
 	configPath  string
 	verbose     bool
 	debug       bool
 	forceUpdate bool
 	insecure    bool
-	useHive     bool
 )
 
 // The `root` command doesn't do anything on it's own except display

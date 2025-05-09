@@ -38,6 +38,7 @@ type CollectParams struct {
 	CaCertPath  string              // set the cert path with the 'cacert' flag
 	Verbose     bool                // set whether to include verbose output with 'verbose' flag
 	OutputPath  string              // set the path to save output with 'output' flag
+	OutputDir   string              // set the directory path to save output with `output-dir` flag
 	Format      string              // set the output format
 	ForceUpdate bool                // set whether to force updating SMD with 'force-update' flag
 	AccessToken string              // set the access token to include in request with 'access-token' flag
@@ -67,7 +68,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 		found      = make([]string, 0, len(*assets))
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
-		outputPath = path.Clean(params.OutputPath)
+		outputDir  = path.Clean(params.OutputDir)
 		smdClient  = client.NewSmdClient()
 	)
 
@@ -181,17 +182,30 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 						log.Error().Err(err).Msgf("failed to marshal output to YAML")
 					}
 				}
-
-				// write data to file if output path is set using set format
-				if outputPath != "" {
+				// write data to file in preset directory if output path is set using set format
+				if outputDir != "" {
 					var (
-						finalPath = fmt.Sprintf("./%s/%s/%d.%s", outputPath, data["ID"], time.Now().Unix(), params.Format)
+						finalPath = fmt.Sprintf("./%s/%s/%d.%s", outputDir, data["ID"], time.Now().Unix(), params.Format)
 						finalDir  = filepath.Dir(finalPath)
 					)
 					// if it doesn't, make the directory and write file
 					err = os.MkdirAll(finalDir, 0o777)
 					if err == nil { // no error
 						err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
+						if err != nil {
+							log.Error().Err(err).Msgf("failed to write collect output to file")
+						}
+					} else { // error is set
+						log.Error().Err(err).Msg("failed to make directory for collect output")
+					}
+				}
+
+				// write data to only to the path set (no preset directory structure)
+				if params.OutputPath != "" {
+					// if it doesn't, make the directory and write file
+					err = os.MkdirAll(filepath.Dir(params.OutputPath), 0o777)
+					if err == nil { // no error
+						err = os.WriteFile(path.Clean(params.OutputPath), body, os.ModePerm)
 						if err != nil {
 							log.Error().Err(err).Msgf("failed to write collect output to file")
 						}
