@@ -65,7 +65,7 @@ var sendCmd = &cobra.Command{
 			fmt.Printf("args count: %d, data count: %d, size: %d", len(args), len(sendDataArgs), len(inputData))
 			os.Exit(1)
 		}
-		for _, host := range hosts {
+		for _, host := range args {
 			var (
 				body []byte
 				err  error
@@ -115,13 +115,11 @@ var sendCmd = &cobra.Command{
 }
 
 func init() {
-	sendCmd.Flags().StringSliceVar(&hosts, "host", []string{}, "Set the host for the request")
 	sendCmd.Flags().StringSliceVarP(&sendDataArgs, "data", "d", []string{}, "Set the data in to send to specified host")
 	sendCmd.Flags().StringVarP(&sendInputFormat, "format", "F", FORMAT_JSON, "Set the data input format (json|yaml)")
 	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 
-	sendCmd.MarkFlagRequired("host")
 	rootCmd.AddCommand(sendCmd)
 }
 
@@ -176,7 +174,7 @@ func processDataArgs(cmd *cobra.Command, args []string) [][]map[string]any {
 		)
 		data, err = ReadStdin()
 		if err != nil {
-			log.Error().Err(err).Msg("faield to read from standard input")
+			log.Error().Err(err).Msg("failed to read from standard input")
 			return nil
 		}
 		if len(data) == 0 {
