@@ -375,7 +375,7 @@ func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
 		return bmc.BMCCredentials{}, fmt.Errorf("credential store is invalid")
 	}
 	if creds := util.GetBMCCredentials(config.CredentialStore, config.URI); creds == (bmc.BMCCredentials{}) {
-		return creds, fmt.Errorf("%s: credentials blank for BNC", config.URI)
+		return creds, fmt.Errorf("%s: credentials blank for BMC", config.URI)
 	} else {
 		return creds, nil
 	}
