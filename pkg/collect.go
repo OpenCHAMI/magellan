@@ -68,7 +68,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 		found      = make([]string, 0, len(*assets))
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
-		outputDir  = path.Clean(params.OutputDir)
 	)
 
 	// set the client's params from CLI
@@ -176,9 +175,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					}
 				}
 				// write data to file in preset directory if output path is set using set format
-				if outputDir != "" {
+				if params.OutputDir != "" {
 					var (
-						finalPath = fmt.Sprintf("./%s/%s/%d.%s", outputDir, data["ID"], time.Now().Unix(), params.Format)
+						finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), params.Format)
 						finalDir  = filepath.Dir(finalPath)
 					)
 					// if it doesn't, make the directory and write file
