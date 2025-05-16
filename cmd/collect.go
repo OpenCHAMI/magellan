@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
-	"os/user"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
@@ -16,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+var collectOutputFormat string
 
 // The `collect` command fetches data from a collection of BMC nodes.
 // This command should be ran after the `scan` to find available hosts
@@ -122,6 +122,8 @@ var CollectCmd = &cobra.Command{
 			Verbose:     verbose,
 			CaCertPath:  cacertPath,
 			OutputPath:  outputPath,
+			OutputDir:   outputDir,
+			Format:      collectOutputFormat,
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
 			SecretStore: store,
@@ -140,22 +142,24 @@ var CollectCmd = &cobra.Command{
 }
 
 func init() {
-	currentUser, _ = user.Current()
-	CollectCmd.Flags().StringVar(&host, "host", "", "Set the URI to the SMD root endpoint")
 	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
 	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
 	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
 	CollectCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.Flags().StringVarP(&outputPath, "output", "o", fmt.Sprintf("/tmp/%smagellan/inventory/", currentUser.Username+"/"), "Set the path to store collection data")
+	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data using HIVE partitioning")
+	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file. (defaults to system CAs when blank)")
+	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
+
+	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
 
 	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("collect.host", CollectCmd.Flags().Lookup("host")))
 	checkBindFlagError(viper.BindPFlag("collect.scheme", CollectCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("collect.output", CollectCmd.Flags().Lookup("output")))
+	checkBindFlagError(viper.BindPFlag("collect.output-file", CollectCmd.Flags().Lookup("output-file")))
+	checkBindFlagError(viper.BindPFlag("collect.output-dir", CollectCmd.Flags().Lookup("output-dir")))
 	checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
 	checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))

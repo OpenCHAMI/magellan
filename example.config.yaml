@@ -1,6 +1,7 @@
 scan:
   hosts:
     - "172.16.1.15"
+    - "10.0.0.1"
   subnets:
     - "172.16.0.0"
     - "172.16.0.0/24"
@@ -13,8 +14,6 @@ scan:
   protocol: "tcp"
   scheme: "https"
 collect:
-  username: "admin"
-  password: "password"
   protocol: "tcp"
   scheme: "https"
   output: "/tmp/magellan/data/"
@@ -24,8 +23,6 @@ collect:
 update:
   host:
   port: 443
-  username: "admin"
-  password: "password"
   transfer-protocol: "https"
   firmware:
     url:
@@ -36,5 +33,5 @@ update:
 concurrency: 1
 timeout: 30
 verbose: true
-db:
+cache:
   path: "/tmp/magellan/magellan.db"
