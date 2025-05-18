@@ -160,52 +160,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// add data output to collections
 				collection = append(collection, data)
 
-				// format output to write to files
-				var body []byte
-				switch params.Format {
-				case "json":
-					body, err = json.MarshalIndent(data, "", "    ")
-					if err != nil {
-						log.Error().Err(err).Msgf("failed to marshal output to JSON")
-					}
-				case "yaml":
-					body, err = yaml.Marshal(data)
-					if err != nil {
-						log.Error().Err(err).Msgf("failed to marshal output to YAML")
-					}
-				}
-				// write data to file in preset directory if output path is set using set format
-				if params.OutputDir != "" {
-					var (
-						finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), params.Format)
-						finalDir  = filepath.Dir(finalPath)
-					)
-					// if it doesn't, make the directory and write file
-					err = os.MkdirAll(finalDir, 0o777)
-					if err == nil { // no error
-						err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
-						if err != nil {
-							log.Error().Err(err).Msgf("failed to write collect output to file")
-						}
-					} else { // error is set
-						log.Error().Err(err).Msg("failed to make directory for collect output")
-					}
-				}
-
-				// write data to only to the path set (no preset directory structure)
-				if params.OutputPath != "" {
-					// if it doesn't, make the directory and write file
-					err = os.MkdirAll(filepath.Dir(params.OutputPath), 0o777)
-					if err == nil { // no error
-						err = os.WriteFile(path.Clean(params.OutputPath), body, os.ModePerm)
-						if err != nil {
-							log.Error().Err(err).Msgf("failed to write collect output to file")
-						}
-					} else { // error is set
-						log.Error().Err(err).Msg("failed to make directory for collect output")
-					}
-				}
-
 				// got host information, so add to list of already probed hosts
 				found = append(found, sr.Host)
 			}
@@ -237,25 +191,62 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	wg.Wait()
 	close(done)
 
+	var (
+		output []byte
+		err    error
+	)
+
+	// format our output to write to file or standard out
+	switch params.Format {
+	case "json":
+		output, err = json.MarshalIndent(collection, "", "    ")
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to marshal output to JSON")
+		}
+	case "yaml":
+		output, err = yaml.Marshal(collection)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to marshal output to YAML")
+		}
+	}
+
 	// print the final combined output at the end to write to file
 	if params.Verbose {
-		var (
-			output []byte
-			err    error
-		)
-		switch params.Format {
-		case "json":
-			output, err = json.MarshalIndent(collection, "", "    ")
-			if err != nil {
-				log.Error().Err(err).Msgf("failed to marshal output to JSON")
-			}
-		case "yaml":
-			output, err = yaml.Marshal(collection)
-			if err != nil {
-				log.Error().Err(err).Msgf("failed to marshal output to YAML")
+		fmt.Printf("%v\n", string(output))
+	}
+
+	// write data to file in preset directory if output path is set using set format
+	if params.OutputDir != "" {
+		for _, data := range collection {
+			var (
+				finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), params.Format)
+				finalDir  = filepath.Dir(finalPath)
+			)
+			// if it doesn't, make the directory and write file
+			err = os.MkdirAll(finalDir, 0o777)
+			if err == nil { // no error
+				err = os.WriteFile(path.Clean(finalPath), output, os.ModePerm)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to write collect output to file")
+				}
+			} else { // error is set
+				log.Error().Err(err).Msg("failed to make directory for collect output")
 			}
 		}
-		fmt.Printf("%v\n", string(output))
+	}
+
+	// write data to only to the path set (no preset directory structure)
+	if params.OutputPath != "" {
+		// if it doesn't, make the directory and write file
+		err = os.MkdirAll(filepath.Dir(params.OutputPath), 0o777)
+		if err == nil { // no error
+			err = os.WriteFile(path.Clean(params.OutputPath), output, os.ModePerm)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to write collect output to file")
+			}
+		} else { // error is set
+			log.Error().Err(err).Msg("failed to make directory for collect output")
+		}
 	}
 
 	return collection, nil
