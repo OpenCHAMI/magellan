@@ -59,12 +59,28 @@ var sendCmd = &cobra.Command{
 		}
 
 		// make one request be host positional argument (restricted to 1 for now)
-		var inputData = append(processDataArgs(cmd, args), processDataArgs(cmd, sendDataArgs)...)
+		var inputData []map[string]any
+		temp := append(handleArgs(args), processDataArgs(sendDataArgs)...)
+		for _, data := range temp {
+			if data != nil {
+				inputData = append(inputData, data)
+			}
+		}
 		if len(inputData) == 0 {
-			log.Error().Msg("must include data using positional arg or -d/--data flag")
+			log.Error().Msg("must include data with standard input or -d/--data flag")
 			fmt.Printf("args count: %d, data count: %d, size: %d", len(args), len(sendDataArgs), len(inputData))
 			os.Exit(1)
 		}
+
+		// show the data that was just loaded as input
+		if verbose {
+			output, err := json.Marshal(inputData)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal input data")
+			}
+			fmt.Println(string(output))
+		}
+
 		for _, host := range args {
 			var (
 				body []byte
@@ -72,44 +88,44 @@ var sendCmd = &cobra.Command{
 			)
 
 			smdClient.URI = host
-			for _, dataArray := range inputData {
-				for _, dataObject := range dataArray {
+			for _, dataObject := range inputData {
+				// skip on to the next thing if it's does not exist
+				if dataObject == nil {
+					continue
+				}
 
-					// create and set headers for request
-					headers := client.HTTPHeader{}
-					headers.Authorization(accessToken)
-					headers.ContentType("application/json")
+				// create and set headers for request
+				headers := client.HTTPHeader{}
+				headers.Authorization(accessToken)
+				headers.ContentType("application/json")
 
-					host, err = urlx.Sanitize(host)
-					if err != nil {
-						log.Warn().Err(err).Str("host", host).Msg("could not sanitize host")
-					}
+				host, err = urlx.Sanitize(host)
+				if err != nil {
+					log.Warn().Err(err).Str("host", host).Msg("could not sanitize host")
+				}
 
-					// convert to JSON to send data
-					body, err = json.MarshalIndent(dataObject, "", "  ")
-					if err != nil {
-						log.Error().Err(err).Msg("failed to marshal request data")
-						continue
-					}
+				// convert to JSON to send data
+				body, err = json.MarshalIndent(dataObject, "", "  ")
+				if err != nil {
+					log.Error().Err(err).Msg("failed to marshal request data")
+					continue
+				}
 
-					if verbose {
-						fmt.Println(string(body))
-					}
-					err = smdClient.Add(body, headers)
-					if err != nil {
-						// try updating instead
-						if forceUpdate {
-							smdClient.Xname = dataObject["ID"].(string)
-							err = smdClient.Update(body, headers)
-							if err != nil {
-								log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint with ID %s", smdClient.Xname)
-							}
-						} else {
-							log.Error().Err(err).Msgf("failed to add Redfish endpoint with ID %s", smdClient.Xname)
+				err = smdClient.Add(body, headers)
+				if err != nil {
+					// try updating instead
+					if forceUpdate {
+						smdClient.Xname = dataObject["ID"].(string)
+						err = smdClient.Update(body, headers)
+						if err != nil {
+							log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint with ID %s", smdClient.Xname)
 						}
+					} else {
+						log.Error().Err(err).Msgf("failed to add Redfish endpoint with ID %s", smdClient.Xname)
 					}
 				}
 			}
+
 		}
 	},
 }
@@ -125,75 +141,112 @@ func init() {
 // processDataArgs takes a slice of strings that check for the @ symbol and loads
 // the contents from the file specified in place (which replaces the path).
 //
-// NOTE: The purpose is to make the input arguments uniform for our request.
-func processDataArgs(cmd *cobra.Command, args []string) [][]map[string]any {
-	// load data either from file or directly from args
+// NOTE: The purpose is to make the input arguments uniform for our request. This
+// function is meant to handle data passed with the `-d/--data` flag and positional
+// args from the CLI.
+func processDataArgs(args []string) []map[string]any {
+	// JSON representation
 	type (
 		JSONObject = map[string]any
 		JSONArray  = []JSONObject
-		DataArgs   = []JSONArray
 	)
 
-	if cmd.Flag("data").Changed {
-		var newArgs = make(DataArgs, len(args))
-		for i, arg := range args {
-			// if arg is empty string, then continue
-			if len(arg) > 0 {
-				// determine if we're reading from file to load contents
-				if strings.HasPrefix(arg, "@") {
-					var (
-						path     string = strings.TrimLeft(arg, "@")
-						contents []byte
-						err      error
-					)
+	// load data either from file or directly from args
+	var collection = make(JSONArray, len(args))
+	for i, arg := range args {
+		// if arg is empty string, then continue
+		if len(arg) > 0 {
+			// determine if we're reading from file to load contents
+			if strings.HasPrefix(arg, "@") {
+				var (
+					path     string = strings.TrimLeft(arg, "@")
+					contents []byte
+					data     JSONArray
+					err      error
+				)
 
-					contents, err = os.ReadFile(path)
-					if err != nil {
-						log.Error().Err(err).Str("path", path).Msg("failed to read file")
-						continue
-					}
-
-					// convert/validate JSON input format
-					newArgs[i], err = validateInput(contents)
-					if err != nil {
-						log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
-					}
-
+				contents, err = os.ReadFile(path)
+				if err != nil {
+					log.Error().Err(err).Str("path", path).Msg("failed to read file")
+					continue
 				}
+
+				// skip empty files
+				if len(contents) == 0 {
+					log.Warn().Str("path", path).Msg("file is empty")
+					continue
+				}
+
+				// convert/validate JSON input format
+				data, err = parseInput(contents)
+				if err != nil {
+					log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
+				}
+
+				// add loaded data to collection of all data
+				collection = append(collection, data...)
+			} else {
+				// input should be a valid JSON
+				var (
+					data  JSONArray
+					input = []byte(arg)
+					err   error
+				)
+				if !json.Valid(input) {
+					log.Error().Msgf("argument %d not a valid JSON", i)
+					continue
+				}
+				err = json.Unmarshal(input, &data)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to unmarshal input for argument %d", i)
+				}
+				return data
 			}
 		}
-		return newArgs
-	} else {
-		// no file to load, so we just use the joined args (since each one is a new line)
-		// and then stop
-		var (
-			arr  JSONArray
-			data []byte
-			err  error
-		)
-		data, err = ReadStdin()
-		if err != nil {
-			log.Error().Err(err).Msg("failed to read from standard input")
-			return nil
-		}
-		if len(data) == 0 {
-			log.Warn().Msg("no data found from standard input")
-			return nil
-		}
-		fmt.Println(string(data))
-		arr, err = validateInput([]byte(data))
-		if err != nil {
-			log.Error().Err(err).Msg("failed to validate input from arg")
-		}
-		return DataArgs{arr}
 	}
+	return collection
 }
 
-func validateInput(contents []byte) ([]map[string]any, error) {
+func handleArgs(args []string) []map[string]any {
+	// JSON representation
+	type (
+		JSONObject = map[string]any
+		JSONArray  = []JSONObject
+	)
+	// no file to load, so we just use the joined args (since each one is a new line)
+	// and then stop
+	var (
+		collection JSONArray
+		data       []byte
+		err        error
+	)
+
+	if len(sendDataArgs) > 0 {
+		return nil
+	}
+	data, err = ReadStdin()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to read from standard input")
+		return nil
+	}
+	if len(data) == 0 {
+		log.Warn().Msg("no data found from standard input")
+		return nil
+	}
+	fmt.Println(string(data))
+	collection, err = parseInput([]byte(data))
+	if err != nil {
+		log.Error().Err(err).Msg("failed to validate input from arg")
+	}
+	return collection
+}
+
+func parseInput(contents []byte) ([]map[string]any, error) {
 	var (
 		data []map[string]any
 		err  error
 	)
+
 	// convert/validate JSON input format
 	switch sendInputFormat {
 	case FORMAT_JSON:
@@ -220,6 +273,9 @@ func ReadStdin() ([]byte, error) {
 	for input.Scan() {
 		b = append(b, input.Bytes()...)
 		b = append(b, byte('\n'))
+		if len(b) == 0 {
+			break
+		}
 	}
 	if err := input.Err(); err != nil {
 		return b, fmt.Errorf("failed to read stdin: %w", err)
