@@ -21,6 +21,14 @@ func Sanitize(uri string) (string, error) {
 	return parsedURI.String(), nil
 }
 
+func TrimScheme(uri string) string {
+	const prefix = "https://"
+	if strings.Contains(uri, prefix) {
+		return strings.TrimPrefix(uri, prefix)
+	}
+	return uri
+}
+
 // FormatHosts() takes a list of hosts and ports and builds full URLs in the
 // form of scheme://host:port. If no scheme is provided, it will use "https" by
 // default.

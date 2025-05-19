@@ -4,6 +4,7 @@ package client
 //	https://github.com/OpenCHAMI/hms-smd/blob/master/docs/examples.adoc
 //	https://github.com/OpenCHAMI/hms-smd
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -14,6 +15,12 @@ type SmdClient struct {
 	*http.Client
 	URI   string
 	Xname string
+}
+
+func NewSmdClient() *SmdClient {
+	return &SmdClient{
+		Client: &http.Client{},
+	}
 }
 
 func (c *SmdClient) Init() {
@@ -44,7 +51,7 @@ func (c *SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 	url := c.RootEndpoint("/Inventory/RedfishEndpoints")
 	res, body, err := MakeRequest(c.Client, url, http.MethodPost, data, headers)
 	if res != nil {
-		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
+		statusOk := res.StatusCode >= http.StatusOK && res.StatusCode < http.StatusMultipleChoices
 		if !statusOk {
 			if len(body) > 0 {
 				return fmt.Errorf("%d: %s", res.StatusCode, string(body))
@@ -76,4 +83,18 @@ func (c *SmdClient) Update(data HTTPBody, headers HTTPHeader) error {
 		log.Debug().Msgf("%v (%v)\n%s\n", url, res.Status, string(body))
 	}
 	return err
+}
+
+func (c *SmdClient) SetXnameFromJSON(contents []byte, key string) error {
+	var (
+		data map[string]any
+		err  error
+	)
+
+	err = json.Unmarshal(contents, &data)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal xname: %v", err)
+	}
+	c.Xname = data[key].(string)
+	return nil
 }

@@ -7,23 +7,24 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
-  * [Main Features](#main-features)
-  * [Getting Started](#getting-started)
-  * [Building the Executable](#building-the-executable)
-    + [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
-    + [Docker](#docker)
-    + [Arch Linux (AUR)](#arch-linux-aur)
-  * [Usage](#usage)
-    + [Checking for Redfish](#checking-for-redfish)
-    + [Running the Tool](#running-the-tool)
-    + [Managing Secrets](#managing-secrets)
-    + [Starting the Emulator](#starting-the-emulator)
-    + [Updating Firmware](#updating-firmware)
-    + [Getting an Access Token (WIP)](#getting-an-access-token-wip)
-    + [Running with Docker](#running-with-docker)
-  * [How It Works](#how-it-works)
-  * [TODO](#todo)
-  * [Copyright](#copyright)
+- [OpenCHAMI Magellan](#openchami-magellan)
+  - [Main Features](#main-features)
+  - [Getting Started](#getting-started)
+  - [Building the Executable](#building-the-executable)
+    - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+    - [Docker](#docker)
+    - [Arch Linux (AUR)](#arch-linux-aur)
+  - [Usage](#usage)
+    - [Checking for Redfish](#checking-for-redfish)
+    - [Running the Tool](#running-the-tool)
+    - [Managing Secrets](#managing-secrets)
+    - [Starting the Emulator](#starting-the-emulator)
+    - [Updating Firmware](#updating-firmware)
+    - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+    - [Running with Docker](#running-with-docker)
+  - [How It Works](#how-it-works)
+  - [TODO](#todo)
+  - [Copyright](#copyright)
 
 <!-- TOC end -->
 
@@ -193,7 +194,9 @@ Once the scan is complete, inspect the cache to see a list of found hosts with t
 ./magellan list --cache data/assets.db
 ```
 
-This will print a list of host information needed for the `collect` step. Set the `ACCESS_TOKEN` if necessary and invoke `magellan` again with the `collect` subcommand to query the node BMCs stored in cache. If the `--host` flag is set, then an additional request will be made to send the output to the specified URL. The `--userame` and `--password` flags must be set if the BMC requires basic authentication.
+This will print a list of host information needed for the `collect` step. Set the `ACCESS_TOKEN` if necessary and invoke `magellan` again with the `collect` subcommand to query the node BMCs stored in cache.
+
+We can then save the output and make a request with the `send` subcommand or pipe the output directly to the specified URL. The `-u/--username` and `-p/--password` flags must be set if the BMC requires basic authentication if the `--secrets-file` flag and `MASTER_KEY` environment variable is not set.
 
 ```bash
 ./magellan collect \
@@ -202,13 +205,50 @@ This will print a list of host information needed for the `collect` step. Set th
     --username $USERNAME \
     --password $PASSWORD \
     --host https://example.openchami.cluster:8443 \
-    --output logs/
+    --format yaml \
+    --output-file nodes.yaml \
     --cacert cacert.pem
 ```
 
-This will initiate a crawler that will find as much inventory data as possible. The data can be viewed from standard output by setting the `--verbose` flag. This output can also be saved by using the `--output` flag and providing a path argument.
+This will initiate a crawler that fetch inventory data from the specified BMC host. The data can be saved, viewed, or modified from standard output by setting the `-v/--verbose` flag. Similarly, this output can also be saved by using the `-o/--output-file` flag and providing a path argument.
 
-Note: If the `cache` flag is not set, `magellan` will use `/tmp/$USER/magellan.db` by default.
+To make a request with the `collect` output, we specify the `-d/--data` flag for `send`. For files, use the `@` symbol before the file path. Make sure that you set the correct input format with `-F/--format`. Finally, specify the host as a positional argument.
+
+```bash
+magellan send -F yaml -d @nodes.yaml https://example.openchami.cluster:8443
+```
+
+This allows for modification of the data before making the request. However, be cautious as there is no data validation done before the request is made.
+
+Alternatively, we can pass the output of `collect` into `send` using pipes. The `--verbose` flag is currently required to do this.
+
+```bash
+# collect and send data in YAML format
+magellan collect -u $USERNAME -p $PASSWORD -v -F yaml | magellan send -F yaml https://example.openchami.cluster:8443
+
+# collect and send data using default JSON format and secret store (see below)
+export MASTER_KEY=mysecret
+magellan secrets store default $USERNAME:$PASSWORD
+magellan collect -v | magellan send https://example.openchami.cluster:8443
+```
+
+This maintains the original behavior of passing the `--host` flag to `collect` with the added flexibility of having the intermediate step.
+
+> [!TIP]
+> If the `cache` flag is not set, `magellan` will use `/tmp/$USER/magellan.db` by default.
+
+
+> [!TIP]
+> The output of `collect` can be saved in separate directories using the `-O/--output-dir` flag. The output will be organized similar to below for the following command in YAML format:
+>
+> ```bash
+> ./magellan collect -F yaml -v -O nodes
+> nodes
+> ├── x1000c1s7b0
+> │   └── 1747550498.yaml
+> └── x1000c1s7b1
+>     └── 1747550498.yaml
+> ```
 
 ### Managing Secrets
 
@@ -222,14 +262,12 @@ To store secrets using `magellan`:
 export MASTER_KEY=$(magellan secrets generatekey)
 ```
 
-2. Store secret credentials for hosts shown by `magellan list`:
+2. Store secret credentials for hosts shown by `magellan list`. There should be no output unless an error occurred.
 
 ```bash
 export bmc_host=https://172.16.0.105:443
 magellan secrets store $bmc_host $bmc_username:$bmc_password
 ```
-
-There should be no output unless an error occurred.
 
 3. Print the list of hosts to confirm secrets are stored.
 
@@ -256,11 +294,12 @@ magellan collect \
 
 If you pass arguments with the `--username/--password` flags, the arguments will override all credentials set in the secret store for each flag. However, it is possible only override a single flag (e.g. `magellan collect --username`).
 
-> [!NOTE]
+> [!WARNING]
 > Make sure that the `secretID` is EXACTLY as show with `magellan list`. Otherwise, `magellan` will not be able to do the lookup from the secret store correctly.
 
 > [!TIP]
 > You can set default fallback credentials by storing a secret with the `secretID` of "default". This is used if no `secretID` is found in the local store for the specified host. This is useful when you want to set a username and password that is the same for all BMCs with the exception of the ones specified.
+> 
 > ```bash
 > magellan secrets default $username:$password
 > ```
@@ -382,7 +421,7 @@ See the [issue list](https://github.com/OpenCHAMI/magellan/issues) for plans for
 * [X] Add ability to set subnet mask for scanning
 * [ ] Add ability to scan with other protocols like LLDP and SSDP
 * [X] Add more debugging messages with the `-v/--verbose` flag
-* [ ] Separate `collect` subcommand with making request to endpoint
+* [X] Separate `collect` subcommand with making request to endpoint
 * [X] Support logging in with `opaal` to get access token
 * [X] Support using CA certificates with HTTP requests to SMD
 * [X] Add tests for the regressions and compatibility
