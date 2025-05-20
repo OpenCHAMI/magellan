@@ -168,7 +168,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// optionally, add the MACAddr property if we find a matching IP
 				// from the correct ethernet interface
 				host := sr.Host
-				// function FindMACAddressWithIP expects pure IPS like 127.0.0.1
+				// function FindMACAddressWithIP expects pure a IP like 127.0.0.1
 				// therefore we should remove the prefix if any, ex. https://127.0.0.1
 				sub_str := "https://"
 				if strings.Contains(host, sub_str) {
