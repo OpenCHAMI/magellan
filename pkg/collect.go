@@ -170,9 +170,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				host := sr.Host
 				// function FindMACAddressWithIP expects pure a IP like 127.0.0.1
 				// therefore we should remove the prefix if any, ex. https://127.0.0.1
-				sub_str := "https://"
-				if strings.Contains(host, sub_str) {
-					host = strings.TrimPrefix(sr.Host, sub_str)
+				str_protocol := "https://"
+				if strings.Contains(host, str_protocol) {
+					host = strings.TrimPrefix(sr.Host, str_protocol)
 				}
 				mac, err := FindMACAddressWithIP(config, net.ParseIP(host))
 				if err != nil {
