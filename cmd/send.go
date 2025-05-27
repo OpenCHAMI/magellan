@@ -23,14 +23,14 @@ var (
 var sendCmd = &cobra.Command{
 	Use: "send [data]",
 	Example: `  // minimal working example
-  magellan send -d @inventory.json --host https://smd.openchami.cluster
+  magellan send -d @inventory.json https://smd.openchami.cluster
 
   // send data from multiple files (must specify -f/--format if not JSON)
-  magellan send -d @cluster-1.json -d @cluster-2.json --host https://smd.openchami.cluster
-  magellan send -d '{...}' -d @cluster-1.json --host https://proxy.example.com
+  magellan send -d @cluster-1.json -d @cluster-2.json https://smd.openchami.cluster
+  magellan send -d '{...}' -d @cluster-1.json https://proxy.example.com
 
   // send data to remote host by piping output of collect directly
-  magellan collect -v -F yaml | magellan send -d @inventory.yaml -F yaml --host https://smd.openchami.cluster`,
+  magellan collect -v -F yaml | magellan send -d @inventory.yaml -F yaml https://smd.openchami.cluster`,
 	Short: "Send collected node information to specified host.",
 	Args: func(cmd *cobra.Command, args []string) error {
 		return nil
