@@ -156,7 +156,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					"ID":                 fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
 					"Type":               "",
 					"Name":               "",
-					"FQDN":               sr.Host,
+					"FQDN":               strings.TrimPrefix(sr.Host, "https://"),
 					"User":               bmcCreds.Username,
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
