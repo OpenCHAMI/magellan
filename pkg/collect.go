@@ -133,7 +133,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					"ID":                 fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
 					"Type":               "",
 					"Name":               "",
-					"FQDN":               sr.Host,
+					"FQDN":               strings.TrimPrefix(sr.Host, "https://"),
 					"User":               bmcCreds.Username,
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
@@ -144,9 +144,15 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 				// optionally, add the MACAddr property if we find a matching IP
 				// from the correct ethernet interface
-				mac, err := FindMACAddressWithIP(config, net.ParseIP(url.TrimScheme(sr.Host)))
+
+				host := sr.Host
+				str_protocol := "https://"
+				if strings.Contains(host, str_protocol) {
+					host = strings.TrimPrefix(sr.Host, str_protocol)
+				}
+				mac, err := FindMACAddressWithIP(config, net.ParseIP(host))
 				if err != nil {
-					log.Warn().Err(err).Msgf("failed to find MAC address with IP '%s'", sr.Host)
+					log.Warn().Err(err).Msgf("failed to find MAC address with IP '%s'", host)
 				}
 				if mac != "" {
 					data["MACAddr"] = mac
