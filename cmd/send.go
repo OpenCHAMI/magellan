@@ -68,7 +68,6 @@ var sendCmd = &cobra.Command{
 		}
 		if len(inputData) == 0 {
 			log.Error().Msg("must include data with standard input or -d/--data flag")
-			fmt.Printf("args count: %d, data count: %d, size: %d", len(args), len(sendDataArgs), len(inputData))
 			os.Exit(1)
 		}
 
@@ -131,7 +130,7 @@ var sendCmd = &cobra.Command{
 }
 
 func init() {
-	sendCmd.Flags().StringSliceVarP(&sendDataArgs, "data", "d", []string{}, "Set the data in to send to specified host")
+	sendCmd.Flags().StringArrayVarP(&sendDataArgs, "data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
 	sendCmd.Flags().StringVarP(&sendInputFormat, "format", "F", FORMAT_JSON, "Set the data input format (json|yaml)")
 	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
@@ -154,7 +153,7 @@ func processDataArgs(args []string) []map[string]any {
 	// load data either from file or directly from args
 	var collection = make(JSONArray, len(args))
 	for i, arg := range args {
-		// if arg is empty string, then continue
+		// if arg is empty string, then skip and continue
 		if len(arg) > 0 {
 			// determine if we're reading from file to load contents
 			if strings.HasPrefix(arg, "@") {
