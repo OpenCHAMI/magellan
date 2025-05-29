@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/client"
