@@ -3,17 +3,20 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	showCache bool
+	showCache        bool
+	listOutputFormat string
 )
 
 // The `list` command provides an easy way to show what was found
@@ -41,23 +44,32 @@ var ListCmd = &cobra.Command{
 		if err != nil {
 			log.Error().Err(err).Msg("failed to get scanned assets")
 		}
-		format = strings.ToLower(format)
-		if format == "json" {
+		switch strings.ToLower(listOutputFormat) {
+		case FORMAT_JSON:
 			b, err := json.Marshal(scannedResults)
 			if err != nil {
-				log.Error().Err(err).Msgf("failed to unmarshal scanned results")
+				log.Error().Err(err).Msgf("failed to unmarshal cached data to JSON")
 			}
 			fmt.Printf("%s\n", string(b))
-		} else {
+		case FORMAT_YAML:
+			b, err := yaml.Marshal(scannedResults)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to unmarshal cached data to YAML")
+			}
+			fmt.Printf("%s\n", string(b))
+		case FORMAT_LIST:
 			for _, r := range scannedResults {
 				fmt.Printf("%s:%d (%s) @%s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate))
 			}
+		default:
+			log.Error().Msg("unrecognized format")
+			os.Exit(1)
 		}
 	},
 }
 
 func init() {
-	ListCmd.Flags().StringVar(&format, "format", "", "Set the output format (json|default)")
+	ListCmd.Flags().StringVarP(&listOutputFormat, "format", "F", FORMAT_LIST, "Set the output format (json|yaml|table)")
 	ListCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
 	rootCmd.AddCommand(ListCmd)
 }

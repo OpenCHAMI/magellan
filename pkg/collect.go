@@ -2,12 +2,9 @@
 package magellan
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,10 +12,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"gopkg.in/yaml.v3"
 
 	"github.com/rs/zerolog/log"
 
@@ -38,6 +37,8 @@ type CollectParams struct {
 	CaCertPath  string              // set the cert path with the 'cacert' flag
 	Verbose     bool                // set whether to include verbose output with 'verbose' flag
 	OutputPath  string              // set the path to save output with 'output' flag
+	OutputDir   string              // set the directory path to save output with `output-dir` flag
+	Format      string              // set the output format
 	ForceUpdate bool                // set whether to force updating SMD with 'force-update' flag
 	AccessToken string              // set the access token to include in request with 'access-token' flag
 	SecretStore secrets.SecretStore // set BMC credentials
@@ -66,34 +67,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 		found      = make([]string, 0, len(*assets))
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
-		outputPath = path.Clean(params.OutputPath)
-		smdClient  = &client.SmdClient{Client: &http.Client{}}
 	)
 
 	// set the client's params from CLI
-	// NOTE: temporary solution until client.NewClient() is fixed
-	smdClient.URI = params.URI
-	if params.CaCertPath != "" {
-		cacert, err := os.ReadFile(params.CaCertPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read CA cert path: %w", err)
-		}
-		certPool := x509.NewCertPool()
-		certPool.AppendCertsFromPEM(cacert)
-		smdClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:            certPool,
-				InsecureSkipVerify: true,
-			},
-			DisableKeepAlives: true,
-			Dial: (&net.Dialer{
-				Timeout:   120 * time.Second,
-				KeepAlive: 120 * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout:   120 * time.Second,
-			ResponseHeaderTimeout: 120 * time.Second,
-		}
-	}
 	wg.Add(params.Concurrency)
 	for i := 0; i < params.Concurrency; i++ {
 		go func() {
@@ -141,7 +117,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				}
 
 				// we didn't find anything so do not proceed
-				if len(systems) == 0 && len(managers) == 0 {
+				if util.IsEmpty(systems) && util.IsEmpty(managers) {
 					continue
 				}
 
@@ -167,6 +143,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 				// optionally, add the MACAddr property if we find a matching IP
 				// from the correct ethernet interface
+
 				host := sr.Host
 				str_protocol := "https://"
 				if strings.Contains(host, str_protocol) {
@@ -185,58 +162,8 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				headers.Authorization(params.AccessToken)
 				headers.ContentType("application/json")
 
-				body, err := json.MarshalIndent(data, "", "    ")
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to marshal output to JSON")
-				}
-
-				if params.Verbose {
-					fmt.Printf("%v\n", string(body))
-				}
-
 				// add data output to collections
 				collection = append(collection, data)
-
-				// write JSON data to file if output path is set using hive partitioning strategy
-				if outputPath != "" {
-					var (
-						finalPath = fmt.Sprintf("./%s/%s/%d.json", outputPath, data["ID"], time.Now().Unix())
-						finalDir  = filepath.Dir(finalPath)
-					)
-					// if it doesn't, make the directory and write file
-					err = os.MkdirAll(finalDir, 0o777)
-					if err == nil { // no error
-						err = os.WriteFile(path.Clean(finalPath), body, os.ModePerm)
-						if err != nil {
-							log.Error().Err(err).Msgf("failed to write collect output to file")
-						}
-
-					} else { // error is set
-						log.Error().Err(err).Msg("failed to make directory for collect output")
-					}
-				}
-
-				// add all endpoints to SMD ONLY if a host is provided
-				if smdClient.URI != "" {
-					err = smdClient.Add(body, headers)
-					if err != nil {
-
-						// try updating instead
-						if params.ForceUpdate {
-							smdClient.Xname = data["ID"].(string)
-							err = smdClient.Update(body, headers)
-							if err != nil {
-								log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint")
-							}
-						} else {
-							log.Error().Err(err).Msgf("failed to add Redfish endpoint")
-						}
-					}
-				} else {
-					if params.Verbose {
-						log.Warn().Msg("no request made (host argument is empty)")
-					}
-				}
 
 				// got host information, so add to list of already probed hosts
 				found = append(found, sr.Host)
@@ -268,6 +195,64 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	close(chanAssets)
 	wg.Wait()
 	close(done)
+
+	var (
+		output []byte
+		err    error
+	)
+
+	// format our output to write to file or standard out
+	switch params.Format {
+	case "json":
+		output, err = json.MarshalIndent(collection, "", "    ")
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to marshal output to JSON")
+		}
+	case "yaml":
+		output, err = yaml.Marshal(collection)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to marshal output to YAML")
+		}
+	}
+
+	// print the final combined output at the end to write to file
+	if params.Verbose {
+		fmt.Printf("%v\n", string(output))
+	}
+
+	// write data to file in preset directory if output path is set using set format
+	if params.OutputDir != "" {
+		for _, data := range collection {
+			var (
+				finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), params.Format)
+				finalDir  = filepath.Dir(finalPath)
+			)
+			// if it doesn't, make the directory and write file
+			err = os.MkdirAll(finalDir, 0o777)
+			if err == nil { // no error
+				err = os.WriteFile(path.Clean(finalPath), output, os.ModePerm)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to write collect output to file")
+				}
+			} else { // error is set
+				log.Error().Err(err).Msg("failed to make directory for collect output")
+			}
+		}
+	}
+
+	// write data to only to the path set (no preset directory structure)
+	if params.OutputPath != "" {
+		// if it doesn't, make the directory and write file
+		err = os.MkdirAll(filepath.Dir(params.OutputPath), 0o777)
+		if err == nil { // no error
+			err = os.WriteFile(path.Clean(params.OutputPath), output, os.ModePerm)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to write collect output to file")
+			}
+		} else { // error is set
+			log.Error().Err(err).Msg("failed to make directory for collect output")
+		}
+	}
 
 	return collection, nil
 }
@@ -345,6 +330,7 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 			continue
 		}
 	}
+
 	// no matches found, so return an empty string
 	return "", fmt.Errorf("no ethernet interfaces found with IP address")
 }

@@ -5,6 +5,135 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2]
+
+### Changed
+
+ * Split the `collect` command into `collect` and `send` commands
+ * Allowed piping `collect` output into `send` to allow intermediate data modification
+
+## [0.2.1]
+
+### Added
+
+ * Added defaults to secret store
+ * Added secret store support to `update` command
+ * Added `pkg/bmc` package to handle credentials internal
+  
+### Changed
+
+ * Changed behavior of  `--username` and `--password` flags to partial override credentials
+ * Changed CLI to have more consistent flags
+ 
+## [0.2.0]
+
+### Added
+
+ * Added `secrets` command for managing secrets with `SecretStore`
+ * Added `--username` and `--password` flags to `collect` command
+ * Added short option flags for `--username` and `--password` flags
+ * Added `--secrets-file` flag to `crawl` command
+ * Added static secrets store as fallback
+ * Added function to remove secrets from secrets store
+ * Added secrets lookup to `collect` command
+
+### Changed
+
+ * Changed short options for secret store
+ * Changed details to error messages
+
+### Fixed
+
+ * Fixed `golangci-lint` install command
+ * Fixed issues from running `golangci-lint`
+
+### Updated
+
+ * Updated `golangci-lint` version
+ * Updated logging to be use consistentn JSON formatting
+
+## [0.1.10]
+
+### Fixed
+
+ * Fixed README documentation
+
+## [0.1.9]
+
+### Added
+
+ * Added collection of data return from `CollectInventory()` output
+ * Added initial `SecretStore` interface with `StaticStore` and `LocalStore` implementations for credentials management
+ * Added `--insecure` flag to allow skipping TLS verification for firmware updates
+
+### Fixed
+
+ * Fixed dependabot security issues related to `crypto` package
+ * Fixed URL param not being set for `UpdateFirmwareRemote()`
+ * Fixed links in README documentation
+
+### Changes
+
+ * Improved firmware updating functionality and added BMC identification support
+ * Improved Redfish service connection handling and update status retrieval
+ * Moved internal implementations to `pkg` and updated references
+ * Updated `update` command to use `gofish` package internally
+
+## [0.1.8]
+
+ * Updated build workflow and added container build script
+ * Exported `cobra` commands for external use
+ * Fixed AMD64 microcode version in attestation
+
+## [0.1.7]
+
+ * Refactor how versioning information is indicated in the build and source
+ * Updated Go version
+
+## [0.1.6]
+
+### Added
+
+ * Added functionality to fetch BMC manager data and include in `crawler`'s output
+ * Added IP to manager's ethernet interfaces
+ * Added check to exclude ethernet interface without IPs
+ * Added MACAddr to manager's output
+ * Added function to wait for emulator to start in tests
+ * Added API tests
+ * Added revision to `go install` commands
+ * Added PKGBUILD to install `magellan` as binary on Arch Linux
+ * Added `version` command and corresponding implementation
+
+### Fixed
+
+ * Fixed issue writing output to file with `--output` flag
+ * Fixed hook to output correct filename with `goreleaser`
+ * Fixed typo in Makefile
+ * Fixed releaser .PHONY in Makefile
+ * Fixed issue with tests not working
+
+### Updated
+
+ * Updated `crawl` to fetch and include BMC `Manager` data in output
+ * Updated and refactored `util` package
+ * Updated README.md documentation
+ * Updated `goreleaser` to v2 (v2.3.2)
+ * Updated go dependencies
+ * Updated tests to fix some issues
+ * Updated .gitignore file
+ * Updated Makefile to include `magellan.1` rule
+ * Updated Makefile to build with ldflags
+
+### Changed
+
+ * Changed `crawler`'s internal function names
+ * Changed `test` rule in Makefile to use specific tests
+
+### Removed
+
+ * Removed extra unused `gofish` imports
+ * Removed internal version implementation
+
 ## [0.1.5]
 
 ### Added

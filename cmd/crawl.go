@@ -3,8 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -13,6 +15,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+var crawlOutputFormat string
 
 // The `crawl` command walks a collection of Redfish endpoints to collect
 // specfic inventory detail. This command only expects host names and does
@@ -37,9 +41,10 @@ var CrawlCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			uri   = args[0]
-			store secrets.SecretStore
-			err   error
+			uri    = args[0]
+			store  secrets.SecretStore
+			output []byte
+			err    error
 		)
 
 		if username != "" && password != "" {
@@ -76,24 +81,53 @@ var CrawlCmd = &cobra.Command{
 			store = &nodeCreds
 		}
 
-		systems, err := crawler.CrawlBMCForSystems(crawler.CrawlerConfig{
-			URI:             uri,
-			CredentialStore: store,
-			Insecure:        insecure,
-			UseDefault:      true,
-		})
+		var (
+			systems  []crawler.InventoryDetail
+			managers []crawler.Manager
+			config   = crawler.CrawlerConfig{
+				URI:             uri,
+				CredentialStore: store,
+				Insecure:        insecure,
+				UseDefault:      true,
+			}
+		)
+
+		systems, err = crawler.CrawlBMCForSystems(config)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to crawl BMC")
+			log.Error().Err(err).Msg("failed to crawl BMC for systems")
 		}
-		// Marshal the inventory details to JSON
-		jsonData, err := json.MarshalIndent(systems, "", "  ")
+		managers, err = crawler.CrawlBMCForManagers(config)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to marshal JSON")
-			return
+			log.Error().Err(err).Msg("failed to crawl BMC for managers")
 		}
 
-		// Print the pretty JSON
-		fmt.Println(string(jsonData))
+		data := map[string]any{
+			"Systems":  systems,
+			"Managers": managers,
+		}
+
+		switch crawlOutputFormat {
+		case FORMAT_JSON:
+			// Marshal the inventory details to JSON
+			output, err = json.MarshalIndent(data, "", "  ")
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal JSON")
+				return
+			}
+		case FORMAT_YAML:
+			// Marshal the inventory details to JSON
+			output, err = yaml.Marshal(data)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal JSON")
+				return
+			}
+		default:
+			log.Error().Str("hint", "Try setting --format/-F to 'json' or 'yaml'").Msg("unrecognized format")
+			os.Exit(1)
+		}
+
+		// Print the pretty JSON or YAML
+		fmt.Println(string(output))
 	},
 }
 
@@ -101,8 +135,11 @@ func init() {
 	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
 	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
 	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
-	CrawlCmd.Flags().StringVarP(&secretsFile, "file", "f", "nodes.json", "set the secrets file with BMC credentials")
+	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
+	CrawlCmd.Flags().StringVarP(&crawlOutputFormat, "format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
 
+	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(CrawlCmd)
