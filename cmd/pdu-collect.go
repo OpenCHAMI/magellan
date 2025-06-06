@@ -32,6 +32,7 @@ var pduCollectCmd = &cobra.Command{
 				URI:      host,
 				Username: username,
 				Password: password,
+				Insecure: true,
 			}
 
 			inventory, err := jaws.CrawlPDU(config)
