@@ -34,7 +34,7 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 			"RedfishURL":            redfishURL,
 			"ComponentEndpointType": "ComponentEndpointOutlet",
 			"RedfishOutletInfo": map[string]any{
-				"Name": outlet.Name, // Directly from inventory
+				"Name": outlet.Name,
 				"Actions": map[string]any{
 					"#Outlet.PowerControl": map[string]any{
 						"PowerState@Redfish.AllowableValues": []string{"On", "Off"},
