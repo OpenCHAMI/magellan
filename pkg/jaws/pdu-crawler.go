@@ -1,11 +1,15 @@
 package jaws
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/OpenCHAMI/magellan/pkg/pdu"
+	"github.com/rs/zerolog/log"
 )
 
 type CrawlerConfig struct {
@@ -16,37 +20,75 @@ type CrawlerConfig struct {
 	Timeout  time.Duration
 }
 
-// CrawlPDU connects to a single JAWS PDU and collects its inventory.
+// JawsOutlet represents the structure of a single outlet object
+type JawsOutlet struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	State       string  `json:"state"`
+	Current     float32 `json:"current"`
+	Voltage     float32 `json:"voltage"`
+	ActivePower int     `json:"active_power"`
+}
+
 func CrawlPDU(config CrawlerConfig) (*pdu.PDUInventory, error) {
-	client := &http.Client{
-		Timeout: config.Timeout,
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.Insecure},
 	}
-	_ = client
+	client := &http.Client{
+		Timeout:   config.Timeout,
+		Transport: transport,
+	}
 
 	inventory := &pdu.PDUInventory{
 		Hostname: config.URI,
 	}
 
-	// 1. Get System Info
-	// Should call /jaws/config/info/system
-	// Create a temporary struct to unmarshal the response
-	// and then populate PDU inventory, like is done in CSM.
+	targetURL := fmt.Sprintf("https://%s/jaws/monitor/outlets", config.URI)
 
-	// 2. Get Outlet Status
-	// Should call /jaws/outlet/status or similar endpoint
-	// It will return a list of outlets to parse
+	req, err := http.NewRequest("GET", targetURL, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create new HTTP request")
+		return nil, err
+	}
 
-	fmt.Printf("Crawling JAWS PDU at %s...\n", config.URI)
+	req.SetBasicAuth(config.Username, config.Password)
 
+	log.Debug().Msgf("querying JAWS endpoint: %s", targetURL)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to execute request to JAWS endpoint %s", targetURL)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("received non-200 status code: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		log.Error().Err(err).Str("url", targetURL).Msg("bad response from PDU")
+		return nil, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to read response body")
+		return nil, err
+	}
+	log.Debug().RawJSON("response_body", body).Msg("received response from JAWS")
+
+	var rawOutlets []JawsOutlet
+	if err := json.Unmarshal(body, &rawOutlets); err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal JAWS outlet data")
+		return nil, err
+	}
+
+	for _, rawOutlet := range rawOutlets {
+		outlet := pdu.PDUOutlet{
+			ID:         rawOutlet.ID,
+			Name:       rawOutlet.Name,
+			PowerState: rawOutlet.State,
+		}
+		inventory.Outlets = append(inventory.Outlets, outlet)
+	}
+
+	log.Info().Msgf("successfully collected inventory for %d outlets from %s", len(inventory.Outlets), config.URI)
 	return inventory, nil
 }
-
-/*
-func getSystemInfo(client *http.Client, config CrawlerConfig) (*SystemInfo, error) {
-    // GET to /jaws/config/info/system
-}
-
-func getOutletStatus(client *http.Client, config CrawlerConfig) ([]pdu.PDUOutlet, error) {
-    // GET to /jaws/outlet/status
-}
-*/
