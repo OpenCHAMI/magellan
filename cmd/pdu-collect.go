@@ -10,6 +10,44 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
+	smdRecords := make([]map[string]any, 0)
+
+	rtsHostname := fmt.Sprintf("%s-rts:8083", inventory.Hostname)
+	pduBank := "B"
+
+	for _, outlet := range inventory.Outlets {
+		smdID := fmt.Sprintf("%sp1v%s", inventory.Hostname, outlet.ID)
+		odataID := fmt.Sprintf("/redfish/v1/PowerEquipment/RackPDUs/%s/Outlets/%s", pduBank, outlet.ID)
+		redfishURL := fmt.Sprintf("%s%s", rtsHostname, odataID)
+		powerControlTarget := fmt.Sprintf("%s/Actions/Outlet.PowerControl", odataID)
+
+		record := map[string]any{
+			"ID":                    smdID,
+			"Type":                  "CabinetPDUPowerConnector",
+			"RedfishType":           "Outlet",
+			"RedfishSubtype":        "Cx",
+			"OdataID":               odataID,
+			"RedfishEndpointID":     inventory.Hostname,
+			"Enabled":               true,
+			"RedfishEndpointFQDN":   rtsHostname,
+			"RedfishURL":            redfishURL,
+			"ComponentEndpointType": "ComponentEndpointOutlet",
+			"RedfishOutletInfo": map[string]any{
+				"Name": outlet.Name, // Directly from inventory
+				"Actions": map[string]any{
+					"#Outlet.PowerControl": map[string]any{
+						"PowerState@Redfish.AllowableValues": []string{"On", "Off"},
+						"target":                             powerControlTarget,
+					},
+				},
+			},
+		}
+		smdRecords = append(smdRecords, record)
+	}
+	return smdRecords
+}
+
 var pduCollectCmd = &cobra.Command{
 	Use:   "collect [hosts...]",
 	Short: "Collect inventory from JAWS-based PDUs",
@@ -25,7 +63,8 @@ var pduCollectCmd = &cobra.Command{
 			return
 		}
 
-		collection := make([]*pdu.PDUInventory, 0)
+		allSmdRecords := make([]map[string]any, 0)
+
 		for _, host := range args {
 			log.Info().Msgf("Collecting from PDU: %s", host)
 			config := jaws.CrawlerConfig{
@@ -40,12 +79,15 @@ var pduCollectCmd = &cobra.Command{
 				log.Error().Err(err).Msgf("failed to crawl PDU %s", host)
 				continue
 			}
-			collection = append(collection, inventory)
+
+			smdRecords := transformToSMDFormat(inventory)
+
+			allSmdRecords = append(allSmdRecords, smdRecords...)
 		}
 
-		output, err := json.MarshalIndent(collection, "", "    ")
+		output, err := json.MarshalIndent(allSmdRecords, "", "  ")
 		if err != nil {
-			log.Error().Err(err).Msgf("failed to marshal PDU collection to JSON")
+			log.Error().Err(err).Msgf("failed to marshal SMD records to JSON")
 		}
 		fmt.Println(string(output))
 	},
