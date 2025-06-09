@@ -77,8 +77,8 @@ var pduCollectCmd = &cobra.Command{
 			mockPayload := PayloadForSMD{
 				ID:                 "x9999m0",
 				Type:               "CabinetPDUController",
-				FQDN:               "x9999m0-rts.mock:8083",
-				Hostname:           "x9999m0-rts.mock:8083",
+				FQDN:               "x9999m0-rts.mock",
+				Hostname:           "x9999m0-rts.mock",
 				Enabled:            true,
 				RediscoverOnUpdate: false,
 				PDUInventory: PDUInventoryForSMD{
