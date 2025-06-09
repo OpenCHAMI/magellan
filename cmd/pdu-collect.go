@@ -91,8 +91,9 @@ var pduCollectCmd = &cobra.Command{
 					},
 				},
 			}
+			payloadCollection := []PayloadForSMD{mockPayload}
 
-			jsonData, err := json.MarshalIndent(mockPayload, "", "  ")
+			jsonData, err := json.MarshalIndent(payloadCollection, "", "  ")
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to marshal mock payload")
 			}
