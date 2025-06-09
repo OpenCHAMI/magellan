@@ -77,14 +77,14 @@ var pduCollectCmd = &cobra.Command{
 			mockPayload := PayloadForSMD{
 				ID:                 "x9999m0",
 				Type:               "CabinetPDUController",
-				FQDN:               "x9999m0-rts.mock",
-				Hostname:           "x9999m0-rts.mock",
+				FQDN:               "x9999m0rts",
+				Hostname:           "x9999m0rts",
 				Enabled:            true,
 				RediscoverOnUpdate: false,
 				PDUInventory: PDUInventoryForSMD{
-					Model:           "MOCK-PRO2",
-					SerialNumber:    "MOCK-SN-12345",
-					FirmwareVersion: "v9.9z",
+					Model:           "MOCKPRO2",
+					SerialNumber:    "MOCKSN12345",
+					FirmwareVersion: "v99z",
 					Outlets: []any{
 						map[string]string{"id": "ZA01", "name": "Mock_Server_01", "state": "On", "socket_type": "Cx"},
 						map[string]string{"id": "ZA02", "name": "Mock_Server_02", "state": "Off", "socket_type": "Cx"},
