@@ -75,10 +75,10 @@ var pduCollectCmd = &cobra.Command{
 			}
 
 			mockPayload := PayloadForSMD{
-				ID:                 "x3000c0b0",
+				ID:                 "x1000c1s7b0n0",
 				Type:               "CabinetPDUController",
-				FQDN:               "x9999m0rts",
-				Hostname:           "x9999m0rts",
+				FQDN:               "172.24.0.3",
+				Hostname:           "x1000c1s7b0n0",
 				Enabled:            true,
 				RediscoverOnUpdate: false,
 				PDUInventory: PDUInventoryForSMD{
