@@ -78,7 +78,7 @@ var pduCollectCmd = &cobra.Command{
 				ID:                 "x1000c1s7b0n0",
 				Type:               "CabinetPDUController",
 				FQDN:               "172.24.0.3",
-				Hostname:           "x9999m0rts",
+				Hostname:           "172.24.0.3",
 				Enabled:            true,
 				RediscoverOnUpdate: false,
 				PDUInventory: PDUInventoryForSMD{
