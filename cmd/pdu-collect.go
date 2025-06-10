@@ -75,7 +75,7 @@ var pduCollectCmd = &cobra.Command{
 			}
 
 			mockPayload := PayloadForSMD{
-				ID:                 "x3000m0",
+				ID:                 "x1000c1s7b0",
 				Type:               "Node",
 				FQDN:               "x3000m0asd",
 				Hostname:           "x3000m0asd",
