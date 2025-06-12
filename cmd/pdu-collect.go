@@ -13,41 +13,29 @@ import (
 var mock bool
 
 func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
-	smdRecords := make([]map[string]any, 0)
-
-	rtsHostname := fmt.Sprintf("%s-rts:8083", inventory.Hostname)
-	pduBank := "B"
-
+	smdOutlets := make([]map[string]any, 0)
 	for _, outlet := range inventory.Outlets {
-		smdID := fmt.Sprintf("%sp1v%s", inventory.Hostname, outlet.ID)
-		odataID := fmt.Sprintf("/redfish/v1/PowerEquipment/RackPDUs/%s/Outlets/%s", pduBank, outlet.ID)
-		redfishURL := fmt.Sprintf("%s%s", rtsHostname, odataID)
-		powerControlTarget := fmt.Sprintf("%s/Actions/Outlet.PowerControl", odataID)
-
-		record := map[string]any{
-			"ID":                    smdID,
-			"Type":                  "CabinetPDUPowerConnector",
-			"RedfishType":           "Outlet",
-			"RedfishSubtype":        "Cx",
-			"OdataID":               odataID,
-			"RedfishEndpointID":     inventory.Hostname,
-			"Enabled":               true,
-			"RedfishEndpointFQDN":   rtsHostname,
-			"RedfishURL":            redfishURL,
-			"ComponentEndpointType": "ComponentEndpointOutlet",
-			"RedfishOutletInfo": map[string]any{
-				"Name": outlet.Name,
-				"Actions": map[string]any{
-					"#Outlet.PowerControl": map[string]any{
-						"PowerState@Redfish.AllowableValues": []string{"On", "Off"},
-						"target":                             powerControlTarget,
-					},
-				},
-			},
+		rawOutlet := map[string]any{
+			"id":          outlet.ID,
+			"name":        outlet.Name,
+			"state":       outlet.State,
+			"socket_type": outlet.SocketType,
 		}
-		smdRecords = append(smdRecords, record)
+		smdOutlets = append(smdOutlets, rawOutlet)
 	}
-	return smdRecords
+
+	pduRecord := map[string]any{
+		"ID":                 inventory.Hostname,
+		"Type":               "Node",
+		"FQDN":               inventory.Hostname,
+		"Hostname":           inventory.Hostname,
+		"Enabled":            true,
+		"RediscoverOnUpdate": false,
+		"PDUInventory": map[string]any{
+			"Outlets": smdOutlets,
+		},
+	}
+	return []map[string]any{pduRecord}
 }
 
 var pduCollectCmd = &cobra.Command{
