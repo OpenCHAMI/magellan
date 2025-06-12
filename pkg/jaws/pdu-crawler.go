@@ -30,44 +30,6 @@ type JawsOutlet struct {
 	ActivePower int     `json:"active_power"`
 }
 
-// JawsSystemInfo is the struct to unmarshal /jaws/config/info/system
-type JawsSystemInfo struct {
-	Model           string `json:"model"`
-	SerialNumber    string `json:"serial_number"`
-	FirmwareVersion string `json:"firmware_version"`
-}
-
-// getSystemInfo queries the PDU for overall system details.
-func getSystemInfo(client *http.Client, config CrawlerConfig) (*JawsSystemInfo, error) {
-	targetURL := fmt.Sprintf("https://%s/jaws/config/info/system", config.URI)
-	req, err := http.NewRequest("GET", targetURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create system info request: %w", err)
-	}
-	req.SetBasicAuth(config.Username, config.Password)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute system info request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-200 status code from system info endpoint: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read system info response body: %w", err)
-	}
-
-	var systemInfo JawsSystemInfo
-	if err := json.Unmarshal(body, &systemInfo); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal system info: %w", err)
-	}
-	return &systemInfo, nil
-}
-
 // CrawlPDU connects to a single JAWS PDU and collects its full inventory.
 func CrawlPDU(config CrawlerConfig) (*pdu.PDUInventory, error) {
 	transport := &http.Transport{
@@ -80,16 +42,6 @@ func CrawlPDU(config CrawlerConfig) (*pdu.PDUInventory, error) {
 
 	inventory := &pdu.PDUInventory{
 		Hostname: config.URI,
-	}
-
-	systemInfo, err := getSystemInfo(client, config)
-	if err != nil {
-		log.Warn().Err(err).Msgf("could not retrieve system info for %s, proceeding without it", config.URI)
-	} else if systemInfo != nil {
-		inventory.Model = systemInfo.Model
-		inventory.SerialNumber = systemInfo.SerialNumber
-		inventory.FirmwareVersion = systemInfo.FirmwareVersion
-		log.Info().Msgf("successfully collected system info from %s", config.URI)
 	}
 
 	targetURL := fmt.Sprintf("https://%s/jaws/monitor/outlets", config.URI)

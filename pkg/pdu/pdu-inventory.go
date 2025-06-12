@@ -7,9 +7,6 @@ type PDUOutlet struct {
 }
 
 type PDUInventory struct {
-	Hostname        string      `json:"hostname"`
-	Model           string      `json:"model,omitempty"`
-	SerialNumber    string      `json:"serial_number,omitempty"`
-	FirmwareVersion string      `json:"firmware_version,omitempty"`
-	Outlets         []PDUOutlet `json:"outlets"`
+	Hostname string      `json:"hostname"`
+	Outlets  []PDUOutlet `json:"outlets"`
 }
