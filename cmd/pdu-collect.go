@@ -18,8 +18,8 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 		rawOutlet := map[string]any{
 			"id":          outlet.ID,
 			"name":        outlet.Name,
-			"state":       outlet.State,
-			"socket_type": outlet.SocketType,
+			"state":       outlet.PowerState,
+			"socket_type": "Cx",
 		}
 		smdOutlets = append(smdOutlets, rawOutlet)
 	}
@@ -35,6 +35,7 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 			"Outlets": smdOutlets,
 		},
 	}
+
 	return []map[string]any{pduRecord}
 }
 
