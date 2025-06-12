@@ -44,49 +44,6 @@ var pduCollectCmd = &cobra.Command{
 	Short: "Collect inventory from JAWS-based PDUs",
 	Long:  `Connects to one or more PDUs with a JAWS interface to collect hardware inventory.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if mock {
-			log.Info().Msg("Running in --mock mode. Generating hardcoded PDU payload to standard output.")
-
-			type PDUInventoryForSMD struct {
-				Model           string `json:"Model"`
-				SerialNumber    string `json:"SerialNumber"`
-				FirmwareVersion string `json:"FirmwareVersion"`
-				Outlets         []any  `json:"Outlets"`
-			}
-			type PayloadForSMD struct {
-				ID                 string             `json:"ID"`
-				Type               string             `json:"Type"`
-				FQDN               string             `json:"FQDN"`
-				Hostname           string             `json:"Hostname"`
-				Enabled            bool               `json:"Enabled"`
-				RediscoverOnUpdate bool               `json:"RediscoverOnUpdate"`
-				PDUInventory       PDUInventoryForSMD `json:"PDUInventory"`
-			}
-
-			mockPayload := PayloadForSMD{
-				ID:                 "x3000m0",
-				Type:               "Node",
-				FQDN:               "x3000m0",
-				Hostname:           "x3000m0",
-				Enabled:            true,
-				RediscoverOnUpdate: false,
-				PDUInventory: PDUInventoryForSMD{
-					Outlets: []any{
-						map[string]string{"id": "BA35", "name": "Link1_Outlet_35", "state": "On", "socket_type": "Cx"},
-						map[string]string{"id": "BA36", "name": "Link1_Outlet_36", "state": "Off", "socket_type": "Cx"},
-					},
-				},
-			}
-			payloadCollection := []PayloadForSMD{mockPayload}
-
-			jsonData, err := json.MarshalIndent(payloadCollection, "", "  ")
-			if err != nil {
-				log.Fatal().Err(err).Msg("Failed to marshal mock payload")
-			}
-
-			fmt.Println(string(jsonData))
-			return
-		}
 		if len(args) == 0 {
 			log.Error().Msg("no PDU hosts provided")
 			return
@@ -132,5 +89,4 @@ func init() {
 
 	pduCollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the PDU username")
 	pduCollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the PDU password")
-	pduCollectCmd.Flags().BoolVar(&mock, "mock", false, "Run in mock mode, sending hardcoded data to SMD")
 }
