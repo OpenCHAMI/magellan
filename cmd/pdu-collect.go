@@ -82,12 +82,9 @@ var pduCollectCmd = &cobra.Command{
 				Enabled:            true,
 				RediscoverOnUpdate: false,
 				PDUInventory: PDUInventoryForSMD{
-					Model:           "MOCKPRO2",
-					SerialNumber:    "MOCKSN12345",
-					FirmwareVersion: "v99z",
 					Outlets: []any{
-						map[string]string{"id": "ZA01", "name": "Mock_Server_01", "state": "On", "socket_type": "Cx"},
-						map[string]string{"id": "ZA02", "name": "Mock_Server_02", "state": "Off", "socket_type": "Cx"},
+						map[string]string{"id": "BA35", "name": "Link1_Outlet_35", "state": "On", "socket_type": "Cx"},
+						map[string]string{"id": "BA36", "name": "Link1_Outlet_36", "state": "Off", "socket_type": "Cx"},
 					},
 				},
 			}
