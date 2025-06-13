@@ -27,7 +27,7 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 
 		var pValue int
 		if len(letterPart) > 1 {
-			pValue = int(unicode.ToUpper(rune(letterPart[1])) - 'A')
+			pValue = int(unicode.ToUpper(rune(letterPart[0])) - 'A')
 		}
 		
 		idSuffix := fmt.Sprintf("p%dv%s", pValue, numberPart)
