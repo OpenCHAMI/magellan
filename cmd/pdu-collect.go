@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"unicode"
 
 	"github.com/OpenCHAMI/magellan/pkg/jaws"
 	"github.com/OpenCHAMI/magellan/pkg/pdu"
@@ -10,16 +12,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var mock bool
-
 func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 	smdOutlets := make([]map[string]any, 0)
 	for _, outlet := range inventory.Outlets {
+		var letterPart, numberPart string
+		splitIndex := strings.IndexFunc(outlet.ID, unicode.IsDigit)
+
+		if splitIndex == -1 {
+			log.Warn().Msgf("could not parse outlet ID format for '%s', skipping outlet", outlet.ID)
+			continue
+		}
+
+		letterPart = outlet.ID[:splitIndex]
+		numberPart = outlet.ID[splitIndex:]
+
+		var pValue int
+		if len(letterPart) > 1 {
+			pValue = int(unicode.ToUpper(rune(letterPart[1])) - 'A')
+		}
+
+		newIDSuffix := fmt.Sprintf("p%dv%s", pValue, numberPart)
+
 		rawOutlet := map[string]any{
-			"id":          outlet.ID,
+			"id":          newIDSuffix, // Pass the newly formatted suffix to SMD
 			"name":        outlet.Name,
 			"state":       outlet.PowerState,
-			"socket_type": "Cx",
+			"socket_type": "Cx", // This seems to be static
 		}
 		smdOutlets = append(smdOutlets, rawOutlet)
 	}
