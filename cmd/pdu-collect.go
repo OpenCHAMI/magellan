@@ -26,10 +26,10 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 		numberPart = outlet.ID[splitIndex:]
 
 		var pValue int
-		if len(letterPart) > 1 {
+		if len(letterPart) > 0 {
 			pValue = int(unicode.ToUpper(rune(letterPart[0])) - 'A')
 		}
-		
+
 		idSuffix := fmt.Sprintf("p%dv%s", pValue, numberPart)
 
 		rawOutlet := map[string]any{
@@ -57,8 +57,8 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 	return []map[string]any{pduRecord}
 }
 
-var pduCollectCmd = &cobra.Command{
-	Use:   "collect [hosts...]",
+var pduCmd = &cobra.Command{
+	Use:   "pdu [hosts...]",
 	Short: "Collect inventory from JAWS-based PDUs",
 	Long:  `Connects to one or more PDUs with a JAWS interface to collect hardware inventory.`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -103,8 +103,8 @@ var pduCollectCmd = &cobra.Command{
 }
 
 func init() {
-	PduCmd.AddCommand(pduCollectCmd)
+	pduCmd.Flags().StringVarP(&username, "username", "u", "", "Set the PDU username")
+	pduCmd.Flags().StringVarP(&password, "password", "p", "", "Set the PDU password")
 
-	pduCollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the PDU username")
-	pduCollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the PDU password")
+	CollectCmd.AddCommand(pduCmd)
 }
