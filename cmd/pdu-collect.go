@@ -22,7 +22,6 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 			log.Warn().Msgf("could not parse outlet ID format for '%s', skipping outlet", outlet.ID)
 			continue
 		}
-
 		letterPart = outlet.ID[:splitIndex]
 		numberPart = outlet.ID[splitIndex:]
 
@@ -30,14 +29,15 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 		if len(letterPart) > 1 {
 			pValue = int(unicode.ToUpper(rune(letterPart[1])) - 'A')
 		}
-
-		newIDSuffix := fmt.Sprintf("p%dv%s", pValue, numberPart)
+		
+		idSuffix := fmt.Sprintf("p%dv%s", pValue, numberPart)
 
 		rawOutlet := map[string]any{
-			"id":          newIDSuffix, // Pass the newly formatted suffix to SMD
+			"original_id": outlet.ID,
+			"id_suffix":   idSuffix,
 			"name":        outlet.Name,
 			"state":       outlet.PowerState,
-			"socket_type": "Cx", // This seems to be static
+			"socket_type": outlet.SocketType,
 		}
 		smdOutlets = append(smdOutlets, rawOutlet)
 	}

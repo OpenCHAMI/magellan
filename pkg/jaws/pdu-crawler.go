@@ -25,6 +25,7 @@ type JawsOutlet struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	State       string  `json:"state"`
+	SocketType 	string  `json:"socket_type"`
 	Current     float32 `json:"current"`
 	Voltage     float32 `json:"voltage"`
 	ActivePower int     `json:"active_power"`
@@ -85,6 +86,7 @@ func CrawlPDU(config CrawlerConfig) (*pdu.PDUInventory, error) {
 			ID:         rawOutlet.ID,
 			Name:       rawOutlet.Name,
 			PowerState: rawOutlet.State,
+			SocketType: rawOutlet.SocketType,
 		}
 		inventory.Outlets = append(inventory.Outlets, outlet)
 	}
