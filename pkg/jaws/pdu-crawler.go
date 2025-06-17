@@ -25,7 +25,7 @@ type JawsOutlet struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	State       string  `json:"state"`
-	SocketType 	string  `json:"socket_type"`
+	SocketType  string  `json:"socket_type"`
 	Current     float32 `json:"current"`
 	Voltage     float32 `json:"voltage"`
 	ActivePower int     `json:"active_power"`
