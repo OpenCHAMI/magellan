@@ -250,6 +250,18 @@ This maintains the original behavior of passing the `--host` flag to `collect` w
 >     └── 1747550498.yaml
 > ```
 
+### PDU Inventory Collection
+
+In addition to collecting Redfish inventory from BMCs, `magellan` can also collect inventory from Power Distribution Units (PDUs) that expose a JAWS-style API. The `collect` command has a `pdu` subcommand for this purpose.
+
+The command connects to the specified PDU host(s), gathers all outlet information, and transforms it into the nested JSON format required by SMD in OpenCHAMI.
+
+The most common workflow is to collect from the PDU and pipe the JSON output directly to the `magellan send` command, which then POSTs the data to a running SMD instance.
+
+```bash
+# Collect from a PDU and pipe the output directly to a local SMD instance
+./magellan collect pdu pdu.example.com --username admin --password "pdu-password" | ./magellan send http://localhost:27779
+
 ### Managing Secrets
 
 When connecting to an array of BMC nodes, some nodes may have different secret credentials than the rest. These secrets can be stored and used automatically by `magellan` when performing a `collect` or a `crawl`. All secrets are encrypted and are only accessible using the same `MASTER_KEY` as when stored originally.
