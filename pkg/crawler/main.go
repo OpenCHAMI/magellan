@@ -59,6 +59,18 @@ type Manager struct {
 	EthernetInterfaces []EthernetInterface `json:"ethernet_interfaces,omitempty"`
 }
 
+type Power struct {
+	URL        string   `json:"url,omitempty"`
+	Actions    []string `json:"actions,omitempty"`
+	ResetTypes []string `json:"reset_types,omitempty"`
+	State      string   `json:"state,omitempty"`
+}
+
+type Links struct {
+	Chassis  []string `json:"chassis,omitempty"`
+	Managers []string `json:"managers,omitempty"`
+}
+
 type InventoryDetail struct {
 	URI                  string              `json:"uri,omitempty"`                  // URI of the BMC
 	UUID                 string              `json:"uuid,omitempty"`                 // UUID of Node
@@ -70,7 +82,7 @@ type InventoryDetail struct {
 	BiosVersion          string              `json:"bios_version,omitempty"`         // Version of the BIOS
 	EthernetInterfaces   []EthernetInterface `json:"ethernet_interfaces,omitempty"`  // Ethernet interfaces of the Node
 	NetworkInterfaces    []NetworkInterface  `json:"network_interfaces,omitempty"`   // Network interfaces of the Node
-	PowerState           string              `json:"power_state,omitempty"`          // Power state of the Node
+	Power                Power               `json:"power,omitempty"`                // Power state of the Node
 	ProcessorCount       int                 `json:"processor_count,omitempty"`      // Processors of the Node
 	ProcessorType        string              `json:"processor_type,omitempty"`       // Processor type of the Node
 	MemoryTotal          float32             `json:"memory_total,omitempty"`         // Total memory of the Node in Gigabytes
@@ -81,6 +93,7 @@ type InventoryDetail struct {
 	Chassis_AssetTag     string              `json:"chassis_asset_tag,omitempty"`    // Asset tag of the Chassis
 	Chassis_Manufacturer string              `json:"chassis_manufacturer,omitempty"` // Manufacturer of the Chassis
 	Chassis_Model        string              `json:"chassis_model,omitempty"`        // Model of the Chassis
+	Links                Links               `json:"links,omitempty"`                // Links to specific resources
 }
 
 // CrawlBMCForSystems pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
@@ -131,9 +144,23 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 		for _, chassis := range rf_chassis {
 			rf_chassis_systems, err := chassis.ComputerSystems()
 			if err == nil {
-				rf_systems = append(rf_systems, rf_chassis_systems...)
+				// rf_systems = append(rf_systems, rf_chassis_systems...)
 				log.Debug().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
 			}
+
+			// Walk the systems found under Chassis with reference
+			newSystems, err := walkSystems(rf_chassis_systems, chassis, config.URI)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("chassis_id", chassis.ID).
+					Str("uri", config.URI).
+					Msg("failed to get systems in chassis...continuing...")
+				continue
+			}
+
+			// add systems found from chassis to total collection
+			systems = append(systems, newSystems...)
 		}
 	}
 	rf_root_systems, err := rf_service.Systems()
@@ -142,7 +169,12 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	}
 	log.Debug().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
 	rf_systems = append(rf_systems, rf_root_systems...)
-	return walkSystems(rf_systems, nil, config.URI)
+	newSystems, err := walkSystems(rf_systems, nil, config.URI)
+	if err != nil {
+		return systems, fmt.Errorf("failed to get systems: %v", err)
+	}
+	systems = append(systems, newSystems...)
+	return systems, nil
 }
 
 // CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -231,16 +263,47 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chassis, baseURI string) ([]InventoryDetail, error) {
 	systems := []InventoryDetail{}
 	for _, rf_computersystem := range rf_systems {
+		var (
+			managerLinks []string
+			chassisLinks []string
+		)
+
+		// get all of the links to managers
+		rf_managers, err := rf_computersystem.ManagedBy()
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to get system managers")
+			log.Error().
+				Err(err).
+				Str("id", rf_computersystem.ID).
+				Str("system", rf_computersystem.Name).
+				Msg("failed to get manager for system")
+		} else {
+			for _, manager := range rf_managers {
+				managerLinks = append(managerLinks, manager.ID)
+			}
+		}
+
+		if rf_chassis != nil {
+			chassisLinks = append(chassisLinks, rf_chassis.ID)
+		}
+
+		// get all of the links to the chassis
 		system := InventoryDetail{
-			URI:            baseURI + "/redfish/v1/Systems/" + rf_computersystem.ID,
-			UUID:           rf_computersystem.UUID,
-			Name:           rf_computersystem.Name,
-			Manufacturer:   rf_computersystem.Manufacturer,
-			SystemType:     string(rf_computersystem.SystemType),
-			Model:          rf_computersystem.Model,
-			Serial:         rf_computersystem.SerialNumber,
-			BiosVersion:    rf_computersystem.BIOSVersion,
-			PowerState:     string(rf_computersystem.PowerState),
+			URI:          baseURI + "/redfish/v1/Systems/" + rf_computersystem.ID,
+			UUID:         rf_computersystem.UUID,
+			Name:         rf_computersystem.Name,
+			Manufacturer: rf_computersystem.Manufacturer,
+			SystemType:   string(rf_computersystem.SystemType),
+			Model:        rf_computersystem.Model,
+			Serial:       rf_computersystem.SerialNumber,
+			BiosVersion:  rf_computersystem.BIOSVersion,
+			Links: Links{
+				Managers: managerLinks,
+				Chassis:  chassisLinks,
+			},
+			Power: Power{
+				State: string(rf_computersystem.PowerState),
+			},
 			ProcessorCount: rf_computersystem.ProcessorSummary.Count,
 			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
 			MemoryTotal:    rf_computersystem.MemorySummary.TotalSystemMemoryGiB,
@@ -257,7 +320,6 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 		if err != nil {
 			log.Error().Err(err).Msg("failed to get ethernet interfaces from computer system")
 			return systems, err
-
 		}
 		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
 			ethernetinterface := EthernetInterface{
@@ -368,6 +430,43 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 	}
 	return managers, nil
 }
+
+// func getPowerInfo(serviceroot *gofish.Service) ([]Power, error) {
+// 	// get the power control related information (Actions, URL, PowerControl, Links, etc.)
+
+// 	// get the SupportedResetTypes from /redfish/v1/Systems
+// 	// get the Power/PowerControl from /redfish/v1/Chassis
+// 	rf_chassis, err := serviceroot.Chassis()
+// 	if err != nil {
+
+// 	}
+
+// 	power := []Power{}
+// 	for _, chassis := range rf_chassis {
+// 		rf_power, err := chassis.Power()
+// 		if err != nil {
+
+// 		}
+// 		rf_computersystems, err := chassis.ComputerSystems()
+// 		if err != nil {
+
+// 		}
+
+// 		for _, computersystem := range rf_computersystems {
+// 			computersystem.SupportedResetTypes
+// 		}
+
+// 		power = append(power, Power{
+// 			URL: "",
+// 			Control: PowerControl{
+// 				MemberID:     "",
+// 				ResetTypes:   rf_computersystem.SupportedResetTypes,
+// 				RelatedItems: []string{},
+// 			},
+// 		})
+// 	}
+
+// }
 
 func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
 	// NOTE: it is possible for the SecretStore to be nil, so we need a check
