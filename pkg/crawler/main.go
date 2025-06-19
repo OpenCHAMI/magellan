@@ -65,9 +65,9 @@ type Links struct {
 }
 
 type Power struct {
-	State         string
-	Mode          string
-	RestorePolicy string
+	State         string `json:"state,omitempty"`
+	Mode          string `json:"mode,omitempty"`
+	RestorePolicy string `json:"restore_policy"`
 }
 
 type InventoryDetail struct {
