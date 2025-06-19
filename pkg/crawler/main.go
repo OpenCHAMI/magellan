@@ -279,12 +279,12 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 				Msg("failed to get manager for system")
 		} else {
 			for _, manager := range rf_managers {
-				managerLinks = append(managerLinks, manager.ID)
+				managerLinks = append(managerLinks, manager.ODataID)
 			}
 		}
 
 		if rf_chassis != nil {
-			chassisLinks = append(chassisLinks, rf_chassis.ID)
+			chassisLinks = append(chassisLinks, rf_chassis.ODataID)
 		}
 
 		// get all of the links to the chassis
