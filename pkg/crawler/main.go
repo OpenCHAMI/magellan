@@ -59,16 +59,15 @@ type Manager struct {
 	EthernetInterfaces []EthernetInterface `json:"ethernet_interfaces,omitempty"`
 }
 
-type Power struct {
-	URL        string   `json:"url,omitempty"`
-	Actions    []string `json:"actions,omitempty"`
-	ResetTypes []string `json:"reset_types,omitempty"`
-	State      string   `json:"state,omitempty"`
-}
-
 type Links struct {
 	Chassis  []string `json:"chassis,omitempty"`
 	Managers []string `json:"managers,omitempty"`
+}
+
+type Power struct {
+	State         string
+	Mode          string
+	RestorePolicy string
 }
 
 type InventoryDetail struct {
@@ -82,7 +81,8 @@ type InventoryDetail struct {
 	BiosVersion          string              `json:"bios_version,omitempty"`         // Version of the BIOS
 	EthernetInterfaces   []EthernetInterface `json:"ethernet_interfaces,omitempty"`  // Ethernet interfaces of the Node
 	NetworkInterfaces    []NetworkInterface  `json:"network_interfaces,omitempty"`   // Network interfaces of the Node
-	Power                Power               `json:"power,omitempty"`                // Power state of the Node
+	Actions              []string            `json:"actions,omitempty"`              // Available actions for Node
+	Power                Power               `json:"power,omitempty"`                // Power related settings of Node
 	ProcessorCount       int                 `json:"processor_count,omitempty"`      // Processors of the Node
 	ProcessorType        string              `json:"processor_type,omitempty"`       // Processor type of the Node
 	MemoryTotal          float32             `json:"memory_total,omitempty"`         // Total memory of the Node in Gigabytes
@@ -287,6 +287,12 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			chassisLinks = append(chassisLinks, rf_chassis.ODataID)
 		}
 
+		// convert supported reset types to []string
+		actions := []string{}
+		for _, action := range rf_computersystem.SupportedResetTypes {
+			actions = append(actions, string(action))
+		}
+
 		// get all of the links to the chassis
 		system := InventoryDetail{
 			URI:          baseURI + "/redfish/v1/Systems/" + rf_computersystem.ID,
@@ -302,8 +308,11 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 				Chassis:  chassisLinks,
 			},
 			Power: Power{
-				State: string(rf_computersystem.PowerState),
+				Mode:          string(rf_computersystem.PowerMode),
+				State:         string(rf_computersystem.PowerState),
+				RestorePolicy: string(rf_computersystem.PowerRestorePolicy),
 			},
+			Actions:        actions,
 			ProcessorCount: rf_computersystem.ProcessorSummary.Count,
 			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
 			MemoryTotal:    rf_computersystem.MemorySummary.TotalSystemMemoryGiB,
