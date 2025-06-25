@@ -67,8 +67,8 @@ type Links struct {
 type Power struct {
 	State           string   `json:"state,omitempty"`
 	Mode            string   `json:"mode,omitempty"`
-	RestorePolicy   string   `json:"restore_policy"`
-	PowerControlIDs []string `json:"power_control_ids`
+	RestorePolicy   string   `json:"restore_policy,omitempty"`
+	PowerControlIDs []string `json:"power_control_ids,omitempty"`
 }
 
 type InventoryDetail struct {
@@ -265,8 +265,10 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 	systems := []InventoryDetail{}
 	for _, rf_computersystem := range rf_systems {
 		var (
-			managerLinks []string
-			chassisLinks []string
+			managerLinks    []string
+			chassisLinks    []string
+			power           *redfish.Power
+			powercontrolIDs []string
 		)
 
 		// get all of the links to managers
@@ -286,24 +288,25 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 
 		if rf_chassis != nil {
 			chassisLinks = append(chassisLinks, rf_chassis.ODataID)
+
+			// get power-related details from rf_chassis
+			power, err = rf_chassis.Power()
+			if err != nil {
+				log.Warn().Err(err).Str("id", rf_computersystem.ID).
+					Str("system", rf_computersystem.Name).Msg("failed to get power-related details from chassis")
+			}
+
+			// extract the power control odata.id resource
+			powercontrolIDs := []string{}
+			for _, rf_powercontrol := range power.PowerControl {
+				powercontrolIDs = append(powercontrolIDs, rf_powercontrol.ODataID)
+			}
 		}
 
 		// convert supported reset types to []string
 		actions := []string{}
 		for _, action := range rf_computersystem.SupportedResetTypes {
 			actions = append(actions, string(action))
-		}
-
-		// get power-related details from rf_chassis
-		power, err := rf_chassis.Power()
-		if err != nil {
-			log.Warn().Err(err).Str("id", rf_computersystem.ID).
-				Str("system", rf_computersystem.Name).Msg("failed to get power-related details from chassis")
-		}
-		// extract the power control odata.id resource
-		powercontrolIDs := []string{}
-		for _, rf_powercontrol := range power.PowerControl {
-			powercontrolIDs = append(powercontrolIDs, rf_powercontrol.ODataID)
 		}
 
 		// get all of the links to the chassis
