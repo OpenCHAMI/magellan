@@ -294,12 +294,13 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			if err != nil {
 				log.Warn().Err(err).Str("id", rf_computersystem.ID).
 					Str("system", rf_computersystem.Name).Msg("failed to get power-related details from chassis")
-			}
-
-			// extract the power control odata.id resource
-			powercontrolIDs := []string{}
-			for _, rf_powercontrol := range power.PowerControl {
-				powercontrolIDs = append(powercontrolIDs, rf_powercontrol.ODataID)
+			} else {
+				// extract the power control odata.id resource
+				if power != nil {
+					for _, rf_powercontrol := range power.PowerControl {
+						powercontrolIDs = append(powercontrolIDs, rf_powercontrol.ODataID)
+					}
+				}
 			}
 		}
 
