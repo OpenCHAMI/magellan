@@ -24,7 +24,6 @@ var (
 	targetHosts    [][]string
 	disableProbing bool
 	disableCache   bool
-	insecure       bool
 )
 
 // The `scan` command is usually the first step to using the CLI tool.
