@@ -76,12 +76,10 @@ var DaemonCmd = &cobra.Command{
 		// Subscribe to Redfish power events, or add to polling list if sub fails
 		for _, r := range scannedResults {
 			store := store
-			uri := fmt.Sprintf("%s://%s", r.Protocol, r.Host)
-			fmt.Printf("DEBUG: Composed URI %s\n", uri)
 			if fetchCreds {
 				// Either none of the flags were passed or only one of them were; get
 				// credentials from secrets store to fill in the gaps.
-				bmcCreds, _ := bmc.GetBMCCredentials(store, uri)
+				bmcCreds, _ := bmc.GetBMCCredentials(store, r.Host)
 				nodeCreds := secrets.StaticStore{
 					Username: bmcCreds.Username,
 					Password: bmcCreds.Password,
@@ -102,7 +100,7 @@ var DaemonCmd = &cobra.Command{
 			}
 
 			var config = crawler.CrawlerConfig{
-				URI:             uri,
+				URI:             r.Host,
 				CredentialStore: store,
 				Insecure:        insecure,
 				UseDefault:      true,
@@ -117,7 +115,7 @@ var DaemonCmd = &cobra.Command{
 				Context:          "",
 			})
 			if err != nil {
-				log.Error().Err(err).Msgf("could not create event subscription on %s, falling back to polling", uri)
+				log.Error().Err(err).Msgf("could not create event subscription on %s, falling back to polling", r.Host)
 				// TODO:
 				continue
 			}
