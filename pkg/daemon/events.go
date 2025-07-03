@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"fmt"
 	"encoding/json"
 
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -26,10 +25,10 @@ type Subscription struct {
 //
 // Returns:
 //   - error: An error object if any error occurs during the connection or retrieval process.
-func CreateBMCPowerSubscription(config crawler.CrawlerConfig, sub Subscription) error {
+func CreateBMCPowerSubscription(config crawler.CrawlerConfig, sub Subscription) (string, error) {
 	client, err := crawler.GetBMCClient(config)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer client.Logout()
 
@@ -41,7 +40,7 @@ func CreateBMCPowerSubscription(config crawler.CrawlerConfig, sub Subscription) 
 	ev_service, err := rf_service.EventService()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get event service from ServiceRoot")
-		return err
+		return "", err
 	}
 	ev_json, _ := json.Marshal(ev_service)
 	log.Debug().Msgf("found event service %s", ev_json)
@@ -57,9 +56,8 @@ func CreateBMCPowerSubscription(config crawler.CrawlerConfig, sub Subscription) 
 		// Empty delivery retry policy and OEM content
 		"", nil)
 	if err != nil {
-		return err
+		return "", err
 	}
-	fmt.Println(sub_uri)
 
-	return nil
+	return sub_uri, nil
 }

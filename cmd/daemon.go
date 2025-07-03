@@ -74,6 +74,7 @@ var DaemonCmd = &cobra.Command{
 		// TODO: Start callback server (sends updates to SMD)
 
 		// Subscribe to Redfish power events, or add to polling list if sub fails
+		var subUris, pollUris []string
 		for _, r := range scannedResults {
 			store := store
 			if fetchCreds {
@@ -106,7 +107,7 @@ var DaemonCmd = &cobra.Command{
 				UseDefault:      true,
 			}
 
-			err = daemon.CreateBMCPowerSubscription(config, daemon.Subscription{
+			subUri, err := daemon.CreateBMCPowerSubscription(config, daemon.Subscription{
 				// FIXME:
 				Destination:      "https://callback.server/endpoint",
 				RegistryPrefixes: []string{"registry_prefix"},
@@ -114,10 +115,12 @@ var DaemonCmd = &cobra.Command{
 				HttpHeaders:      map[string]string{},
 				Context:          "",
 			})
-			if err != nil {
+			if err == nil {
+				subUris = append(subUris, subUri)
+			} else {
 				log.Error().Err(err).Msgf("could not create event subscription on %s, falling back to polling", r.Host)
-				// TODO:
-				continue
+				var pollUri string // TODO:
+				pollUris = append(pollUris, pollUri)
 			}
 			do_output(r.Host, redfish.PowerSubsystem{}) // FIXME:
 		}
