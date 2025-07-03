@@ -24,6 +24,7 @@ var (
 	targetHosts    [][]string
 	disableProbing bool
 	disableCache   bool
+	insecure       bool
 )
 
 // The `scan` command is usually the first step to using the CLI tool.
@@ -138,8 +139,7 @@ var ScanCmd = &cobra.Command{
 			DisableProbing: disableProbing,
 			Verbose:        verbose,
 			Debug:          debug,
-			Username:       username,
-			Password:       password,
+			Insecure:       insecure,
 		})
 
 		if len(foundAssets) > 0 && debug {
@@ -179,6 +179,7 @@ func init() {
 	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
+	ScanCmd.Flags().BoolVar(&insecure, "insecure", false, "Skip TLS certificate verification during probe")
 
 	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
 	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))

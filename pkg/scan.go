@@ -1,6 +1,7 @@
 package magellan
 
 import (
+	"crypto/tls"
 	"fmt"
 	"math"
 	"net"
@@ -34,8 +35,7 @@ type ScanParams struct {
 	DisableProbing bool
 	Verbose        bool
 	Debug          bool
-	Username       string
-	Password       string
+	Insecure       bool
 }
 
 // ScanForAssets() performs a net scan on a network to find available services
@@ -71,8 +71,12 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 		{Type: "JAWS", Path: "/jaws/monitor/outlets"},
 	}
 
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: params.Insecure},
+	}
 	probeClient := &http.Client{
-		Timeout: time.Duration(params.Timeout) * time.Second,
+		Timeout:   time.Duration(params.Timeout) * time.Second,
+		Transport: transport,
 	}
 
 	var wg sync.WaitGroup
@@ -92,8 +96,6 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 						if params.Verbose {
 							log.Debug().Err(err).Msgf("failed to connect to host")
 						}
-						// NOTE: This was wg.Done() and return in the original, but that stops the whole worker.
-						// Continuing allows the worker to process other hosts in its queue.
 						continue
 					}
 					if !params.DisableProbing {
@@ -104,11 +106,6 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 								req, err := http.NewRequest("GET", probeURL, nil)
 								if err != nil {
 									continue
-								}
-
-								// Add authentication for JAWS endpoints if credentials are provided
-								if probe.Type == "JAWS" && params.Username != "" && params.Password != "" {
-									req.SetBasicAuth(params.Username, params.Password)
 								}
 
 								res, err := probeClient.Do(req)
