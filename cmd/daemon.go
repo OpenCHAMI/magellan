@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -74,12 +71,10 @@ var DaemonCmd = &cobra.Command{
 			log.Error().Err(err).Msg("failed to get scanned assets")
 		}
 
-		// TODO: Start callback server
+		// TODO: Start callback server (sends updates to SMD)
 
 		// Subscribe to Redfish power events, or add to polling list if sub fails
 		for _, r := range scannedResults {
-			fmt.Printf("%s:%d (%s) @%s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate)) // FIXME:
-
 			store := store
 			uri := fmt.Sprintf("%s://%s", r.Protocol, r.Host)
 			fmt.Printf("DEBUG: Composed URI %s\n", uri)
@@ -122,15 +117,16 @@ var DaemonCmd = &cobra.Command{
 				Context:          "",
 			})
 			if err != nil {
-				log.Error().Err(err).Msg("could not create event subscription on %s, falling back to polling")
+				log.Error().Err(err).Msgf("could not create event subscription on %s, falling back to polling", uri)
 				// TODO:
 				continue
 			}
-			// TODO: Start callback server (sends updates to SMD)
-			do_output(r.Host, redfish.PowerSubsystem{})
+			do_output(r.Host, redfish.PowerSubsystem{}) // FIXME:
 		}
 
 		// TODO: Start polling routine; wait for termination
+
+		// TODO: Clean up subscriptions
 	},
 }
 
