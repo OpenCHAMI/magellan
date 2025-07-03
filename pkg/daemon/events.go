@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"fmt"
+	"encoding/json"
 
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/rs/zerolog/log"
@@ -42,8 +43,8 @@ func CreateBMCPowerSubscription(config crawler.CrawlerConfig, sub Subscription) 
 		log.Error().Err(err).Msg("failed to get event service from ServiceRoot")
 		return err
 	}
-	log.Debug().Msgf("event service %s has registry prefixes %s and resource types %s",
-		ev_service.Description, ev_service.RegistryPrefixes, ev_service.ResourceTypes)
+	ev_json, _ := json.Marshal(ev_service)
+	log.Debug().Msgf("found event service %s", ev_json)
 
 	// Create actual event subscription
 	sub_uri, err := ev_service.CreateEventSubscriptionInstance(
