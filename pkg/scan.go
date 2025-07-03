@@ -36,6 +36,7 @@ type ScanParams struct {
 	Verbose        bool
 	Debug          bool
 	Insecure       bool
+	Include        []string
 }
 
 // ScanForAssets() performs a net scan on a network to find available services
@@ -66,9 +67,14 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 
 	probesToRun := []struct {
 		Type, Path string
-	}{
-		{Type: "Redfish", Path: "/redfish/v1/"},
-		{Type: "JAWS", Path: "/jaws/monitor/outlets"},
+	}{}
+	for _, item := range params.Include {
+		if item == "bmcs" {
+			probesToRun = append(probesToRun, struct{ Type, Path string }{Type: "Redfish", Path: "/redfish/v1/"})
+		}
+		if item == "pdus" {
+			probesToRun = append(probesToRun, struct{ Type, Path string }{Type: "JAWS", Path: "/jaws/monitor/outlets"})
+		}
 	}
 
 	transport := &http.Transport{

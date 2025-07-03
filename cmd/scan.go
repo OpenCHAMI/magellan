@@ -26,6 +26,7 @@ var (
 	disableProbing bool
 	disableCache   bool
 	format         string
+	include        []string
 )
 
 // The `scan` command is usually the first step to using the CLI tool.
@@ -141,6 +142,7 @@ var ScanCmd = &cobra.Command{
 			Verbose:        verbose,
 			Debug:          debug,
 			Insecure:       insecure,
+			Include:        include,
 		})
 
 		switch format {
@@ -215,6 +217,7 @@ func init() {
 	ScanCmd.Flags().BoolVar(&insecure, "insecure", false, "Skip TLS certificate verification during probe")
 	ScanCmd.Flags().StringVarP(&format, "format", "F", "db", "Output format (db, json, yaml)")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
+	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
 
 	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
 	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
