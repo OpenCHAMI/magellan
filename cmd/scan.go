@@ -66,7 +66,7 @@ var ScanCmd = &cobra.Command{
 		"specified. The `--scheme` flag works similarly and the default value is 'https' in the host URL or with the\n" +
 		"'--protocol' flag.\n\n" +
 		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available.\n" +
-		"Redfish services. This is not recommended, since the extra request makes the scan a bit more reliable\n" +
+		"Redfish and JAWS services. This is not recommended, since the extra request makes the scan a bit more reliable\n" +
 		"for determining which hosts to collect inventory data.\n\n",
 	Run: func(cmd *cobra.Command, args []string) {
 		// add default ports for hosts if none are specified with flag
@@ -138,6 +138,8 @@ var ScanCmd = &cobra.Command{
 			DisableProbing: disableProbing,
 			Verbose:        verbose,
 			Debug:          debug,
+			Username:       username,
+			Password:       password,
 		})
 
 		if len(foundAssets) > 0 && debug {
