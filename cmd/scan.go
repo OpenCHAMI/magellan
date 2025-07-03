@@ -10,6 +10,7 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/cznic/mathutil"
@@ -24,6 +25,7 @@ var (
 	targetHosts    [][]string
 	disableProbing bool
 	disableCache   bool
+	format         string
 )
 
 // The `scan` command is usually the first step to using the CLI tool.
@@ -141,30 +143,62 @@ var ScanCmd = &cobra.Command{
 			Insecure:       insecure,
 		})
 
-		if len(foundAssets) > 0 && debug {
-			log.Info().Any("assets", foundAssets).Msgf("found assets from scan")
-		}
-
-		if !disableCache && cachePath != "" {
-			// make the cache directory path if needed
-			err := os.MkdirAll(path.Dir(cachePath), 0755)
-			if err != nil {
-				log.Printf("failed to make cache directory: %v", err)
+		switch format {
+		case "json", "yaml":
+			if len(foundAssets) == 0 {
+				log.Info().Msg("Scan complete. No responsive assets were found.")
+				return
 			}
 
-			// TODO: change this to use an extensible plugin system for storage solutions
-			// (i.e. something like cache.InsertScannedAssets(path, assets) which implements a Cache interface)
-			if len(foundAssets) > 0 {
-				err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
+			var output []byte
+			var err error
+
+			if format == "json" {
+				output, err = json.MarshalIndent(foundAssets, "", "  ")
+			} else {
+				output, err = yaml.Marshal(foundAssets)
+			}
+
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to marshal output to %s", format)
+				return
+			}
+
+			// if -o flag was used, write to file, if not print to console.
+			if outputPath != "" {
+				err := os.WriteFile(outputPath, output, 0644)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to write scanned assets to cache")
-				}
-				if verbose {
-					log.Info().Msgf("saved assets to cache: %s", cachePath)
+					log.Error().Err(err).Msgf("Failed to write to file: %s", outputPath)
+				} else {
+					log.Info().Msgf("Scan results successfully written to %s", outputPath)
 				}
 			} else {
-				log.Warn().Msg("no assets found to save")
+				fmt.Println(string(output))
 			}
+
+		case "db":
+			if len(foundAssets) > 0 && debug {
+				log.Info().Any("assets", foundAssets).Msgf("found assets from scan")
+			}
+
+			if !disableCache && cachePath != "" {
+				err := os.MkdirAll(path.Dir(cachePath), 0755)
+				if err != nil {
+					log.Printf("failed to make cache directory: %v", err)
+				}
+				if len(foundAssets) > 0 {
+					err := sqlite.InsertScannedAssets(cachePath, foundAssets...)
+					if err != nil {
+						log.Error().Err(err).Msg("failed to write scanned assets to cache")
+					} else if verbose {
+						log.Info().Msgf("Saved assets to cache: %s", cachePath)
+					}
+				} else {
+					log.Warn().Msg("no assets found to save")
+				}
+			}
+		default:
+			log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", format)
 		}
 
 	},
@@ -179,6 +213,8 @@ func init() {
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 	ScanCmd.Flags().BoolVar(&insecure, "insecure", false, "Skip TLS certificate verification during probe")
+	ScanCmd.Flags().StringVarP(&format, "format", "F", "db", "Output format (db, json, yaml)")
+	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
 
 	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
 	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
