@@ -71,7 +71,12 @@ var DaemonCmd = &cobra.Command{
 			log.Error().Err(err).Msg("failed to get scanned assets")
 		}
 
-		// TODO: Start callback server (sends updates to SMD)
+		// Start callback server (sends updates to SMD)
+		go daemon.RunServer(":1337")  // FIXME: Port number
+		// This should be started before we create our Redfish
+		// subscriptions, in case the BMCs do an immediate check to
+		// ensure the server exists, or try to send the last few
+		// minutes' worth of cached logs.
 
 		// Subscribe to Redfish power events, or add to polling list if sub fails
 		var subUris, pollUris []string
