@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -72,7 +74,9 @@ var DaemonCmd = &cobra.Command{
 		}
 
 		// Start callback server (sends updates to SMD)
-		go daemon.RunServer(":1337")  // FIXME: Port number
+		serverCtx, serverCancel := context.WithCancel(context.Background())
+		serverDone := make(chan error, 1)
+		go daemon.RunServer(serverCtx, serverDone, ":1337") // FIXME: Port number
 		// This should be started before we create our Redfish
 		// subscriptions, in case the BMCs do an immediate check to
 		// ensure the server exists, or try to send the last few
@@ -131,6 +135,10 @@ var DaemonCmd = &cobra.Command{
 		}
 
 		// TODO: Start polling routine; wait for termination
+
+		// Shut down callback server
+		serverCancel()
+		log.Info().Err(<-serverDone).Msg("callback server exited")
 
 		// TODO: Clean up subscriptions
 	},
