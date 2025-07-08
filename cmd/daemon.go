@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"net"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -67,6 +69,43 @@ var DaemonCmd = &cobra.Command{
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to get scanned assets")
+			return
+		}
+
+		// Networking prep
+		// Determine what port our server is running on
+		_, port, err := net.SplitHostPort(viper.GetString("daemon.server-addr"))
+		if err != nil {
+			return
+		}
+		// We may need to do IP matching later, so collect a list of
+		// all our local network links once, ahead of time
+		var localAddrs []net.Addr
+		if !viper.IsSet("daemon.callback-addr") {
+			localAddrs, err = net.InterfaceAddrs()
+			if err != nil {
+				log.Error().Err(err).Msg("failed to get local network addresses")
+				return
+			}
+		}
+		fmt.Println("GlobalUnicast LinkLocalUnicast Private Loopback")
+		for i := range localAddrs {
+			a := localAddrs[i]
+			switch t := a.(type) {
+			case *net.IPAddr:
+				// Single addresses aren't interesting, probably
+				continue
+			case *net.IPNet:
+				// Networks may be interesting; BMCs could live there
+				fmt.Printf("%v\t%v\t%v\t%v\tIPNet: %s : %s (%s)\n",
+					t.IP.IsGlobalUnicast(),
+					t.IP.IsLinkLocalUnicast(),
+					t.IP.IsPrivate(),
+					t.IP.IsLoopback(),
+					t, t.IP.String(), t.Mask,
+				)
+				// TODO: Select "interesting" networks for later consideration, based on the above fields
+			}
 		}
 
 		// Start callback server (sends updates to SMD)
@@ -103,6 +142,24 @@ var DaemonCmd = &cobra.Command{
 				}
 
 				store = &nodeCreds
+			}
+
+			// Determine callback address from BMC to this daemon's server
+			var callbackAddr string
+			if viper.IsSet("daemon.callback-addr") {
+				// Callback address provided by user; use it
+				// NOTE: This is needed when  our local IP and port
+				// aren't visible to the BMCs for direct
+				// connections, e.g. when we're behind NAT or a
+				// port forwarding configuration
+				callbackAddr = viper.GetString("daemon.callback-addr")
+			} else {
+				// Search our local IP addresses for the best
+				// prefix match with our target BMC, and assume
+				// that's the link where the BMC can reach us
+				ip := "PLACEHOLDER_IP" // FIXME:
+				// Server address is just a port specification; use it to generate callback address
+				callbackAddr = fmt.Sprintf("https://%s%s/", ip, port)
 			}
 
 			subUri, err := daemon.CreateBMCPowerSubscription(
@@ -146,9 +203,13 @@ func init() {
 	DaemonCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
 	DaemonCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
 	DaemonCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	DaemonCmd.Flags().String("server-addr", ":27781", "Where this daemon's server should listen for BMC event callbacks")
+	DaemonCmd.Flags().String("callback-addr", "", "Address which BMCs should use to reach this daemon's server. Set this if daemon is behind NAT/port remapping")
 	DaemonCmd.Flags().Bool("print-only", false, "Just print BMC status updates, instead of sending them to SMD")
 
 	checkBindFlagError(viper.BindPFlag("daemon.insecure", DaemonCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("daemon.server-addr", DaemonCmd.Flags().Lookup("server-addr")))
+	checkBindFlagError(viper.BindPFlag("daemon.callback-addr", DaemonCmd.Flags().Lookup("callback-addr")))
 	checkBindFlagError(viper.BindPFlag("daemon.print-only", DaemonCmd.Flags().Lookup("print-only")))
 
 	rootCmd.AddCommand(DaemonCmd)
