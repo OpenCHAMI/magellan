@@ -15,10 +15,6 @@ import (
 	"github.com/stmcginnis/gofish/redfish"
 )
 
-var (
-	printOnly bool
-)
-
 // The `daemon` command launches several services to support continuous node
 // status monitoring. It monitors nodes found during previous scans.
 // These include:
@@ -60,7 +56,7 @@ var DaemonCmd = &cobra.Command{
 
 		// Set appropriate output function
 		var do_output func(string, redfish.PowerSubsystem)
-		if printOnly {
+		if viper.GetBool("daemon.print-only") {
 			do_output = daemon.OutputToStdout
 		} else {
 			do_output = daemon.OutputToSMD
@@ -76,7 +72,7 @@ var DaemonCmd = &cobra.Command{
 		// Start callback server (sends updates to SMD)
 		serverCtx, serverCancel := context.WithCancel(context.Background())
 		serverDone := make(chan error, 1)
-		go daemon.RunServer(serverCtx, serverDone, ":1337") // FIXME: Port number
+		go daemon.RunServer(serverCtx, serverDone, viper.GetString("daemon.server-addr"))
 		// This should be started before we create our Redfish
 		// subscriptions, in case the BMCs do an immediate check to
 		// ensure the server exists, or try to send the last few
@@ -109,21 +105,22 @@ var DaemonCmd = &cobra.Command{
 				store = &nodeCreds
 			}
 
-			var config = crawler.CrawlerConfig{
-				URI:             r.Host,
-				CredentialStore: store,
-				Insecure:        insecure,
-				UseDefault:      true,
-			}
-
-			subUri, err := daemon.CreateBMCPowerSubscription(config, daemon.Subscription{
-				// FIXME:
-				Destination:      "https://callback.server/endpoint",
-				RegistryPrefixes: []string{"registry_prefix"},
-				ResourceTypes:    []string{},
-				HttpHeaders:      map[string]string{},
-				Context:          "",
-			})
+			subUri, err := daemon.CreateBMCPowerSubscription(
+				crawler.CrawlerConfig{
+					URI:             r.Host,
+					CredentialStore: store,
+					Insecure:        viper.GetBool("daemon.insecure"),
+					UseDefault:      true,
+				},
+				daemon.Subscription{
+					// FIXME:
+					Destination:      callbackAddr,
+					RegistryPrefixes: []string{"registry_prefix"},
+					ResourceTypes:    []string{},
+					HttpHeaders:      map[string]string{},
+					Context:          "",
+				},
+			)
 			if err == nil {
 				subUris = append(subUris, subUri)
 			} else {
@@ -147,11 +144,12 @@ var DaemonCmd = &cobra.Command{
 func init() {
 	DaemonCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
 	DaemonCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
-	DaemonCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	DaemonCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	DaemonCmd.Flags().BoolVar(&printOnly, "print-only", false, "Just print node status updates, instead of sending them to SMD")
+	DaemonCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	DaemonCmd.Flags().Bool("print-only", false, "Just print BMC status updates, instead of sending them to SMD")
 
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", DaemonCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("daemon.insecure", DaemonCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("daemon.print-only", DaemonCmd.Flags().Lookup("print-only")))
 
 	rootCmd.AddCommand(DaemonCmd)
 }
