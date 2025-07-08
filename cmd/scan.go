@@ -145,13 +145,17 @@ var ScanCmd = &cobra.Command{
 			Include:        include,
 		})
 
+		if len(foundAssets) > 0 && debug {
+			log.Info().Any("assets", foundAssets).Msgf("found assets from scan")
+		}
+
+		if len(foundAssets) == 0 {
+			log.Info().Msg("Scan complete. No responsive assets were found.")
+			return
+		}
+
 		switch format {
 		case "json", "yaml":
-			if len(foundAssets) == 0 {
-				log.Info().Msg("Scan complete. No responsive assets were found.")
-				return
-			}
-
 			var output []byte
 			var err error
 
@@ -166,7 +170,6 @@ var ScanCmd = &cobra.Command{
 				return
 			}
 
-			// if -o flag was used, write to file, if not print to console.
 			if outputPath != "" {
 				err := os.WriteFile(outputPath, output, 0644)
 				if err != nil {
@@ -179,24 +182,16 @@ var ScanCmd = &cobra.Command{
 			}
 
 		case "db":
-			if len(foundAssets) > 0 && debug {
-				log.Info().Any("assets", foundAssets).Msgf("found assets from scan")
-			}
-
 			if !disableCache && cachePath != "" {
 				err := os.MkdirAll(path.Dir(cachePath), 0755)
 				if err != nil {
 					log.Printf("failed to make cache directory: %v", err)
 				}
-				if len(foundAssets) > 0 {
-					err := sqlite.InsertScannedAssets(cachePath, foundAssets...)
-					if err != nil {
-						log.Error().Err(err).Msg("failed to write scanned assets to cache")
-					} else if verbose {
-						log.Info().Msgf("Saved assets to cache: %s", cachePath)
-					}
-				} else {
-					log.Warn().Msg("no assets found to save")
+				err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to write scanned assets to cache")
+				} else if verbose {
+					log.Info().Msgf("Saved assets to cache: %s", cachePath)
 				}
 			}
 		default:
