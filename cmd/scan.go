@@ -150,7 +150,7 @@ var ScanCmd = &cobra.Command{
 		}
 
 		if len(foundAssets) == 0 {
-			log.Info().Msg("Scan complete. No responsive assets were found.")
+			log.Warn().Msg("Scan complete. No responsive assets were found.")
 			return
 		}
 
