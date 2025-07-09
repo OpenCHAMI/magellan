@@ -50,6 +50,7 @@ var (
 	debug       bool
 	forceUpdate bool
 	insecure    bool
+	idMapPath   string
 )
 
 // The `root` command doesn't do anything on it's own except display

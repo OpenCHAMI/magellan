@@ -3,7 +3,6 @@ module github.com/OpenCHAMI/magellan
 go 1.21
 
 require (
-	github.com/Cray-HPE/hms-xname v1.3.0
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/jmoiron/sqlx v1.4.0
