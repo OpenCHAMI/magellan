@@ -35,13 +35,6 @@ var secretsCmd = &cobra.Command{
   magellan secrets list -f nodes.json`,
 	Short: "Manage credentials for BMC nodes",
 	Long:  "Manage credentials for BMC nodes to for querying information through redfish. This requires generating a key and setting the 'MASTER_KEY' environment variable for the secrets store.",
-	Run: func(cmd *cobra.Command, args []string) {
-		// show command help and exit
-		if len(args) < 1 {
-			cmd.Help()
-			os.Exit(0)
-		}
-	},
 }
 
 var secretsGenerateKeyCmd = &cobra.Command{
