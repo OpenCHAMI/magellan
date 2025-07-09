@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -76,35 +77,41 @@ var DaemonCmd = &cobra.Command{
 		// Determine what port our server is running on
 		_, port, err := net.SplitHostPort(viper.GetString("daemon.server-addr"))
 		if err != nil {
+			log.Error().Err(err).Msg("failed to parse server address")
 			return
 		}
 		// We may need to do IP matching later, so collect a list of
 		// all our local network links once, ahead of time
-		var localAddrs []net.Addr
+		var ifaceAddrs []net.Addr
+		var localNets []*net.IPNet
 		if !viper.IsSet("daemon.callback-addr") {
-			localAddrs, err = net.InterfaceAddrs()
+			ifaceAddrs, err = net.InterfaceAddrs()
 			if err != nil {
 				log.Error().Err(err).Msg("failed to get local network addresses")
 				return
 			}
-		}
-		fmt.Println("GlobalUnicast LinkLocalUnicast Private Loopback")
-		for i := range localAddrs {
-			a := localAddrs[i]
-			switch t := a.(type) {
-			case *net.IPAddr:
-				// Single addresses aren't interesting, probably
-				continue
-			case *net.IPNet:
-				// Networks may be interesting; BMCs could live there
-				fmt.Printf("%v\t%v\t%v\t%v\tIPNet: %s : %s (%s)\n",
-					t.IP.IsGlobalUnicast(),
-					t.IP.IsLinkLocalUnicast(),
-					t.IP.IsPrivate(),
-					t.IP.IsLoopback(),
-					t, t.IP.String(), t.Mask,
-				)
-				// TODO: Select "interesting" networks for later consideration, based on the above fields
+			// Filter to only "interesting" networks, on which BMCs could actually live
+			// localNets = make([]*net.IPNet, 0, len(ifaceAddrs)) // Do we really need to preallocate this?
+			for i := range ifaceAddrs {
+				switch t := ifaceAddrs[i].(type) {
+				case *net.IPAddr:
+					// Single addresses aren't interesting, probably
+					continue
+				case *net.IPNet:
+					// Networks may be interesting; BMCs could live there
+					if t.IP.IsLinkLocalUnicast() || (t.IP.IsGlobalUnicast() && t.IP.IsPrivate()) {
+						// Capture networks for which our connection is either:
+						//  - Link-local (i.e. IPv6 local network)
+						//  - Global, but private (i.e. IPv4 local network)
+						// Notably, this excludes loopback networks, and interfaces connected to the
+						// public internet (not that those should exist on an HPC control node anyway)
+						log.Info().Msgf(
+							"including local network interface %s for consideration as an event callback target",
+							t.String(),
+						)
+						localNets = append(localNets, t)
+					}
+				}
 			}
 		}
 
@@ -157,9 +164,29 @@ var DaemonCmd = &cobra.Command{
 				// Search our local IP addresses for the best
 				// prefix match with our target BMC, and assume
 				// that's the link where the BMC can reach us
-				ip := "PLACEHOLDER_IP" // FIXME:
-				// Server address is just a port specification; use it to generate callback address
-				callbackAddr = fmt.Sprintf("https://%s%s/", ip, port)
+				bmc_ip := net.ParseIP(strings.TrimPrefix(r.Host, "https://"))
+				var callback_ip *net.IP = nil
+				for _, net := range localNets {
+					if net.Contains(bmc_ip) {
+						log.Info().Msgf(
+							"found local network interface %s over which BMC %s should be able to call us back",
+							net.String(), bmc_ip,
+						)
+						callback_ip = &net.IP
+						break
+					}
+				}
+				if callback_ip == nil {
+					log.Error().Msgf(
+						"could not find a suitable local network interface for BMC %s to call us back over; falling back to polling",
+						bmc_ip,
+					)
+					var pollUri string // TODO:
+					pollUris = append(pollUris, pollUri)
+					continue
+				}
+				// Generate complete callback address
+				callbackAddr = fmt.Sprintf("https://%s%s/", callback_ip.String(), port)
 			}
 
 			subUri, err := daemon.CreateBMCPowerSubscription(
