@@ -1,6 +1,7 @@
 package magellan
 
 import (
+	"crypto/tls"
 	"fmt"
 	"math"
 	"net"
@@ -16,11 +17,12 @@ import (
 )
 
 type RemoteAsset struct {
-	Host      string    `json:"host"`
-	Port      int       `json:"port"`
-	Protocol  string    `json:"protocol"`
-	State     bool      `json:"state"`
-	Timestamp time.Time `json:"timestamp"`
+	Host        string    `json:"host"`
+	Port        int       `json:"port"`
+	Protocol    string    `json:"protocol"`
+	State       bool      `json:"state"`
+	Timestamp   time.Time `json:"timestamp"`
+	ServiceType string    `json:"service_type,omitempty"`
 }
 
 // ScanParams is a collection of commom parameters passed to the CLI
@@ -33,6 +35,8 @@ type ScanParams struct {
 	DisableProbing bool
 	Verbose        bool
 	Debug          bool
+	Insecure       bool
+	Include        []string
 }
 
 // ScanForAssets() performs a net scan on a network to find available services
@@ -45,7 +49,7 @@ type ScanParams struct {
 // to be made concurrently.
 //
 // If the "disableProbing" flag is set, then the function will skip the extra
-// HTTP request made to check if the response was from a Redfish service.
+// HTTP request made to check if the response was from a Redfish or JAWS service.
 // Otherwise, not receiving a 200 OK response code from the HTTP request will
 // remove the service from being stored in the list of scanned results.
 //
@@ -59,6 +63,26 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 
 	if params.Verbose {
 		log.Info().Any("args", params).Msg("starting scan...")
+	}
+
+	probesToRun := []struct {
+		Type, Path string
+	}{}
+	for _, item := range params.Include {
+		if item == "bmcs" {
+			probesToRun = append(probesToRun, struct{ Type, Path string }{Type: "Redfish", Path: "/redfish/v1/"})
+		}
+		if item == "pdus" {
+			probesToRun = append(probesToRun, struct{ Type, Path string }{Type: "JAWS", Path: "/jaws/monitor/outlets"})
+		}
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: params.Insecure},
+	}
+	probeClient := &http.Client{
+		Timeout:   time.Duration(params.Timeout) * time.Second,
+		Transport: transport,
 	}
 
 	var wg sync.WaitGroup
@@ -78,26 +102,28 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 						if params.Verbose {
 							log.Debug().Err(err).Msgf("failed to connect to host")
 						}
-						wg.Done()
-						return
+						continue
 					}
 					if !params.DisableProbing {
 						assetsToAdd := []RemoteAsset{}
 						for _, foundAsset := range foundAssets {
-							url := fmt.Sprintf("%s:%d/redfish/v1/", foundAsset.Host, foundAsset.Port)
-							res, _, err := client.MakeRequest(nil, url, http.MethodGet, nil, nil)
-							if err != nil || res == nil {
-								if params.Verbose {
-									log.Printf("failed to make request: %v\n", err)
+							for _, probe := range probesToRun {
+								probeURL := fmt.Sprintf("%s:%d%s", foundAsset.Host, foundAsset.Port, probe.Path)
+								req, err := http.NewRequest("GET", probeURL, nil)
+								if err != nil {
+									continue
 								}
-								continue
-							} else if res.StatusCode != http.StatusOK {
-								if params.Verbose {
-									log.Printf("request returned code: %v\n", res.StatusCode)
+
+								res, err := probeClient.Do(req)
+								if err == nil && res != nil && res.StatusCode == http.StatusOK {
+									res.Body.Close()
+									foundAsset.ServiceType = probe.Type
+									assetsToAdd = append(assetsToAdd, foundAsset)
+									break // Found a valid service, no need to probe other types
 								}
-								continue
-							} else {
-								assetsToAdd = append(assetsToAdd, foundAsset)
+								if res != nil {
+									res.Body.Close()
+								}
 							}
 						}
 						results = append(results, assetsToAdd...)
