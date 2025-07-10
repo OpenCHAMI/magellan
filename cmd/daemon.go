@@ -203,6 +203,7 @@ var DaemonCmd = &cobra.Command{
 					ResourceTypes:    []string{},
 					HttpHeaders:      map[string]string{},
 					Context:          "",
+					Insecure:         viper.GetBool("daemon.insecure"),
 				},
 			)
 			if err == nil {

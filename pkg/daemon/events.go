@@ -14,6 +14,7 @@ type Subscription struct {
 	ResourceTypes    []string
 	HttpHeaders      map[string]string
 	Context          string
+	Insecure         bool
 }
 
 // CreateBMCPowerSubscription connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -59,5 +60,15 @@ func CreateBMCPowerSubscription(config crawler.CrawlerConfig, sub Subscription) 
 		return "", err
 	}
 
-	return sub_uri, nil
+	// Set VerifyCertificate to false, if the subscription is to be insecure
+	if sub.Insecure {
+		ev_destination, err := redfish.GetEventDestination(client, sub_uri)
+		if err != nil {
+			return sub_uri, err
+		}
+		ev_destination.VerifyCertificate = false
+		err = ev_destination.Update()
+	}
+
+	return sub_uri, err
 }
