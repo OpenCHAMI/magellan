@@ -157,7 +157,14 @@ var DaemonCmd = &cobra.Command{
 			}
 
 			// Do an immediate poll for initial power state
-			do_output(daemon.PowerInfo{}) // FIXME:
+			power, err := daemon.PollBMCPowerStates(crawlerConfig)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to poll %s for power states; BMC will not be monitored", r.Host)
+				continue
+			}
+			for _, p := range power {
+				do_output(p)
+			}
 
 			// Determine callback address from BMC to this daemon's server
 			var callbackAddr string
@@ -227,6 +234,14 @@ var DaemonCmd = &cobra.Command{
 			if subUri != "" {
 				subUris = append(subUris, subUri)
 			}
+			// Defer subscription cleanup
+			// TODO: Ask a Go wizard about possible performance
+			// penalties here — is it better to maintain a list of
+			// subscription URLs and manually iterate over those in
+			// a single deferred function? This would require
+			// reconstructing crawler configs, but that's not too
+			// painful, probably.
+			defer daemon.DeleteBMCPowerSubscription(crawlerConfig, subUri)
 		}
 
 		// TODO: Start polling routine; wait for termination
@@ -234,8 +249,6 @@ var DaemonCmd = &cobra.Command{
 		// Shut down callback server
 		serverCancel()
 		log.Info().Err(<-serverDone).Msg("callback server exited")
-
-		// TODO: Clean up subscriptions
 	},
 }
 
