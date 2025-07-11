@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
+
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish/redfish"
 )
@@ -17,6 +18,11 @@ type Subscription struct {
 	Insecure         bool
 }
 
+type PowerInfo struct {
+	Xname string
+	State redfish.PowerState
+}
+
 // CreateBMCPowerSubscription connects to a BMC (Baseboard Management Controller) using the provided configuration,
 // retrieves the ServiceRoot, and then creates event subscriptions for power state changes.
 //
@@ -25,8 +31,11 @@ type Subscription struct {
 //   - sub: A Subscription struct containing the callback URI, registry prefixes, and other Redfish subscription details.
 //
 // Returns:
+//   - string: The URI of the newly created Redfish event subscription.
 //   - error: An error object if any error occurs during the connection or retrieval process.
 func CreateBMCPowerSubscription(config crawler.CrawlerConfig, sub Subscription) (string, error) {
+	log.Debug().Msgf("creating Redfish power subscription on %s", config.URI)
+
 	client, err := crawler.GetBMCClient(config)
 	if err != nil {
 		return "", err

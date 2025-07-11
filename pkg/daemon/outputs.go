@@ -2,14 +2,12 @@ package daemon
 
 import (
 	"fmt"
-
-	"github.com/stmcginnis/gofish/redfish"
 )
 
-func OutputToSMD(host string, power redfish.PowerSubsystem) {
-	OutputToStdout(host, power)  // FIXME:
+func OutputToSMD(power PowerInfo) {
+	OutputToStdout(power)  // FIXME:
 }
 
-func OutputToStdout(host string, power redfish.PowerSubsystem) {
-	fmt.Printf("%s has PowerSubsystem: %v", host, power)
+func OutputToStdout(power PowerInfo) {
+	fmt.Printf("%s has PowerState %s\n", power.Xname, power.State)
 }

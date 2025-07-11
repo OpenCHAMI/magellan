@@ -15,7 +15,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/stmcginnis/gofish/redfish"
 )
 
 // The `daemon` command launches several services to support continuous node
@@ -58,7 +57,7 @@ var DaemonCmd = &cobra.Command{
 		}
 
 		// Set appropriate output function
-		var do_output func(string, redfish.PowerSubsystem)
+		var do_output func(daemon.PowerInfo)
 		if viper.GetBool("daemon.print-only") {
 			do_output = daemon.OutputToStdout
 		} else {
@@ -150,12 +149,21 @@ var DaemonCmd = &cobra.Command{
 
 				store = &nodeCreds
 			}
+			crawlerConfig := crawler.CrawlerConfig{
+				URI:             r.Host,
+				CredentialStore: store,
+				Insecure:        viper.GetBool("daemon.insecure"),
+				UseDefault:      true,
+			}
+
+			// Do an immediate poll for initial power state
+			do_output(daemon.PowerInfo{}) // FIXME:
 
 			// Determine callback address from BMC to this daemon's server
 			var callbackAddr string
 			if viper.IsSet("daemon.callback-addr") {
 				// Callback address provided by user; use it
-				// NOTE: This is needed when  our local IP and port
+				// NOTE: This is needed when our local IP and port
 				// aren't visible to the BMCs for direct
 				// connections, e.g. when we're behind NAT or a
 				// port forwarding configuration
@@ -189,13 +197,9 @@ var DaemonCmd = &cobra.Command{
 				callbackAddr = fmt.Sprintf("https://%s%s/", callback_ip.String(), port)
 			}
 
+			// Actual subscription creation
 			subUri, err := daemon.CreateBMCPowerSubscription(
-				crawler.CrawlerConfig{
-					URI:             r.Host,
-					CredentialStore: store,
-					Insecure:        viper.GetBool("daemon.insecure"),
-					UseDefault:      true,
-				},
+				crawlerConfig,
 				daemon.Subscription{
 					// FIXME:
 					Destination:      callbackAddr,
@@ -223,7 +227,6 @@ var DaemonCmd = &cobra.Command{
 			if subUri != "" {
 				subUris = append(subUris, subUri)
 			}
-			do_output(r.Host, redfish.PowerSubsystem{}) // FIXME:
 		}
 
 		// TODO: Start polling routine; wait for termination
