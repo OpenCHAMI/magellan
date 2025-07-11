@@ -206,12 +206,22 @@ var DaemonCmd = &cobra.Command{
 					Insecure:         viper.GetBool("daemon.insecure"),
 				},
 			)
-			if err == nil {
+			// TODO: It's possible to have both a valid sub URL and
+			// an error here, e.g. if sub creation was successful
+			// but post-creation updates failed. For now, we assume
+			// the subscription is still Mostly Okay™, but there
+			// may be a more optimal way to handle this.
+			if err != nil {
+				if subUri == "" {
+					log.Error().Err(err).Msgf("could not create event subscription on %s, falling back to polling", r.Host)
+					var pollUri string // TODO:
+					pollUris = append(pollUris, pollUri)
+				} else {
+					log.Warn().Err(err).Msgf("partially configured event subscription on %s, continuing with the assumption that it's usable", r.Host)
+				}
+			}
+			if subUri != "" {
 				subUris = append(subUris, subUri)
-			} else {
-				log.Error().Err(err).Msgf("could not create event subscription on %s, falling back to polling", r.Host)
-				var pollUri string // TODO:
-				pollUris = append(pollUris, pollUri)
 			}
 			do_output(r.Host, redfish.PowerSubsystem{}) // FIXME:
 		}
