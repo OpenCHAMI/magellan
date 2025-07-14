@@ -253,7 +253,7 @@ var DaemonCmd = &cobra.Command{
 
 		if len(pollUris) > 0 {
 			// Start polling routine; wait for termination
-			pollTick := time.NewTicker(10 * time.Second)
+			pollTick := time.NewTicker(time.Duration(viper.GetInt("daemon.poll-interval")) * time.Second)
 			do_polling := true
 			for do_polling {
 				select {
@@ -302,11 +302,13 @@ func init() {
 	DaemonCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
 	DaemonCmd.Flags().String("server-addr", ":27781", "Where this daemon's server should listen for BMC event callbacks")
 	DaemonCmd.Flags().String("callback-addr", "", "Address which BMCs should use to reach this daemon's server. Set this if daemon is behind NAT/port remapping")
+	DaemonCmd.Flags().Int("poll-interval", 10, "Interval at which to poll non-subscribe-able BMCs for power states (seconds)")
 	DaemonCmd.Flags().Bool("print-only", false, "Just print BMC status updates, instead of sending them to SMD")
 
 	checkBindFlagError(viper.BindPFlag("daemon.insecure", DaemonCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("daemon.server-addr", DaemonCmd.Flags().Lookup("server-addr")))
 	checkBindFlagError(viper.BindPFlag("daemon.callback-addr", DaemonCmd.Flags().Lookup("callback-addr")))
+	checkBindFlagError(viper.BindPFlag("daemon.poll-interval", DaemonCmd.Flags().Lookup("poll-interval")))
 	checkBindFlagError(viper.BindPFlag("daemon.print-only", DaemonCmd.Flags().Lookup("print-only")))
 
 	rootCmd.AddCommand(DaemonCmd)
