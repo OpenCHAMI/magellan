@@ -247,39 +247,46 @@ var DaemonCmd = &cobra.Command{
 			defer daemon.DeleteBMCPowerSubscription(crawlerConfig, subUri)
 		}
 
-		// Start polling routine; wait for termination
+		// Receive interrupts on a dedicated channel
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, syscall.SIGINT)
-		pollTick := time.NewTicker(10 * time.Second)
-		do_polling := true
-		for do_polling {
-			select {
-			case <-interrupt:
-				do_polling = false
-				log.Info().Msg("interrupt received, cleaning up and exiting")
-			case <-pollTick.C:
-				for _, uri := range pollUris {
-					// Do an immediate poll for initial power state, but don't save the client
-					power, err := daemon.PollBMCPowerStates(
-						crawler.CrawlerConfig{
-							URI:             uri,
-							CredentialStore: store,
-							Insecure:        viper.GetBool("daemon.insecure"),
-							UseDefault:      true,
-						},
-						true,
-					)
-					if err != nil {
-						log.Error().Err(err).Msgf("scheduled poll failed on BMC %s", uri)
-						continue
-					}
-					for _, p := range power {
-						do_output(p)
+
+		if len(pollUris) > 0 {
+			// Start polling routine; wait for termination
+			pollTick := time.NewTicker(10 * time.Second)
+			do_polling := true
+			for do_polling {
+				select {
+				case <-interrupt:
+					do_polling = false
+				case <-pollTick.C:
+					for _, uri := range pollUris {
+						// Do an immediate poll for initial power state, but don't save the client
+						power, err := daemon.PollBMCPowerStates(
+							crawler.CrawlerConfig{
+								URI:             uri,
+								CredentialStore: store,
+								Insecure:        viper.GetBool("daemon.insecure"),
+								UseDefault:      true,
+							},
+							true,
+						)
+						if err != nil {
+							log.Error().Err(err).Msgf("scheduled poll failed on BMC %s", uri)
+							continue
+						}
+						for _, p := range power {
+							do_output(p)
+						}
 					}
 				}
 			}
+			pollTick.Stop()
+		} else {
+			// Just wait for an interrupt
+			<-interrupt
 		}
-		pollTick.Stop()
+		log.Info().Msg("interrupt received, cleaning up and exiting")
 
 		// Shut down callback server and clean up
 		serverCancel() // NOTE: Returns even if the server is still closing connections!
