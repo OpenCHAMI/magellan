@@ -6,6 +6,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 
 	"github.com/rs/zerolog/log"
+	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 )
 
@@ -22,6 +23,9 @@ type PowerInfo struct {
 	Xname string
 	State redfish.PowerState
 }
+
+// Hold onto the current set of open clients for polling, so we don't continually have to log into and out of BMCs
+var polledClients map[string]*gofish.APIClient
 
 // CreateBMCPowerSubscription connects to a BMC (Baseboard Management Controller) using the provided configuration,
 // retrieves the ServiceRoot, and then creates event subscriptions for power state changes.
@@ -124,15 +128,25 @@ func DeleteBMCPowerSubscription(config crawler.CrawlerConfig, subUri string) err
 // Returns:
 //   - []PowerInfo: An array of power information structs, containing a computer system ID (xname) and Redfish PowerState.
 //   - error: An error object if any error occurs during the connection or retrieval process.
-func PollBMCPowerStates(config crawler.CrawlerConfig) ([]PowerInfo, error) {
+func PollBMCPowerStates(config crawler.CrawlerConfig, saveClient bool) ([]PowerInfo, error) {
 	log.Debug().Msgf("polling BMC %s for power states", config.URI)
 
-	// TODO: Factor this out, so we can cache the result and poll more efficiently
-	client, err := crawler.GetBMCClient(config)
-	if err != nil {
-		return nil, err
+	// Retrieve stored session, or create one if it doesn't exist yet
+	client, exists := polledClients[config.URI]
+	if !exists {
+		if polledClients == nil {
+			polledClients = make(map[string]*gofish.APIClient)
+		}
+		var err error
+		client, err = crawler.GetBMCClient(config)
+		if err != nil {
+			return nil, err
+		}
+		log.Debug().Msgf("created new client for %s", config.URI)
+		if saveClient {
+			polledClients[config.URI] = client
+		}
 	}
-	defer client.Logout()
 
 	// Obtain the ServiceRoot
 	rf_service := client.GetService()
@@ -163,4 +177,17 @@ func PollBMCPowerStates(config crawler.CrawlerConfig) ([]PowerInfo, error) {
 		}
 	}
 	return powerInfo, nil
+}
+
+// LogoutPolledBMCs logs out all active gofish BMC clients, which we normally like to keep open for efficiency.
+// Logging out should be done as a post-execution cleanup step.
+//
+// Parameters: none.
+//
+// Returns: none.
+func LogoutPolledBMCs() {
+	for uri, client := range polledClients {
+		log.Debug().Msgf("logging out client for %s", uri)
+		client.Logout()
+	}
 }

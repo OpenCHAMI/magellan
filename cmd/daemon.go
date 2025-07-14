@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -124,7 +128,7 @@ var DaemonCmd = &cobra.Command{
 		// minutes' worth of cached logs.
 
 		// Subscribe to Redfish power events, or add to polling list if sub fails
-		var subUris, pollUris []string
+		var pollUris []string
 		for _, r := range scannedResults {
 			store := store
 			if fetchCreds {
@@ -156,8 +160,8 @@ var DaemonCmd = &cobra.Command{
 				UseDefault:      true,
 			}
 
-			// Do an immediate poll for initial power state
-			power, err := daemon.PollBMCPowerStates(crawlerConfig)
+			// Do an immediate poll for initial power state, but don't save the client
+			power, err := daemon.PollBMCPowerStates(crawlerConfig, false)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to poll %s for power states; BMC will not be monitored", r.Host)
 				continue
@@ -196,8 +200,7 @@ var DaemonCmd = &cobra.Command{
 						"could not find a suitable local network interface for BMC %s to call us back over; falling back to polling",
 						bmc_ip,
 					)
-					var pollUri string // TODO:
-					pollUris = append(pollUris, pollUri)
+					pollUris = append(pollUris, crawlerConfig.URI)
 					continue
 				}
 				// Generate complete callback address
@@ -225,14 +228,10 @@ var DaemonCmd = &cobra.Command{
 			if err != nil {
 				if subUri == "" {
 					log.Error().Err(err).Msgf("could not create event subscription on %s, falling back to polling", r.Host)
-					var pollUri string // TODO:
-					pollUris = append(pollUris, pollUri)
+					pollUris = append(pollUris, crawlerConfig.URI)
 				} else {
 					log.Warn().Err(err).Msgf("partially configured event subscription on %s, continuing with the assumption that it's usable", r.Host)
 				}
-			}
-			if subUri != "" {
-				subUris = append(subUris, subUri)
 			}
 			// Defer subscription cleanup
 			// TODO: Ask a Go wizard about possible performance
@@ -241,13 +240,50 @@ var DaemonCmd = &cobra.Command{
 			// a single deferred function? This would require
 			// reconstructing crawler configs, but that's not too
 			// painful, probably.
+			// var subUris []string
+			// if subUri != "" {
+			// 	subUris = append(subUris, subUri)
+			// }
 			defer daemon.DeleteBMCPowerSubscription(crawlerConfig, subUri)
 		}
 
-		// TODO: Start polling routine; wait for termination
+		// Start polling routine; wait for termination
+		interrupt := make(chan os.Signal, 1)
+		signal.Notify(interrupt, syscall.SIGINT)
+		pollTick := time.NewTicker(10 * time.Second)
+		do_polling := true
+		for do_polling {
+			select {
+			case <-interrupt:
+				do_polling = false
+				log.Info().Msg("interrupt received, cleaning up and exiting")
+			case <-pollTick.C:
+				for _, uri := range pollUris {
+					// Do an immediate poll for initial power state, but don't save the client
+					power, err := daemon.PollBMCPowerStates(
+						crawler.CrawlerConfig{
+							URI:             uri,
+							CredentialStore: store,
+							Insecure:        viper.GetBool("daemon.insecure"),
+							UseDefault:      true,
+						},
+						true,
+					)
+					if err != nil {
+						log.Error().Err(err).Msgf("scheduled poll failed on BMC %s", uri)
+						continue
+					}
+					for _, p := range power {
+						do_output(p)
+					}
+				}
+			}
+		}
+		pollTick.Stop()
 
-		// Shut down callback server
-		serverCancel()
+		// Shut down callback server and clean up
+		serverCancel() // NOTE: Returns even if the server is still closing connections!
+		daemon.LogoutPolledBMCs()
 		log.Info().Err(<-serverDone).Msg("callback server exited")
 	},
 }
