@@ -162,7 +162,7 @@ func init() {
 	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", util.FORMAT_JSON, "Set the default output data format (json|yaml) can be overridden by file extensions")
-	CollectCmd.Flags().StringVar(&idMapPath, "bmc-id-map", "m", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
+	CollectCmd.Flags().StringVarP(&idMapPath, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
 
