@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -34,6 +36,13 @@ var CollectCmd = &cobra.Command{
   magellan collect --host https://smd.openchami.cluster -u $fallback_bmc_username -p $fallback_bmc_password`,
 	Short: "Collect system information by interrogating BMC node",
 	Long:  "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.",
+	PreRunE: func(cmd *cobra.Command, args []string) (error) {
+		// Validate the specified file format
+		if collectOutputFormat != util.FORMAT_JSON && collectOutputFormat != util.FORMAT_YAML {
+			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", collectOutputFormat)
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
@@ -127,6 +136,7 @@ var CollectCmd = &cobra.Command{
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
 			SecretStore: store,
+			BMCIdMap:    idMapPath,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
@@ -151,7 +161,8 @@ func init() {
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
+	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", util.FORMAT_JSON, "Set the default output data format (json|yaml) can be overridden by file extensions")
+	CollectCmd.Flags().StringVarP(&idMapPath, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
 
