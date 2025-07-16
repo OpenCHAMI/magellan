@@ -26,12 +26,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	FORMAT_LIST = "list"
-	FORMAT_JSON = "json"
-	FORMAT_YAML = "yaml"
-)
-
 // CLI arguments as variables to not fiddle with error-prone strings
 var (
 	accessToken string

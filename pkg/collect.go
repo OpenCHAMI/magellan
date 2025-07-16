@@ -223,13 +223,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	)
 
 	// format our output to write to file or standard out
-	switch params.Format {
-	case "json":
+	format := util.DataFormat(params.OutputPath, params.Format)
+	switch format {
+	case util.FORMAT_JSON:
 		output, err = json.MarshalIndent(collection, "", "    ")
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to marshal output to JSON")
 		}
-	case "yaml":
+	case util.FORMAT_YAML:
 		output, err = yaml.Marshal(collection)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to marshal output to YAML")
@@ -245,7 +246,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	if params.OutputDir != "" {
 		for _, data := range collection {
 			var (
-				finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), params.Format)
+				finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), format)
 				finalDir  = filepath.Dir(finalPath)
 			)
 			// if it doesn't, make the directory and write file
@@ -387,29 +388,15 @@ func getBMCIdMap(data string, format string)(*BMCIdMap, error) {
 		return nil, fmt.Errorf("error reading BMC ID mapping file '%s': %v", path, err)
 	}
 
-	// Figure out the type of the contents (JSON or YAML) based on
-	// the filname extension. By default the format is passed in,
-	// so if it doesn't match one of the cases, that's what we
-	// will use.
-	ext := filepath.Ext(path)
-	switch ext {
-	case ".json":
-		// The file is a JSON file
-		format = "json"
-	case ".yaml", ".yml":
-		// The file is a YAML file
-		format = "yaml"
-	}
-
-	// Decode the file based on the chosen format.
-	switch format {
-	case "json":
+	// Decode the file based on the appropriate format.
+	switch util.DataFormat(path, format) {
+	case util.FORMAT_JSON:
 		// Read in JSON file
 		err := json.Unmarshal(input, &bmcIdMap)
 		if err != nil {
 			return nil, err
 		}
-	case "yaml":
+	case util.FORMAT_YAML:
 		// Read in YAML file
 		err := yaml.Unmarshal(input, &bmcIdMap)
 		if err != nil {
