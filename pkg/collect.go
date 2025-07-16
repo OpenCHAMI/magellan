@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -119,6 +120,25 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// we didn't find anything so do not proceed
 				if util.IsEmpty(systems) && util.IsEmpty(managers) {
 					continue
+				}
+
+				// Post-process the crawled data to convert absolute URLs to relative paths.
+				for i := range systems {
+					// Fix the top-level URI for the system.
+					if strings.HasPrefix(systems[i].URI, "http") {
+						if parsedURL, err := url.Parse(systems[i].URI); err == nil {
+							systems[i].URI = parsedURL.Path
+						}
+					}
+
+					// Fix the URIs for each ethernet interface.
+					for j, eth := range systems[i].EthernetInterfaces {
+						if strings.HasPrefix(eth.URI, "http") {
+							if parsedURL, err := url.Parse(eth.URI); err == nil {
+								systems[i].EthernetInterfaces[j].URI = parsedURL.Path
+							}
+						}
+					}
 				}
 
 				// get BMC username to send
