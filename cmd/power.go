@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -136,20 +137,89 @@ var PowerCmd = &cobra.Command{
 			})
 		}
 
-		// Actual node operations
+		// Create the appropriate "action function" based on CLI flags (or lack thereof)
+		var action_func func(power.CrawlableNode) string
 		if reset_type != "" {
-			for _, target := range target_nodes {
+			action_func = func(target power.CrawlableNode) string {
 				// TODO: Some kind of validation might be nice here, but ResetType
 				// is a custom string type, so a direct typecast works fine for now.
-				power.ResetComputerSystem(target, redfish.ResetType(reset_type))
+				err := power.ResetComputerSystem(target, redfish.ResetType(reset_type))
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to reset node %s", target.Xname)
+					return "failure"
+				}
+				return "success"
 			}
 		} else {
-			for _, target := range target_nodes {
-				power.GetPowerState(target)
+			action_func = func(target power.CrawlableNode) string {
+				state, err := power.GetPowerState(target)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to get power state of node %s", target.Xname)
+					state = "unknown"
+				}
+				return string(state)
 			}
 		}
+
+		// Actual node operations, in parallel
+		results := concurrent_helper(concurrency, target_nodes, action_func)
 		power.LogoutBMCSessions()
+		for node, status := range results {
+			fmt.Printf("%s:\t%s\n", node, status)
+		}
 	},
+}
+
+func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner func(power.CrawlableNode) string) map[string]string {
+	type NodeInfo struct {
+		Xname  string
+		Result string
+	}
+	dataChannel := make(chan power.CrawlableNode, 1)
+	returnChannel := make(chan NodeInfo, concurrency)
+	results := make(map[string]string, len(targets))
+	var wg sync.WaitGroup
+
+	// Worker threads
+	wg.Add(concurrency)
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			for {
+				// Get next work item, if any
+				target, ok := <-dataChannel
+				if !ok {
+					wg.Done()
+					return
+				}
+				// Perform work and return result
+				returnChannel <- NodeInfo{target.Xname, runner(target)}
+			}
+		}()
+	}
+	// Receive worker results
+	go func() {
+		for {
+			info, ok := <-returnChannel
+			if !ok {
+				break
+			}
+			results[info.Xname] = info.Result
+		}
+		wg.Done()
+	}()
+
+	// Dispatch data and wait for processing completion
+	for i := range targets {
+		dataChannel <- targets[i]
+	}
+	close(dataChannel)
+	wg.Wait()
+	// Ensure the receiver thread has also finished
+	wg.Add(1)
+	close(returnChannel)
+	wg.Wait()
+
+	return results
 }
 
 func init() {
