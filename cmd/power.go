@@ -30,13 +30,8 @@ var PowerCmd = &cobra.Command{
   // perform a particular type of reset
   magellan power x1000c0s0b3n0 -r On
   magellan power x1000c0s0b3n0 -r PowerCycle
-
-  // These power states are actually Redfish ResetTypes. They may vary by BMC, but should include:
-  //  - On
-  //  - PowerCycle
-  //  - Graceful[Shutdown|Restart]
-  //  - Force[Off|On|Restart]
-  //  - PushPowerButton`,
+  // list supported reset types
+  magellan power x1000c0s0b3n0 -l`,
 	Short: "Get and set node power states",
 	Long:  "Determine and control the power states of nodes found by a previous inventory crawl.\nSee the 'scan' and 'crawl' commands for further details.",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -139,7 +134,16 @@ var PowerCmd = &cobra.Command{
 
 		// Create the appropriate "action function" based on CLI flags (or lack thereof)
 		var action_func func(power.CrawlableNode) string
-		if reset_type != "" {
+		if list_reset_types {
+			action_func = func(target power.CrawlableNode) string {
+				types, err := power.GetResetTypes(target)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to get reset types for node %s", target.Xname)
+					return ""
+				}
+				return fmt.Sprintf("%s", types)
+			}
+		} else if reset_type != "" {
 			action_func = func(target power.CrawlableNode) string {
 				// TODO: Some kind of validation might be nice here, but ResetType
 				// is a custom string type, so a direct typecast works fine for now.
@@ -224,7 +228,9 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 
 func init() {
 	// Alternative actions from the default power-state query
+	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "l", false, "List supported Redfish reset types")
 	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Redfish reset type to perform")
+	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
 
 	// Normal config options
 	PowerCmd.Flags().StringP("inventory-file", "i", "", "YAML file containing node inventory")
