@@ -234,8 +234,8 @@ func init() {
 
 	// Normal config options
 	PowerCmd.Flags().StringP("inventory-file", "i", "", "YAML file containing node inventory")
-	PowerCmd.Flags().StringP("username", "u", "", "Set the master BMC username")
-	PowerCmd.Flags().StringP("password", "p", "", "Set the master BMC password")
+	PowerCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
+	PowerCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
 	PowerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
 	PowerCmd.Flags().String("scheme", "https", "Set the scheme (\"http\" or \"https\") used to contact BMCs")
 	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
