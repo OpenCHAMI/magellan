@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -100,7 +101,7 @@ type InventoryDetail struct {
 // CrawlBMCForSystems pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
 func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	var (
-		systems    []InventoryDetail
+		systems    = make(map[string]*InventoryDetail)
 		rf_systems []*redfish.ComputerSystem
 	)
 	// get username and password from secret store
@@ -130,7 +131,7 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 		event := log.Error()
 		event.Err(err)
 		event.Msg("failed to connect to BMC")
-		return systems, err
+		return []InventoryDetail{}, err
 	}
 	defer client.Logout()
 
@@ -161,7 +162,9 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 			}
 
 			// add systems found from chassis to total collection
-			systems = append(systems, newSystems...)
+			for i := range newSystems {
+				systems[newSystems[i].URI] = &newSystems[i]
+			}
 		}
 	}
 	rf_root_systems, err := rf_service.Systems()
@@ -172,10 +175,15 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	rf_systems = append(rf_systems, rf_root_systems...)
 	newSystems, err := walkSystems(rf_systems, nil, config.URI)
 	if err != nil {
-		return systems, fmt.Errorf("failed to get systems: %v", err)
+		return extract_ptr_map_values(systems), fmt.Errorf("failed to get systems: %v", err)
 	}
-	systems = append(systems, newSystems...)
-	return systems, nil
+	// If nodes are found under both Chassis and Systems, Systems is assumed to be "more definitive"
+	// and will override corresponding fields from the Chassis version.
+	err = mergo.Merge(&systems, newSystems, mergo.WithOverride)
+	if err != nil {
+		return extract_ptr_map_values(systems), fmt.Errorf("failed to merge systems from Chassis and Systems endpoints: %v", err)
+	}
+	return extract_ptr_map_values(systems), nil
 }
 
 // CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -505,4 +513,12 @@ func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
 	} else {
 		return creds, nil
 	}
+}
+
+func extract_ptr_map_values[T any](m map[string]*T) []T {
+	slice := make([]T, 0, len(m))
+	for i := range m {
+		slice = append(slice, *m[i])
+	}
+	return slice
 }
