@@ -125,7 +125,7 @@ var PowerCmd = &cobra.Command{
 				Xname:    node.Xname,
 				BmcIndex: node.Bmc_Index,
 				ConnConfig: crawler.CrawlerConfig{
-					URI:             fmt.Sprintf("%s://%s", viper.GetString("power.scheme"), node.Bmc_IP),
+					URI:             "https://" + node.Bmc_IP,
 					CredentialStore: store,
 					Insecure:        insecure,
 				},
@@ -233,16 +233,15 @@ func init() {
 	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
 
 	// Normal config options
-	PowerCmd.Flags().StringP("inventory-file", "i", "", "YAML file containing node inventory")
+	PowerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory")
 	PowerCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
 	PowerCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
 	PowerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
-	PowerCmd.Flags().String("scheme", "https", "Set the scheme (\"http\" or \"https\") used to contact BMCs")
+	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	PowerCmd.Flags().StringP("format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
 
 	// Bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("power.scheme", PowerCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlags(PowerCmd.Flags()))
 
