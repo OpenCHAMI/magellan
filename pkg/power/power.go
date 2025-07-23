@@ -57,6 +57,33 @@ func ParseInventory(filename string) ([]NodeViaBMC, error) {
 	return nodelist.Nodes, nil
 }
 
+// ResetComputerSystem connects to a BMC (Baseboard Management Controller) using the provided configuration,
+// retrieves the ServiceRoot, and retrieves the list of supported reset types for the target ComputerSystem.
+//
+// Parameters:
+//   - node: A CrawlableNode struct containing the node's xname, index within the BMC, and a CrawlerConfig to connect to the BMC.
+//
+// Returns:
+//   - []redfish.ResetType: a slice of Redfish reset types supported on the node.
+//   - error: An error object if any error occurs during the connection or reset process.
+func GetResetTypes(node CrawlableNode) ([]redfish.ResetType, error) {
+	log.Debug().Msgf("polling %s for reset types", node.ConnConfig.URI)
+
+	// Obtain an active client
+	client, err := GetBMCSession(node.ConnConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine reset types for the target computer system
+	rf_systems, err := client.GetService().Systems()
+	if err != nil {
+		return nil, err
+	}
+	system := rf_systems[node.BmcIndex-1]
+	return system.SupportedResetTypes, nil
+}
+
 // PollBMCPowerStates connects to a BMC (Baseboard Management Controller) using the provided configuration,
 // retrieves the ServiceRoot, and retrieves the current power state for each ComputerSystem in each Chassis.
 //
@@ -67,7 +94,7 @@ func ParseInventory(filename string) ([]NodeViaBMC, error) {
 //   - redfish.PowerState: The current power state of the node. (Custom string subtype)
 //   - error: An error object if any error occurs during the connection or retrieval process.
 func GetPowerState(node CrawlableNode) (redfish.PowerState, error) {
-	log.Debug().Msgf("polling BMC %s for power states", node.ConnConfig.URI)
+	log.Debug().Msgf("polling %s for power states", node.ConnConfig.URI)
 
 	// Obtain an active client
 	client, err := GetBMCSession(node.ConnConfig)
