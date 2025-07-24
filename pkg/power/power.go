@@ -1,6 +1,7 @@
 package power
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
@@ -45,16 +46,32 @@ func ParseInventory(filename string) ([]NodeViaBMC, error) {
 		return nil, err
 	}
 
-	var nodelist struct {
-		Nodes []NodeViaBMC `yaml:"nodes"`
+	var inventory []struct {
+		ID      string                    `yaml:"ID"`
+		FQDN    string                    `yaml:"FQDN"`
+		Systems []crawler.InventoryDetail `yaml:"Systems"`
 	}
-	err = yaml.Unmarshal(contents, &nodelist)
+	err = yaml.Unmarshal(contents, &inventory)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to unmarshal contents of collected inventory file %s", filename)
 		return nil, err
 	}
 
-	return nodelist.Nodes, nil
+	nodelist := make([]NodeViaBMC, 0, len(inventory))
+	for i := range inventory {
+		systems := inventory[i].Systems
+		for j := range systems {
+			nodelist = append(nodelist, NodeViaBMC{
+				// TODO: This assumes indices in the Systems list correspond to node indices within the BMC.
+				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
+				Xname:     fmt.Sprintf("%sn%d", inventory[i].ID, j),
+				Bmc_IP:    inventory[i].FQDN,
+				Bmc_Index: j+1,
+			})
+		}
+	}
+
+	return nodelist, nil
 }
 
 // ResetComputerSystem connects to a BMC (Baseboard Management Controller) using the provided configuration,
