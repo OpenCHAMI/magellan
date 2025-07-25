@@ -29,6 +29,8 @@ update:
   component:
   secure-tls: false
   status: false
+power:
+  cacert: "cacert.pem"
 concurrency: 1
 timeout: 30
 verbose: true

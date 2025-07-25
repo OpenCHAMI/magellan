@@ -142,5 +142,5 @@ func SetDefaults() {
 	viper.SetDefault("update.firmware.version", "")
 	viper.SetDefault("update.component", "")
 	viper.SetDefault("update.status", false)
-
+	viper.SetDefault("power.cacert", "")
 }
