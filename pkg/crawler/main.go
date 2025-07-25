@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"dario.cat/mergo"
@@ -96,6 +97,7 @@ type InventoryDetail struct {
 	Chassis_Manufacturer string              `json:"chassis_manufacturer,omitempty"` // Manufacturer of the Chassis
 	Chassis_Model        string              `json:"chassis_model,omitempty"`        // Model of the Chassis
 	Links                Links               `json:"links,omitempty"`                // Links to specific resources
+	Bmc_Index            int                 `json:"bmc_index,omitempty"`            // Node index within the BMC
 }
 
 // GetBMCClient connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -316,6 +318,10 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 		}
 
 		// get all of the links to the chassis
+		index, err := strconv.Atoi(rf_computersystem.ID)
+		if err != nil {
+			index = 0 // this will break stuff downstream!
+		}
 		system := InventoryDetail{
 			URI:          baseURI + "/redfish/v1/Systems/" + rf_computersystem.ID,
 			UUID:         rf_computersystem.UUID,
@@ -339,6 +345,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			ProcessorCount: rf_computersystem.ProcessorSummary.Count,
 			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
 			MemoryTotal:    rf_computersystem.MemorySummary.TotalSystemMemoryGiB,
+			Bmc_Index:      index,
 		}
 		if rf_chassis != nil {
 			system.Chassis_SKU = rf_chassis.SKU

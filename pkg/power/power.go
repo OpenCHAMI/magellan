@@ -62,11 +62,9 @@ func ParseInventory(filename string) ([]NodeViaBMC, error) {
 		systems := inventory[i].Systems
 		for j := range systems {
 			nodelist = append(nodelist, NodeViaBMC{
-				// TODO: This assumes indices in the Systems list correspond to node indices within the BMC.
-				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
-				Xname:     fmt.Sprintf("%sn%d", inventory[i].ID, j),
+				Xname:     fmt.Sprintf("%sn%d", inventory[i].ID, systems[j].Bmc_Index-1),
 				Bmc_IP:    inventory[i].FQDN,
-				Bmc_Index: j+1,
+				Bmc_Index: systems[j].Bmc_Index,
 			})
 		}
 	}
