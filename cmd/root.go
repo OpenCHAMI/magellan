@@ -27,7 +27,6 @@ import (
 
 // CLI arguments as variables to not fiddle with error-prone strings
 var (
-	accessToken string
 	timeout     int
 	concurrency int
 	ports       []int
@@ -65,6 +64,16 @@ var rootCmd = &cobra.Command{
 
 // This Execute() function is called from main to run the CLI.
 func Execute() {
+	// Load access token from file, if path is provided
+	if viper.IsSet("token-path") {
+		b, err := os.ReadFile(viper.GetString("token-path"))
+		if err == nil {
+			viper.Set("access-token", string(b))
+		} else {
+			log.Warn().Err(err).Msg("failed to load access token from file; continuing without it")
+		}
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -78,7 +87,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Set to enable/disable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Set to enable/disable debug messages")
-	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Set the access token")
+	rootCmd.PersistentFlags().String("access-token", "", "Set the access token")
+	rootCmd.PersistentFlags().String("token-path", ".ochami-token", "Set the path to load/save the access token")
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
 
 	// bind viper config flags with cobra
@@ -87,6 +97,7 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")))
 	checkBindFlagError(viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")))
 	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.PersistentFlags().Lookup("access-token")))
+	checkBindFlagError(viper.BindEnv("access-token", "ACCESS_TOKEN"))
 	checkBindFlagError(viper.BindPFlag("cache", rootCmd.PersistentFlags().Lookup("cache")))
 }
 
