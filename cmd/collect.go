@@ -6,7 +6,6 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
-	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
@@ -45,15 +44,6 @@ var CollectCmd = &cobra.Command{
 		host, err = urlx.Sanitize(host)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to sanitize host")
-		}
-
-		// try to load access token either from env var, file, or config if var not set
-		if accessToken == "" {
-			var err error
-			accessToken, err = auth.LoadAccessToken(tokenPath)
-			if err != nil && verbose {
-				log.Warn().Err(err).Msgf("could not load access token")
-			}
 		}
 
 		// set the minimum/maximum number of concurrent processes
@@ -125,7 +115,7 @@ var CollectCmd = &cobra.Command{
 			OutputDir:   outputDir,
 			Format:      collectOutputFormat,
 			ForceUpdate: forceUpdate,
-			AccessToken: accessToken,
+			AccessToken: viper.GetString("access-token"),
 			SecretStore: store,
 		}
 
