@@ -111,7 +111,7 @@ var PowerCmd = &cobra.Command{
 		// Index nodes by xname, for faster lookup...
 		nodemap := make(map[string]power.NodeViaBMC, len(nodes))
 		for i := range nodes {
-			nodemap[nodes[i].Xname] = nodes[i]
+			nodemap[nodes[i].ClusterID] = nodes[i]
 		}
 		// ...and select the ones requested by the user
 		target_nodes := make([]power.CrawlableNode, 0, len(args))
@@ -122,8 +122,8 @@ var PowerCmd = &cobra.Command{
 				continue
 			}
 			target_nodes = append(target_nodes, power.CrawlableNode{
-				Xname:  node.Xname,
-				NodeID: node.Node_ID,
+				ClusterID: node.ClusterID,
+				NodeID:    node.Node_ID,
 				ConnConfig: crawler.CrawlerConfig{
 					URI:             "https://" + node.Bmc_IP,
 					CredentialStore: store,
@@ -138,7 +138,7 @@ var PowerCmd = &cobra.Command{
 			action_func = func(target power.CrawlableNode) string {
 				types, err := power.GetResetTypes(target)
 				if err != nil {
-					log.Error().Err(err).Msgf("failed to get reset types for node %s", target.Xname)
+					log.Error().Err(err).Msgf("failed to get reset types for node %s", target.ClusterID)
 					return ""
 				}
 				return fmt.Sprintf("%s", types)
@@ -149,7 +149,7 @@ var PowerCmd = &cobra.Command{
 				// is a custom string type, so a direct typecast works fine for now.
 				err := power.ResetComputerSystem(target, redfish.ResetType(reset_type))
 				if err != nil {
-					log.Error().Err(err).Msgf("failed to reset node %s", target.Xname)
+					log.Error().Err(err).Msgf("failed to reset node %s", target.ClusterID)
 					return "failure"
 				}
 				return "success"
@@ -158,7 +158,7 @@ var PowerCmd = &cobra.Command{
 			action_func = func(target power.CrawlableNode) string {
 				state, err := power.GetPowerState(target)
 				if err != nil {
-					log.Error().Err(err).Msgf("failed to get power state of node %s", target.Xname)
+					log.Error().Err(err).Msgf("failed to get power state of node %s", target.ClusterID)
 					state = "unknown"
 				}
 				return string(state)
@@ -176,8 +176,8 @@ var PowerCmd = &cobra.Command{
 
 func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner func(power.CrawlableNode) string) map[string]string {
 	type NodeInfo struct {
-		Xname  string
-		Result string
+		ClusterID string
+		Result    string
 	}
 	dataChannel := make(chan power.CrawlableNode, 1)
 	returnChannel := make(chan NodeInfo, concurrency)
@@ -196,7 +196,7 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 					return
 				}
 				// Perform work and return result
-				returnChannel <- NodeInfo{target.Xname, runner(target)}
+				returnChannel <- NodeInfo{target.ClusterID, runner(target)}
 			}
 		}()
 	}
@@ -207,7 +207,7 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 			if !ok {
 				break
 			}
-			results[info.Xname] = info.Result
+			results[info.ClusterID] = info.Result
 		}
 		wg.Done()
 	}()

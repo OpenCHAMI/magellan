@@ -14,18 +14,18 @@ import (
 )
 
 type NodeViaBMC struct {
-	Xname   string `yaml:"xname"`
-	Bmc_IP  string `yaml:"bmc_ip"`
-	Node_ID string `yaml:"node_id"`
+	ClusterID string `yaml:"cluster_id"`
+	Bmc_IP    string `yaml:"bmc_ip"`
+	Node_ID   string `yaml:"node_id"`
 }
 type CrawlableNode struct {
-	Xname      string
+	ClusterID  string
 	ConnConfig crawler.CrawlerConfig
 	NodeID     string
 }
 type PowerInfo struct {
-	Xname string
-	State redfish.PowerState
+	ClusterID string
+	State     redfish.PowerState
 }
 
 // Hold onto the current set of open clients, so we don't continually have to log into and out of BMCs
@@ -77,9 +77,9 @@ func ParseInventory(filename string) ([]NodeViaBMC, error) {
 				// FIXME: This assumes strict xname formatting! To become xname-agnostic, this should be
 				// replaced with some other cluster-wide ID (which the BMC/ComputerSystem itself won't know, so
 				// it'll have to be generated/looked up from somewhere else).
-				Xname:   fmt.Sprintf("%sn%d", inventory[i].ID, j),
-				Bmc_IP:  inventory[i].FQDN,
-				Node_ID: systems[j].Node_ID,
+				ClusterID: fmt.Sprintf("%sn%d", inventory[i].ID, j),
+				Bmc_IP:    inventory[i].FQDN,
+				Node_ID:   systems[j].Node_ID,
 			})
 		}
 	}
@@ -163,7 +163,7 @@ func GetPowerState(node CrawlableNode) (redfish.PowerState, error) {
 // Returns:
 //   - error: An error object if any error occurs during the connection or reset process.
 func ResetComputerSystem(node CrawlableNode, resetType redfish.ResetType) error {
-	log.Debug().Msgf("resetting computer system %s: %s", node.Xname, resetType)
+	log.Debug().Msgf("resetting computer system %s: %s", node.ClusterID, resetType)
 
 	client, err := crawler.GetBMCClient(node.ConnConfig)
 	if err != nil {
