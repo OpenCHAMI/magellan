@@ -31,7 +31,11 @@ var PowerCmd = &cobra.Command{
   magellan power x1000c0s0b3n0 -r On
   magellan power x1000c0s0b3n0 -r PowerCycle
   // list supported reset types
-  magellan power x1000c0s0b3n0 -l`,
+  magellan power x1000c0s0b3n0 -l
+  // more realistic usage
+  magellan power -u USER -p PASS -f collect.yaml x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2
+  // inventory from stdin
+  magellan collect -v ... | magellan power -f - x1000c0s0b3n0`,
 	Short: "Get and set node power states",
 	Long:  "Determine and control the power states of nodes found by a previous inventory crawl.\nSee the 'scan' and 'crawl' commands for further details.",
 	Run: func(cmd *cobra.Command, args []string) {
