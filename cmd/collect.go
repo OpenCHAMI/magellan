@@ -7,7 +7,6 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/internal/util"
-	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
@@ -48,15 +47,6 @@ var CollectCmd = &cobra.Command{
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to get scanned results from cache")
-		}
-
-		// try to load access token either from env var, file, or config if var not set
-		if accessToken == "" {
-			var err error
-			accessToken, err = auth.LoadAccessToken(tokenPath)
-			if err != nil && verbose {
-				log.Warn().Err(err).Msgf("could not load access token")
-			}
 		}
 
 		// set the minimum/maximum number of concurrent processes
@@ -127,7 +117,7 @@ var CollectCmd = &cobra.Command{
 			OutputDir:   outputDir,
 			Format:      collectOutputFormat,
 			ForceUpdate: forceUpdate,
-			AccessToken: accessToken,
+			AccessToken: viper.GetString("access-token"),
 			SecretStore: store,
 			BMCIDMap:    idMap,
 		}

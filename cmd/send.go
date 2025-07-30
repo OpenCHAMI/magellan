@@ -9,10 +9,10 @@ import (
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/OpenCHAMI/magellan/internal/util"
-	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
@@ -44,17 +44,6 @@ var sendCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-
-		// try to load access token either from env var, file, or config if var not set
-		if accessToken == "" {
-			var err error
-			accessToken, err = auth.LoadAccessToken(tokenPath)
-			if err != nil && verbose {
-				log.Warn().Err(err).Msgf("could not load access token")
-			} else if debug && accessToken != "" {
-				log.Debug().Str("access_token", accessToken).Msg("using access token")
-			}
-		}
 
 		// try and load cert if argument is passed for client
 		var smdClient = client.NewSmdClient()
@@ -103,7 +92,7 @@ var sendCmd = &cobra.Command{
 
 				// create and set headers for request
 				headers := client.HTTPHeader{}
-				headers.Authorization(accessToken)
+				headers.Authorization(viper.GetString("access-token"))
 				headers.ContentType("application/json")
 
 				host, err = urlx.Sanitize(host)

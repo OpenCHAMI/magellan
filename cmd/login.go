@@ -7,17 +7,16 @@ import (
 	"os"
 
 	magellan "github.com/OpenCHAMI/magellan/internal"
-	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
 	loginUrl   string
 	targetHost string
 	targetPort int
-	tokenPath  string
 	forceLogin bool
 	noBrowser  bool
 )
@@ -29,14 +28,8 @@ var loginCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// check if we have a valid JWT before starting login
 		if !forceLogin {
-			// try getting the access token from env var
-			testToken, err := auth.LoadAccessToken(tokenPath)
-			if err != nil {
-				log.Error().Err(err).Msgf("failed to load access token")
-			}
-
 			// parse into jwt.Token to validate
-			token, err := jwt.Parse([]byte(testToken))
+			token, err := jwt.Parse([]byte(viper.GetString("access-token")))
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to parse access token contents")
 				return
@@ -57,7 +50,7 @@ var loginCmd = &cobra.Command{
 
 		// start the login flow
 		var err error
-		accessToken, err = magellan.Login(loginUrl, targetHost, targetPort)
+		accessToken, err := magellan.Login(loginUrl, targetHost, targetPort)
 		if errors.Is(err, http.ErrServerClosed) {
 			if verbose {
 				fmt.Printf("\n=========================================\nServer closed.\n=========================================\n\n")
@@ -67,6 +60,7 @@ var loginCmd = &cobra.Command{
 		}
 
 		// if we got a new token successfully, save it to the token path
+		tokenPath := viper.GetString("token-path")
 		if accessToken != "" && tokenPath != "" {
 			err := os.WriteFile(tokenPath, []byte(accessToken), os.ModePerm)
 			if err != nil {
@@ -81,7 +75,6 @@ func init() {
 	loginCmd.Flags().StringVar(&targetHost, "target-host", "127.0.0.1", "Set the target host to return the access code")
 	loginCmd.Flags().IntVar(&targetPort, "target-port", 5000, "Set the target host to return the access code")
 	loginCmd.Flags().BoolVarP(&forceLogin, "force", "f", false, "Start the login process even with a valid token")
-	loginCmd.Flags().StringVar(&tokenPath, "token-path", ".ochami-token", "Set the path to load/save the access token")
 	loginCmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Prevent the default browser from being opened automatically")
 	rootCmd.AddCommand(loginCmd)
 }
