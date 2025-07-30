@@ -122,8 +122,8 @@ var PowerCmd = &cobra.Command{
 				continue
 			}
 			target_nodes = append(target_nodes, power.CrawlableNode{
-				Xname:    node.Xname,
-				BmcIndex: node.Bmc_Index,
+				Xname:  node.Xname,
+				NodeID: node.Node_ID,
 				ConnConfig: crawler.CrawlerConfig{
 					URI:             "https://" + node.Bmc_IP,
 					CredentialStore: store,
