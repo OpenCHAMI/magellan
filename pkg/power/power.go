@@ -14,14 +14,14 @@ import (
 )
 
 type NodeViaBMC struct {
-	Xname     string `yaml:"xname"`
-	Bmc_IP    string `yaml:"bmc_ip"`
-	Bmc_Index int    `yaml:"bmc_index"`
+	Xname   string `yaml:"xname"`
+	Bmc_IP  string `yaml:"bmc_ip"`
+	Node_ID string `yaml:"node_id"`
 }
 type CrawlableNode struct {
 	Xname      string
 	ConnConfig crawler.CrawlerConfig
-	BmcIndex   int
+	NodeID     string
 }
 type PowerInfo struct {
 	Xname string
@@ -72,9 +72,14 @@ func ParseInventory(filename string) ([]NodeViaBMC, error) {
 		systems := inventory[i].Systems
 		for j := range systems {
 			nodelist = append(nodelist, NodeViaBMC{
-				Xname:     fmt.Sprintf("%sn%d", inventory[i].ID, systems[j].Bmc_Index-1),
-				Bmc_IP:    inventory[i].FQDN,
-				Bmc_Index: systems[j].Bmc_Index,
+				// TODO: This assumes indices in the Systems list correspond to nodes' "…nX" xname components.
+				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
+				// FIXME: This assumes strict xname formatting! To become xname-agnostic, this should be
+				// replaced with some other cluster-wide ID (which the BMC/ComputerSystem itself won't know, so
+				// it'll have to be generated/looked up from somewhere else).
+				Xname:   fmt.Sprintf("%sn%d", inventory[i].ID, j),
+				Bmc_IP:  inventory[i].FQDN,
+				Node_ID: systems[j].Node_ID,
 			})
 		}
 	}
@@ -105,7 +110,13 @@ func GetResetTypes(node CrawlableNode) ([]redfish.ResetType, error) {
 	if err != nil {
 		return nil, err
 	}
-	system := rf_systems[node.BmcIndex-1]
+	var system *redfish.ComputerSystem
+	for i := range rf_systems {
+		if rf_systems[i].ID == node.NodeID {
+			system = rf_systems[i]
+			break
+		}
+	}
 	return system.SupportedResetTypes, nil
 }
 
@@ -132,7 +143,13 @@ func GetPowerState(node CrawlableNode) (redfish.PowerState, error) {
 	if err != nil {
 		return "", err
 	}
-	system := rf_systems[node.BmcIndex-1]
+	var system *redfish.ComputerSystem
+	for i := range rf_systems {
+		if rf_systems[i].ID == node.NodeID {
+			system = rf_systems[i]
+			break
+		}
+	}
 	return system.PowerState, nil
 }
 
@@ -163,7 +180,13 @@ func ResetComputerSystem(node CrawlableNode, resetType redfish.ResetType) error 
 	if err != nil {
 		return err
 	}
-	rf_compsys := rf_systems[node.BmcIndex-1]
+	var rf_compsys *redfish.ComputerSystem
+	for i := range rf_systems {
+		if rf_systems[i].ID == node.NodeID {
+			rf_compsys = rf_systems[i]
+			break
+		}
+	}
 
 	// Reset the system
 	return rf_compsys.Reset(resetType)
