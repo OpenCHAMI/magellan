@@ -1,6 +1,8 @@
 package power
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -39,7 +41,7 @@ var savedClients map[string]*gofish.APIClient
 // Returns:
 //   - []NodeViaBMC: A slice of structs containing relevant details for connecting to a node via its BMC.
 //   - error: An error object if any error occurs during the connection or reset process.
-func ParseInventory(filename string) ([]NodeViaBMC, error) {
+func ParseInventory(filename string, format string) ([]NodeViaBMC, error) {
 	// Read `collect`ed data from YAML file
 	var (
 		contents []byte
@@ -57,11 +59,18 @@ func ParseInventory(filename string) ([]NodeViaBMC, error) {
 	}
 
 	var inventory []struct {
-		ID      string                    `yaml:"ID"`
-		FQDN    string                    `yaml:"FQDN"`
-		Systems []crawler.InventoryDetail `yaml:"Systems"`
+		ID      string                    `json:"ID" yaml:"ID"`
+		FQDN    string                    `json:"FQDN" yaml:"FQDN"`
+		Systems []crawler.InventoryDetail `json:"Systems" yaml:"Systems"`
 	}
-	err = yaml.Unmarshal(contents, &inventory)
+	switch format {
+	case "json":
+		err = json.Unmarshal(contents, &inventory)
+	case "yaml":
+		err = yaml.Unmarshal(contents, &inventory)
+	default:
+		err = errors.New("unknown input format: " + format)
+	}
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to unmarshal contents of collected inventory file %s", filename)
 		return nil, err

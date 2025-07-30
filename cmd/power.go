@@ -33,7 +33,7 @@ var PowerCmd = &cobra.Command{
   // list supported reset types
   magellan power x1000c0s0b3n0 -l
   // more realistic usage
-  magellan power -u USER -p PASS -f collect.yaml x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2
+  magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2
   // inventory from stdin
   magellan collect -v ... | magellan power -f - x1000c0s0b3n0`,
 	Short: "Get and set node power states",
@@ -48,7 +48,7 @@ var PowerCmd = &cobra.Command{
 			log.Info().Msgf("parsing default inventory file from 'collect': %s", datafile)
 		}
 		// Parse node inventory
-		nodes, err := power.ParseInventory(datafile)
+		nodes, err := power.ParseInventory(datafile, viper.GetString("power.format"))
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to parse inventory file %s", datafile)
 			return
@@ -247,6 +247,7 @@ func init() {
 
 	// Bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlag("power.format", PowerCmd.Flags().Lookup("format")))
 	checkBindFlagError(viper.BindPFlags(PowerCmd.Flags()))
 
 	rootCmd.AddCommand(PowerCmd)
