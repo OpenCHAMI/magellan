@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
@@ -25,15 +24,16 @@ var collectOutputFormat string
 var CollectCmd = &cobra.Command{
 	Use: "collect",
 	Example: `  // basic collect after scan without making a follow-up request
-  magellan collect --cache ./assets.db --cacert ochami.pem -o ./logs -t 30
+  magellan collect --cache ./assets.db --cacert ochami.pem -o nodes.yaml -t 30
 
-  // set username and password for all nodes and make request to specified host
-  magellan collect --host https://smd.openchami.cluster -u $bmc_username -p $bmc_password
+  // set username and password for all nodes and produce the collected
+  // data in a file called 'nodes.yaml'
+  magellan collect -u $bmc_username -p $bmc_password -o nodes.yaml
 
-  // run a collect using secrets manager with fallback username and password
+  // run a collect using secrets from the secrets manager
   export MASTER_KEY=$(magellan secrets generatekey)
   magellan secrets store $node_creds_json -f nodes.json
-  magellan collect --host https://smd.openchami.cluster -u $fallback_bmc_username -p $fallback_bmc_password`,
+  magellan collect -o nodes.yaml`,
 	Short: "Collect system information by interrogating BMC node",
 	Long:  "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.",
 	PreRunE: func(cmd *cobra.Command, args []string) (error) {
@@ -48,12 +48,6 @@ var CollectCmd = &cobra.Command{
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to get scanned results from cache")
-		}
-
-		// URL sanitanization for host argument
-		host, err = urlx.Sanitize(host)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to sanitize host")
 		}
 
 		// try to load access token either from env var, file, or config if var not set
@@ -125,7 +119,6 @@ var CollectCmd = &cobra.Command{
 
 		// set the collect parameters from CLI params
 		params := &magellan.CollectParams{
-			URI:         host,
 			Timeout:     timeout,
 			Concurrency: concurrency,
 			Verbose:     verbose,
@@ -136,7 +129,7 @@ var CollectCmd = &cobra.Command{
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
 			SecretStore: store,
-			BMCIdMap:    idMapPath,
+			BMCIdMap:    idMap,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
@@ -155,19 +148,17 @@ func init() {
 	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
 	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
 	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
-	CollectCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme used to query when not included in URI")
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
 	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", util.FORMAT_JSON, "Set the default output data format (json|yaml) can be overridden by file extensions")
-	CollectCmd.Flags().StringVarP(&idMapPath, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
+	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
 
 	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("collect.scheme", CollectCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
 	checkBindFlagError(viper.BindPFlag("collect.output-file", CollectCmd.Flags().Lookup("output-file")))
 	checkBindFlagError(viper.BindPFlag("collect.output-dir", CollectCmd.Flags().Lookup("output-dir")))

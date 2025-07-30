@@ -184,7 +184,7 @@ func processDataArgs(args []string) []map[string]any {
 				}
 
 				// convert/validate input data
-				data, err = parseInput(contents, util.DataFormat(path, sendInputFormat))
+				data, err = parseInput(contents, util.DataFormatFromFileExt(path, sendInputFormat))
 				if err != nil {
 					log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
 				}

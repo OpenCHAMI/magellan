@@ -16,6 +16,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
     - [Arch Linux (AUR)](#arch-linux-aur)
   - [Usage](#usage)
     - [Checking for Redfish](#checking-for-redfish)
+    - [BMC ID Mapping](#bmc-id-mapping)
     - [Running the Tool](#running-the-tool)
     - [Managing Secrets](#managing-secrets)
     - [Starting the Emulator](#starting-the-emulator)
@@ -45,7 +46,7 @@ See the [TODO](#todo) section for a list of soon-ish goals planned.
 
 ## Getting Started
 
-[Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be ran by executing the `emulator/setup.sh` script or running `make emulator`.
+[Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be run by executing the `emulator/setup.sh` script or running `make emulator`.
 
 ## Building the Executable
 
@@ -137,11 +138,64 @@ This should return a JSON response with general information. The output below ha
 }
 ```
 
+### BMC ID Mapping
+
+While the `magellan collect` command collects data from RedFish servers and can produce node data suitable for use with SMD, the RedFish data has no defined way to provide BMC IDs that SMD can use. SMD consumes BMC IDs in the form of XNAMEs, which are names that provide both unique identification within a cluster and the topographical location information needed to phyically identify a BMC. Since RedFish does not provide a way to communicate BMC XNAMEs or other meaningful BMC IDs, `magellan` provides a mechanism to generate meaningful BMC IDs based on an external mapping. The `--bmc-id-map` (`-m`) option to `magellan` provides this mapping either in the form of a command line JSON string or in the form of a JSON or YAML file (by prepending the path to the file with an `@` sign). The YAML form of the mapping data is as follows:
+
+```yaml
+map_key: bmc-ip-addr
+id_map:
+    172.21.0.1: x0c0s1b0
+    172.21.0.2: x0c0s2b0
+    ...
+```
+
+Where the `map_key` is the name of the attribute known to `magellan` that identifies the BMC (currently the only supported `map_key` is `bmc-ip-addr` which is the IPv4 address of the BMC) and the `id_map` section is a map between that attribute an the ID string to be passed to the consumer of the data. In the case of SMD that is an XNAME in the form:
+
+```
+x<cabinet>c<chassis>s<shelf>b<blade>
+```
+
+
+where `<cabinet>` is a cabinet number in the cluster, `<chassis>` is a chassis within the cabinet, `<shelf>` is the shelf within the chassis and `<blade>` is the blade within a shelf where the BMC is located. The above mapping file (minus the elipsis) will work with the example described in the [Starting the Emulator](#starting-the-emulator) section.
+
+If you are using `magellan` within a system deployed using RIE in the [Quickstart Deployment Recipe](https://github.com/OpenCHAMI/deployment-recipes/blob/main/quickstart/README.md) you will need to generate a BMC ID Map from the RIE instances running under `docker-compose`. You can do this outside of the docker containers by running this script:
+
+```bash
+#! /bin/sh
+bmc_id_map() {
+    echo "map_key: bmc-ip-addr"
+    echo "id_map:"
+    # IP Address to XNAME mappings for RIE containers
+    docker ps --format json | jq -r '.Names | select(test("^rf-x"))' | while read container; do
+        xname="$(docker inspect "${container}" \
+           | jq -r '.[] | .NetworkSettings.Networks.quickstart_internal.Aliases[] | select(test("^x"))')"
+        address="$(docker inspect "${container}" \
+           | jq -r '.[] | .NetworkSettings.Networks.quickstart_internal.IPAddress')"
+        echo "    ${address}: ${xname}"
+    done
+}
+bmc_id_map
+```
+
+directing the output into a ID mapping file, then copying the ID mapping file into whatever container you are using to run `magellan` in your OpenCHAMI system an using it as follows on the magellan command line:
+
+```bash
+magellan collect --bmc-id-map @my_bmc_id_map.yaml -o nodes.yaml
+```
+
+If you have real BMCs present in your system in addition to those presented by RIE, you will need to add their IP Address to XNAME mapping to the BMC ID Map. How you do that for any given configuration is beyond the scope of this README.
+
+If you are using `magellan` in an application that is not OpenCHAMI and have a need for a different BMC ID mapping, you can construct a different kind of mapping file by replacing the XNAMEs with whatever your IDs should be.
+
+> [!NOTE]
+> If you do not specify a BMC ID Map, the IPv4 address of the BMC will be used in the ID field of all BMC data produced. If you do provide a BMC ID Map but some of the BMC map keys (IPv4 addresses) don't match anything in the file, those BMCs will be suppressed in the resulting data. This reflects the fact that `collect` does not know how to map those BMCs to valid IDs.
+
 ### Running the Tool
 
 There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand which will print this output:
 
-```bash
+```
 Redfish-based BMC discovery tool
 
 Usage:
@@ -179,7 +233,7 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
     --format json \
-    --cache data/assets.db \
+    --cache data/assets.db
 ```
 
 This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan that are not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently with goroutines. Try using `./magellan help scan` for a complete set of options this subcommand. Alternatively, the same scan can be started using CIDR notation and with additional hosts:
@@ -204,13 +258,15 @@ We can then save the output and make a request with the `send` subcommand or pip
     --timeout 5 \
     --username $USERNAME \
     --password $PASSWORD \
-    --host https://example.openchami.cluster:8443 \
     --format yaml \
     --output-file nodes.yaml \
-    --cacert cacert.pem
+    --cacert cacert.pem \
+    --bmc-id-map @my_bmc_id_map.yaml
 ```
 
-This will initiate a crawler that fetch inventory data from the specified BMC host. The data can be saved, viewed, or modified from standard output by setting the `-v/--verbose` flag. Similarly, this output can also be saved by using the `-o/--output-file` flag and providing a path argument.
+This will initiate a crawler to fetch inventory data from the specified BMC host. The data can be saved, viewed, or modified from standard output by setting the `-v/--verbose` flag. Similarly, this output can also be saved by using the `-o/--output-file` flag and providing a path argument.
+
+To prepare a BMC ID Map (`my_bmc_id_map.yaml`) see the [BMC ID Mapping](#bmc-id-mapping).
 
 To make a request with the `collect` output, we specify the `-d/--data` flag for `send`. For files, use the `@` symbol before the file path. Make sure that you set the correct input format with `-F/--format`. Finally, specify the host as a positional argument.
 
@@ -330,45 +386,43 @@ This will start a flask server that you can make requests to using `curl`.
 export emulator_host=https://172.21.0.2:5000
 export emulator_username=root           # set in the `rf_emulator.yml` file
 export emulator_password=root_password  # set in the `rf_emulator.yml` file
-curl -k $emulator_host/redfish/v1 -u $emulator_username:$emulator_password
+curl -k $emulator_host/redfish/v1/ -u $emulator_username:$emulator_password
 ```
 
 ...or with `magellan` using the secret store...
 
 ```bash
-magellan scan --subnet 172.21.0.0/24
-magellan secrets store \
-  $emulator_host \
-  $emulator_username:$emulator_password
-magellan collect --host https://smd.openchami.cluster
+export MASTER_KEY=$(magellan secrets generatekey)
+magellan scan --port 5000 --subnet 172.21.0.0/24
+magellan secrets store default $emulator_username:$emulator_password
+magellan collect -o node_info.json
 ```
 
-This example should work just like running on real hardware.
+This example should work just like running on real hardware, and produce a `node-info.json` output file that contains the collected data.
 
 > [!NOTE]
-> The emulator host may be different from the one in the README. Make sure to double-check the host!
+> The output from the above `magellan collect` command will not be compatible with SMD because it contains IP addresses instead of XNAMEs as BMC IDs. To generate correct XNAME BMC IDs, you must supply a BMC ID Mapping. See [BMC ID Mapping](#bmc-id-mapping) for details on how to create and specify a BMC ID Mapping when running `magellan collect`.
 
 ### Updating Firmware
 
-The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects there to be a running HTTP/HTTPS server running that has an accessible URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag (optional) with all the other usual arguments like in the example below:
+The `magellan` tool is capable of updating firmware with using the `update` subcommand via the Redfish API. This may sometimes necessary if some of the `collect` output is missing or is not including what is expected. The subcommand expects to find a running HTTP/HTTPS server that has an accessible URL path to the firmware download. Specify the URL with the `--firmware-path` flag and the firmware type with the `--component` flag (optional) with all the other usual arguments like in the example below:
 
 ```bash
-./magellan update 172.16.0.108:443 \
+./magellan update https://172.16.0.110:443 \
   --username $bmc_username \
   --password $bmc_password \
   --firmware-path http://172.16.0.255:8005/firmware/bios/image.RBU \
-  --component BIOS
 ```
 
 Then, the update status can be viewed by including the `--status` flag along with the other usual arguments or with the `watch` command:
 
 ```bash
-./magellan update 172.16.0.110 \
+./magellan update https://172.16.0.110 \
   --status \
   --username $bmc_username \
   --password $bmc_password | jq '.'
 # ...or...
-watch -n 1 "./magellan update 172.16.0.110 --status --username $bmc_username --password $bmc_password | jq '.'"
+watch -n 1 "./magellan update https://172.16.0.110 --status --username $bmc_username --password $bmc_password | jq '.'"
 ```
 
 ### Getting an Access Token (WIP)
@@ -393,7 +447,7 @@ export ACCESS_TOKEN=$(gen_access_token)
 
 ### Running with Docker
 
-The `magellan` tool can be ran in a Docker container after pulling the latest image:
+The `magellan` tool can be run in a Docker container after pulling the latest image:
 
 ```bash
 docker pull ghcr.io/openchami/magellan:latest
@@ -417,7 +471,7 @@ At its core, `magellan` is designed to do three basic things:
 
 First, the tool performs a scan to find running services on a network. This is done by sending a raw TCP packet to all specified hosts (either IP or host name) and taking note which services respond. At this point, `magellan` has no way of knowing whether this is a Redfish service or not, so another HTTP request is made to verify. Once the BMC responds with an OK status code, `magellan` will store the necessary information in a local cache database to allow collecting more information about the node later. This allows for users to only have to scan their cluster once to find systems that are currently available and scannable.
 
-Next, the tool queries information about the BMC node using `gofish` API functions, but requires access to BMC node found in the scanning step mentioned above to work. If the node requires basic authentication, a user name and password is required to be supplied as well. Once the BMC information is retrieved from each node, the info is aggregated and a HTTP request is made to a SMD instance to be stored. Optionally, the information can be written to disk for inspection and debugging purposes.
+Next, the tool queries information about the BMC node using `gofish` API functions, but requires access to BMC node found in the scanning step mentioned above to work. If the node requires basic authentication, a user name and password is required to be supplied as well. Once the BMC information is retrieved from each node, the info is aggregated and place either in a file or on standard output which can be read by the `magellan send` command which makes an HTTP request to an SMD instance to store the data. This can be done in a command line pipeline in the shell or Optionally, the information can be written to disk for inspection and debugging purposes.
 
 In summary, `magellan` needs at minimum the following configured to work on each node:
 

@@ -30,7 +30,6 @@ import (
 // CollectParams is a collection of common parameters passed to the CLI
 // for the 'collect' subcommand.
 type CollectParams struct {
-	URI         string              // set by the 'host' flag
 	Concurrency int                 // set the of concurrent jobs with the 'concurrency' flag
 	Timeout     int                 // set the timeout with the 'timeout' flag
 	CaCertPath  string              // set the cert path with the 'cacert' flag
@@ -83,14 +82,18 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	if err != nil {
 		return nil, err
 	}
-	// Validate the MapKey field in the ID Map (the only value
-	// currently allowed is 'bmc-ip-addr', but this is where
-	// any other legal values would be added).
-	switch bmcIdMap.MapKey {
-	case "bmc-ip-addr":
-		break
-	default:
-		return nil, fmt.Errorf("invalid 'map_key' field '%s' in BMC ID Map avalid value is 'bmc-ip-addr", bmcIdMap.MapKey)
+	// Validate the MapKey field in the ID Map if a map was found
+	// (the only value currently allowed is 'bmc-ip-addr', but
+	// this is where any other legal values would be added).
+	if bmcIdMap != nil {
+		switch bmcIdMap.MapKey {
+		case "bmc-ip-addr":
+			break
+		default:
+			return nil, fmt.Errorf("invalid 'map_key' field '%s' in BMC ID Map a valid value is 'bmc-ip-addr", bmcIdMap.MapKey)
+		}
+	} else {
+		log.Warn().Msg("no BMC ID Map (--bmc-id-map string option) provided, BMC IDs will be IP addresses which are incompatible with SMD")
 	}
 
 	// set the client's params from CLI
@@ -223,7 +226,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	)
 
 	// format our output to write to file or standard out
-	format := util.DataFormat(params.OutputPath, params.Format)
+	format := util.DataFormatFromFileExt(params.OutputPath, params.Format)
 	switch format {
 	case util.FORMAT_JSON:
 		output, err = json.MarshalIndent(collection, "", "    ")
@@ -389,7 +392,7 @@ func getBMCIdMap(data string, format string)(*BMCIdMap, error) {
 	}
 
 	// Decode the file based on the appropriate format.
-	switch util.DataFormat(path, format) {
+	switch util.DataFormatFromFileExt(path, format) {
 	case util.FORMAT_JSON:
 		// Read in JSON file
 		err := json.Unmarshal(input, &bmcIdMap)

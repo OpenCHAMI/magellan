@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0]
+
+### Changed
+
+ * Add --bmc-id-map (-m) option and ID Mapping logic to 'collect'
+ * Remove XNAME generation logic from 'collect'
+ * Add README content describing use of BMC ID Mapping
+ * Clean up left-over --host option remnants from 'collect'
+
 ## [0.2.2]
 
 ### Changed
