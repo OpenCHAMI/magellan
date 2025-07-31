@@ -2,7 +2,6 @@ package power
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -69,7 +68,7 @@ func ParseInventory(filename string, format string) ([]NodeViaBMC, error) {
 	case "yaml":
 		err = yaml.Unmarshal(contents, &inventory)
 	default:
-		err = errors.New("unknown input format: " + format)
+		err = fmt.Errorf("unknown input format: %s", format)
 	}
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to unmarshal contents of collected inventory file %s", filename)
