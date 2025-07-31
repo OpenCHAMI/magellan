@@ -19,7 +19,6 @@ import (
 	"net"
 	"os"
 
-	magellan "github.com/OpenCHAMI/magellan/internal"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -99,14 +98,27 @@ func checkBindFlagError(err error) {
 
 // InitializeConfig() initializes a new config object by loading it
 // from a file given a non-empty string.
-//
-// See the 'LoadConfig' function in 'internal/config' for details.
 func InitializeConfig() {
-	if configPath != "" {
-		err := magellan.LoadConfig(configPath)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to load config")
+	viper.AutomaticEnv()
+	if configPath == "" {
+		config_dir := os.Getenv("XDG_CONFIG_HOME")
+		if config_dir == "" {
+			config_dir = "$HOME/.config"
 		}
+		viper.AddConfigPath(config_dir + "/magellan")
+		viper.SetConfigName("config")
+		// File type left unspecified; Viper will auto-parse based on extension
+		// e.g. ~/.config/magellan/config.yaml will parse as YAML
+	} else {
+		viper.SetConfigFile(configPath)
+	}
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			err = fmt.Errorf("config file not found: %w", err)
+		} else {
+			err = fmt.Errorf("failed to load config file: %w", err)
+		}
+		log.Error().Err(err).Msg("failed to load config")
 	}
 }
 
