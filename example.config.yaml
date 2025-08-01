@@ -15,7 +15,6 @@ scan:
   scheme: "https"
 collect:
   protocol: "tcp"
-  scheme: "https"
   output: "/tmp/magellan/data/"
   threads: 1
   force-update: false

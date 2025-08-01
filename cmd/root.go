@@ -26,12 +26,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	FORMAT_LIST = "list"
-	FORMAT_JSON = "json"
-	FORMAT_YAML = "yaml"
-)
-
 // CLI arguments as variables to not fiddle with error-prone strings
 var (
 	accessToken string
@@ -50,6 +44,7 @@ var (
 	debug       bool
 	forceUpdate bool
 	insecure    bool
+	idMap       string
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -133,7 +128,6 @@ func SetDefaults() {
 	viper.SetDefault("scan.subnet-masks", []net.IP{})
 	viper.SetDefault("scan.disable-probing", false)
 	viper.SetDefault("scan.disable-cache", false)
-	viper.SetDefault("collect.host", host)
 	viper.SetDefault("collect.username", "")
 	viper.SetDefault("collect.password", "")
 	viper.SetDefault("collect.protocol", "tcp")

@@ -11,9 +11,10 @@ import (
 
 type UpdateParams struct {
 	CollectParams
-	FirmwareURI      string
-	TransferProtocol string
-	Insecure         bool
+	URI              string   // Set from the positional paramters to update
+	FirmwareURI      string   // set from the --firmware-url flag
+	TransferProtocol string   // set from the --scheme flag
+	Insecure         bool     // set from the --insecure flag
 }
 
 // UpdateFirmwareRemote() uses 'gofish' to update the firmware of a BMC node.

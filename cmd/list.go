@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 
@@ -32,6 +33,13 @@ var ListCmd = &cobra.Command{
 	Short: "List information stored in cache from a scan",
 	Long: "Prints all of the host and associated data found from performing a scan.\n" +
 		"See the 'scan' command on how to perform a scan.",
+	PreRunE: func(cmd *cobra.Command, args []string) (error) {
+		// Validate the specified file format
+		if listOutputFormat != util.FORMAT_JSON && listOutputFormat != util.FORMAT_YAML && listOutputFormat != util.FORMAT_LIST {
+			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml|list)", listOutputFormat)
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// check if we just want to show cache-related info and exit
 		if showCache {
@@ -45,19 +53,19 @@ var ListCmd = &cobra.Command{
 			log.Error().Err(err).Msg("failed to get scanned assets")
 		}
 		switch strings.ToLower(listOutputFormat) {
-		case FORMAT_JSON:
+		case util.FORMAT_JSON:
 			b, err := json.Marshal(scannedResults)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to unmarshal cached data to JSON")
 			}
 			fmt.Printf("%s\n", string(b))
-		case FORMAT_YAML:
+		case util.FORMAT_YAML:
 			b, err := yaml.Marshal(scannedResults)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to unmarshal cached data to YAML")
 			}
 			fmt.Printf("%s\n", string(b))
-		case FORMAT_LIST:
+		case util.FORMAT_LIST:
 			for _, r := range scannedResults {
 				fmt.Printf("%s:%d (%s) @%s\n", r.Host, r.Port, r.Protocol, r.Timestamp.Format(time.UnixDate))
 			}
@@ -69,7 +77,7 @@ var ListCmd = &cobra.Command{
 }
 
 func init() {
-	ListCmd.Flags().StringVarP(&listOutputFormat, "format", "F", FORMAT_LIST, "Set the output format (json|yaml|table)")
+	ListCmd.Flags().StringVarP(&listOutputFormat, "format", "F", util.FORMAT_LIST, "Set the output format (list|json|yaml)")
 	ListCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
 	rootCmd.AddCommand(ListCmd)
 }

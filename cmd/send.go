@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
@@ -33,6 +34,13 @@ var sendCmd = &cobra.Command{
   magellan collect -v -F yaml | magellan send -d @inventory.yaml -F yaml https://smd.openchami.cluster`,
 	Short: "Send collected node information to specified host.",
 	Args: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+	PreRunE: func(cmd *cobra.Command, args []string) (error) {
+		// Validate the specified file format
+		if sendInputFormat != util.FORMAT_JSON && sendInputFormat != util.FORMAT_YAML {
+			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", sendInputFormat)
+		}
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -131,7 +139,7 @@ var sendCmd = &cobra.Command{
 
 func init() {
 	sendCmd.Flags().StringArrayVarP(&sendDataArgs, "data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
-	sendCmd.Flags().StringVarP(&sendInputFormat, "format", "F", FORMAT_JSON, "Set the data input format (json|yaml)")
+	sendCmd.Flags().StringVarP(&sendInputFormat, "format", "F", util.FORMAT_JSON, "Set the default data input format (json|yaml) can be overridden by file extension")
 	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	rootCmd.AddCommand(sendCmd)
@@ -163,7 +171,6 @@ func processDataArgs(args []string) []map[string]any {
 					data     JSONArray
 					err      error
 				)
-
 				contents, err = os.ReadFile(path)
 				if err != nil {
 					log.Error().Err(err).Str("path", path).Msg("failed to read file")
@@ -176,8 +183,8 @@ func processDataArgs(args []string) []map[string]any {
 					continue
 				}
 
-				// convert/validate JSON input format
-				data, err = parseInput(contents)
+				// convert/validate input data
+				data, err = parseInput(contents, util.DataFormatFromFileExt(path, sendInputFormat))
 				if err != nil {
 					log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
 				}
@@ -233,27 +240,27 @@ func handleArgs(args []string) []map[string]any {
 		return nil
 	}
 	fmt.Println(string(data))
-	collection, err = parseInput([]byte(data))
+	collection, err = parseInput([]byte(data), sendInputFormat)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to validate input from arg")
 	}
 	return collection
 }
 
-func parseInput(contents []byte) ([]map[string]any, error) {
+func parseInput(contents []byte, format string) ([]map[string]any, error) {
 	var (
 		data []map[string]any
 		err  error
 	)
 
 	// convert/validate JSON input format
-	switch sendInputFormat {
-	case FORMAT_JSON:
+	switch format {
+	case util.FORMAT_JSON:
 		err = json.Unmarshal(contents, &data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal input in JSON: %v", err)
 		}
-	case FORMAT_YAML:
+	case util.FORMAT_YAML:
 		err = yaml.Unmarshal(contents, &data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal input in YAML: %v", err)

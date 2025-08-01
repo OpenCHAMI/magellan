@@ -21,7 +21,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/Cray-HPE/hms-xname/xnames"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
@@ -31,7 +30,6 @@ import (
 // CollectParams is a collection of common parameters passed to the CLI
 // for the 'collect' subcommand.
 type CollectParams struct {
-	URI         string              // set by the 'host' flag
 	Concurrency int                 // set the of concurrent jobs with the 'concurrency' flag
 	Timeout     int                 // set the timeout with the 'timeout' flag
 	CaCertPath  string              // set the cert path with the 'cacert' flag
@@ -41,7 +39,17 @@ type CollectParams struct {
 	Format      string              // set the output format
 	ForceUpdate bool                // set whether to force updating SMD with 'force-update' flag
 	AccessToken string              // set the access token to include in request with 'access-token' flag
+	BMCIdMap   string              // Set the path to the BMC ID mapping YAML or JSON file (if any)
 	SecretStore secrets.SecretStore // set BMC credentials
+}
+
+// BMCIdMap contains the mapping of host address strings to BMC Identifiers
+// supplied by the --bmc-id-map option to collect. IdMap is the mapping itself,
+// MapKey specifies what string to use as the key to the map. For now, that is
+// always 'bmc-ip-addr'. In the future other options may be available.
+type BMCIdMap struct {
+	IdMap      map[string]string `json:"id_map" yaml:"id_map"`
+	MapKey     string `json:"map_key" yaml:"map_key"`
 }
 
 // This is the main function used to collect information from the BMC nodes via Redfish.
@@ -61,13 +69,32 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 	// collect bmc information asynchronously
 	var (
-		offset     = 0
 		wg         sync.WaitGroup
 		collection = make([]map[string]any, 0)
 		found      = make([]string, 0, len(*assets))
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
+		bmcIdMap   *BMCIdMap
+		err        error
 	)
+	// Get the host to BMC ID mapping
+	bmcIdMap, err = getBMCIdMap(params.BMCIdMap, params.Format)
+	if err != nil {
+		return nil, err
+	}
+	// Validate the MapKey field in the ID Map if a map was found
+	// (the only value currently allowed is 'bmc-ip-addr', but
+	// this is where any other legal values would be added).
+	if bmcIdMap != nil {
+		switch bmcIdMap.MapKey {
+		case "bmc-ip-addr":
+			break
+		default:
+			return nil, fmt.Errorf("invalid 'map_key' field '%s' in BMC ID Map a valid value is 'bmc-ip-addr", bmcIdMap.MapKey)
+		}
+	} else {
+		log.Warn().Msg("no BMC ID Map (--bmc-id-map string option) provided, BMC IDs will be IP addresses which are incompatible with SMD")
+	}
 
 	// set the client's params from CLI
 	wg.Add(params.Concurrency)
@@ -80,18 +107,17 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					return
 				}
 
-				// generate custom xnames for bmcs
-				// TODO: add xname customization via CLI
-				var (
-					uri  = fmt.Sprintf("%s:%d", sr.Host, sr.Port)
-					node = xnames.Node{
-						Cabinet:       1000,
-						Chassis:       1,
-						ComputeModule: 7,
-						NodeBMC:       offset,
-					}
-				)
-				offset += 1
+				trimmedHost := strings.TrimPrefix(sr.Host, "https://")
+				uri  := fmt.Sprintf("%s:%d", sr.Host, sr.Port)
+				bmcId := getBMCId(bmcIdMap, trimmedHost)
+
+				// If bmcId is empty, skip this BMC. Empty means that there
+				// is a valid mapping, but there was no match for this host
+				// in the mapping, meaning that the BMC is unrecognized. Skip
+				// this BMC.
+				if bmcId == "" {
+					continue
+				}
 
 				// crawl BMC node to fetch inventory data via Redfish
 				var (
@@ -103,7 +129,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 						Insecure:        true,
 						UseDefault:      true,
 					}
-					err error
 				)
 
 				// crawl for node and BMC information
@@ -129,7 +154,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 				// data to be sent to smd
 				data := map[string]any{
-					"ID":                 fmt.Sprintf("%v", node.String()[:len(node.String())-2]),
+					"ID":                 bmcId,
 					"Type":               "",
 					"Name":               "",
 					"FQDN":               strings.TrimPrefix(sr.Host, "https://"),
@@ -198,17 +223,17 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 	var (
 		output []byte
-		err    error
 	)
 
 	// format our output to write to file or standard out
-	switch params.Format {
-	case "json":
+	format := util.DataFormatFromFileExt(params.OutputPath, params.Format)
+	switch format {
+	case util.FORMAT_JSON:
 		output, err = json.MarshalIndent(collection, "", "    ")
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to marshal output to JSON")
 		}
-	case "yaml":
+	case util.FORMAT_YAML:
 		output, err = yaml.Marshal(collection)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to marshal output to YAML")
@@ -224,7 +249,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	if params.OutputDir != "" {
 		for _, data := range collection {
 			var (
-				finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), params.Format)
+				finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), format)
 				finalDir  = filepath.Dir(finalPath)
 			)
 			// if it doesn't, make the directory and write file
@@ -333,4 +358,74 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 
 	// no matches found, so return an empty string
 	return "", fmt.Errorf("no ethernet interfaces found with IP address")
+}
+
+func getBMCIdMap(data string, format string)(*BMCIdMap, error) {
+	// If no mapping is provided, there is no error, but there is
+	// also no mapping, just return nil with no error and let the
+	// caller pass that around.
+	if data == "" {
+		return nil, nil
+	}
+
+	var bmcIdMap BMCIdMap
+	// First, check whether 'data' specifies a file (i.e. starts
+	// with '@'). If not, it should be a JSON string containing the
+	// map data. Otherwise, strip the '@' and fall through.
+	if data[0] != '@' {
+		err := json.Unmarshal([]byte(data), &bmcIdMap)
+		if err != nil {
+			return nil, err
+		}
+		return &bmcIdMap, nil
+	}
+
+	// The map data is in a file. Get the path from what comes
+	// after the '@' and process it.
+	path := data[1:]
+
+	// Read in the contents of the map file, since we are going to
+	// do that no matter what type it is...
+	input, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("error reading BMC ID mapping file '%s': %v", path, err)
+	}
+
+	// Decode the file based on the appropriate format.
+	switch util.DataFormatFromFileExt(path, format) {
+	case util.FORMAT_JSON:
+		// Read in JSON file
+		err := json.Unmarshal(input, &bmcIdMap)
+		if err != nil {
+			return nil, err
+		}
+	case util.FORMAT_YAML:
+		// Read in YAML file
+		err := yaml.Unmarshal(input, &bmcIdMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &bmcIdMap, nil
+}
+
+// Generate a BMC ID string associated with 'selector' in the provided
+// 'BMCIdMap'. If there is no map, then return the selector string
+// itself.  If the map is present but the host is not present in the
+// map, then log a warning and return an empty string indicating that
+// the BMC ID was not composed.
+func getBMCId(bmcIdMap *BMCIdMap, selector string) (string) {
+	if bmcIdMap == nil {
+		return selector
+	}
+	// Go does not error out on string map references that do not
+	// match the selector, it simply produces an empty
+	// string. Recognize that case and log it, then return an
+	// empty string.
+	bmcId := bmcIdMap.IdMap[selector]
+	if bmcId == "" {
+		log.Warn().Msgf("no mapping found from host selector '%v' to a BMC ID", selector)
+		return ""
+	}
+	return bmcId
 }

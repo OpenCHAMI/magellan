@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -36,6 +37,13 @@ var CrawlCmd = &cobra.Command{
 		args[0], err = urlx.Sanitize(args[0])
 		if err != nil {
 			return fmt.Errorf("failed to sanitize URI: %w", err)
+		}
+		return nil
+	},
+	PreRunE: func(cmd *cobra.Command, args []string) (error) {
+		// Validate the specified file format
+		if crawlOutputFormat != util.FORMAT_JSON && crawlOutputFormat != util.FORMAT_YAML {
+			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", crawlOutputFormat)
 		}
 		return nil
 	},
@@ -107,14 +115,14 @@ var CrawlCmd = &cobra.Command{
 		}
 
 		switch crawlOutputFormat {
-		case FORMAT_JSON:
+		case util.FORMAT_JSON:
 			// Marshal the inventory details to JSON
 			output, err = json.MarshalIndent(data, "", "  ")
 			if err != nil {
 				log.Error().Err(err).Msg("failed to marshal JSON")
 				return
 			}
-		case FORMAT_YAML:
+		case util.FORMAT_YAML:
 			// Marshal the inventory details to JSON
 			output, err = yaml.Marshal(data)
 			if err != nil {
@@ -136,7 +144,7 @@ func init() {
 	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
 	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	CrawlCmd.Flags().StringVarP(&crawlOutputFormat, "format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
+	CrawlCmd.Flags().StringVarP(&crawlOutputFormat, "format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 
 	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))

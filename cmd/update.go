@@ -87,11 +87,11 @@ var updateCmd = &cobra.Command{
 		for _, arg := range args {
 			if showStatus {
 				err := magellan.GetUpdateStatus(&magellan.UpdateParams{
+					URI:              arg,
 					FirmwareURI:      firmwareUri,
 					TransferProtocol: transferProtocol,
 					Insecure:         Insecure,
 					CollectParams: magellan.CollectParams{
-						URI:         arg,
 						SecretStore: store,
 						Timeout:     timeout,
 					},
@@ -104,11 +104,11 @@ var updateCmd = &cobra.Command{
 
 			// initiate a remote update
 			err := magellan.UpdateFirmwareRemote(&magellan.UpdateParams{
+				URI:              arg,
 				FirmwareURI:      firmwareUri,
 				TransferProtocol: strings.ToUpper(transferProtocol),
 				Insecure:         Insecure,
 				CollectParams: magellan.CollectParams{
-					URI:         arg,
 					SecretStore: store,
 					Timeout:     timeout,
 				},
