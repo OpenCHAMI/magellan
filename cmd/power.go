@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/power"
@@ -243,7 +244,7 @@ func init() {
 	PowerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
 	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	PowerCmd.Flags().StringP("format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
+	PowerCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 
 	// Bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
