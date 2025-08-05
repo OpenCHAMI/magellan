@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -17,21 +15,6 @@ import (
 func PathExists(path string) (fs.FileInfo, bool) {
 	fi, err := os.Stat(path)
 	return fi, !os.IsNotExist(err)
-}
-
-// SplitPathForViper() is an utility function to split a path into 3 parts:
-// - directory
-// - filename
-// - extension
-// The intent was to break a path into a format that's more easily consumable
-// by spf13/viper's API. See the "LoadConfig()" function in internal/config.go
-// for more details.
-//
-// TODO: Rename function to something more generalized.
-func SplitPathForViper(path string) (string, string, string) {
-	filename := filepath.Base(path)
-	ext := filepath.Ext(filename)
-	return filepath.Dir(path), strings.TrimSuffix(filename, ext), strings.TrimPrefix(ext, ".")
 }
 
 // MakeOutputDirectory() creates a new directory at the path argument if
