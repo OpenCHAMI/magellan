@@ -129,7 +129,7 @@ var CollectCmd = &cobra.Command{
 			ForceUpdate: forceUpdate,
 			AccessToken: accessToken,
 			SecretStore: store,
-			BMCIdMap:    idMap,
+			BMCIDMap:    idMap,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
