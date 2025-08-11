@@ -17,12 +17,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var crawlOutputFormat string
-
 // The `crawl` command walks a collection of Redfish endpoints to collect
 // specfic inventory detail. This command only expects host names and does
 // not require a scan to be performed beforehand.
-var CrawlCmd = &cobra.Command{
+var crawlCmd = &cobra.Command{
 	Use: "crawl [uri]",
 	Example: `  magellan crawl https://bmc.example.com
   magellan crawl https://bmc.example.com -i -u username -p password`,
@@ -42,6 +40,7 @@ var CrawlCmd = &cobra.Command{
 	},
 	PreRunE: func(cmd *cobra.Command, args []string) (error) {
 		// Validate the specified file format
+		crawlOutputFormat := viper.GetString("crawl.format")
 		if crawlOutputFormat != util.FORMAT_JSON && crawlOutputFormat != util.FORMAT_YAML {
 			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", crawlOutputFormat)
 		}
@@ -95,7 +94,7 @@ var CrawlCmd = &cobra.Command{
 			config   = crawler.CrawlerConfig{
 				URI:             uri,
 				CredentialStore: store,
-				Insecure:        insecure,
+				Insecure:        viper.GetBool("crawl.insecure"),
 				UseDefault:      true,
 			}
 		)
@@ -114,7 +113,7 @@ var CrawlCmd = &cobra.Command{
 			"Managers": managers,
 		}
 
-		switch crawlOutputFormat {
+		switch viper.GetString("crawl.format") {
 		case util.FORMAT_JSON:
 			// Marshal the inventory details to JSON
 			output, err = json.MarshalIndent(data, "", "  ")
@@ -140,15 +139,17 @@ var CrawlCmd = &cobra.Command{
 }
 
 func init() {
-	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
-	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
-	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
-	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	CrawlCmd.Flags().StringVarP(&crawlOutputFormat, "format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
+	crawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
+	crawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
+	crawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	crawlCmd.Flags().StringP("secrets-file", "f", "secrets.json", "Set path to the node secrets file")
+	crawlCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("username", crawlCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("password", crawlCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("crawl.insecure", crawlCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("crawl.secrets-file", crawlCmd.Flags().Lookup("secrets-file")))
+	checkBindFlagError(viper.BindPFlag("crawl.format", crawlCmd.Flags().Lookup("format")))
 
-	rootCmd.AddCommand(CrawlCmd)
+	rootCmd.AddCommand(crawlCmd)
 }

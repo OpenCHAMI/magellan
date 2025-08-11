@@ -12,16 +12,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	host             string
-	firmwareUri      string
-	firmwareVersion  string
-	component        string
-	transferProtocol string
-	showStatus       bool
-	Insecure         bool
-)
-
 // The `update` command provides an interface to easily update firmware
 // using Redfish. It also provides a simple way to check the status of
 // an update in-progress.
@@ -85,15 +75,18 @@ var updateCmd = &cobra.Command{
 
 		// get status if flag is set and exit
 		for _, arg := range args {
-			if showStatus {
+			firmwareUri := viper.GetString("update.firmware-uri")
+			transferProtocol := viper.GetString("update.scheme")
+			insecure := viper.GetBool("update.insecure")
+			if viper.GetBool("update.status") {
 				err := magellan.GetUpdateStatus(&magellan.UpdateParams{
 					URI:              arg,
 					FirmwareURI:      firmwareUri,
 					TransferProtocol: transferProtocol,
-					Insecure:         Insecure,
+					Insecure:         insecure,
 					CollectParams: magellan.CollectParams{
 						SecretStore: store,
-						Timeout:     timeout,
+						Timeout:     viper.GetInt("timeout"),
 					},
 				})
 				if err != nil {
@@ -107,10 +100,10 @@ var updateCmd = &cobra.Command{
 				URI:              arg,
 				FirmwareURI:      firmwareUri,
 				TransferProtocol: strings.ToUpper(transferProtocol),
-				Insecure:         Insecure,
+				Insecure:         insecure,
 				CollectParams: magellan.CollectParams{
 					SecretStore: store,
-					Timeout:     timeout,
+					Timeout:     viper.GetInt("timeout"),
 				},
 			})
 			if err != nil {
@@ -121,12 +114,12 @@ var updateCmd = &cobra.Command{
 }
 
 func init() {
-	updateCmd.Flags().StringVarP(&username, "username", "u", "", "Set the BMC user")
-	updateCmd.Flags().StringVarP(&password, "password", "p", "", "Set the BMC password")
-	updateCmd.Flags().StringVar(&transferProtocol, "scheme", "https", "Set the transfer protocol")
-	updateCmd.Flags().StringVar(&firmwareUri, "firmware-uri", "", "Set the URI to retrieve the firmware")
-	updateCmd.Flags().BoolVar(&showStatus, "status", false, "Get the status of the update")
-	updateCmd.Flags().BoolVarP(&Insecure, "insecure", "i", false, "Allow insecure connections to the server")
+	updateCmd.Flags().StringP("username", "u", "", "Set the BMC user")
+	updateCmd.Flags().StringP("password", "p", "", "Set the BMC password")
+	updateCmd.Flags().String("scheme", "https", "Set the transfer protocol")
+	updateCmd.Flags().String("firmware-uri", "", "Set the URI to retrieve the firmware")
+	updateCmd.Flags().Bool("status", false, "Get the status of the update")
+	updateCmd.Flags().BoolP("insecure", "i", false, "Allow insecure connections to the server")
 
 	checkBindFlagError(viper.BindPFlag("update.scheme", updateCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("update.firmware-uri", updateCmd.Flags().Lookup("firmware-uri")))

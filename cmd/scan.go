@@ -19,16 +19,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	scheme         string
-	subnets        []string
-	subnetMask     net.IPMask
-	targetHosts    [][]string
-	disableProbing bool
-	disableCache   bool
-	format         string
-	include        []string
-)
+var targetHosts [][]string
 
 // The `scan` command is usually the first step to using the CLI tool.
 // This command will perform a network scan over a subnet by supplying
@@ -36,7 +27,7 @@ var (
 //
 // See the `ScanForAssets()` function in 'internal/scan.go' for details
 // related to the implementation.
-var ScanCmd = &cobra.Command{
+var scanCmd = &cobra.Command{
 	Use: "scan urls...",
 	Example: `
   // assumes host https://10.0.0.101:443
@@ -73,7 +64,14 @@ var ScanCmd = &cobra.Command{
 		"Redfish and JAWS services. This is not recommended, since the extra request makes the scan a bit more reliable\n" +
 		"for determining which hosts to collect inventory data.\n\n",
 	Run: func(cmd *cobra.Command, args []string) {
+		debug := viper.GetBool("debug")
+		scheme := viper.GetString("scan.scheme")
+		verbose := viper.GetBool("verbose")
+		concurrency := viper.GetInt("concurrency")
+		cachePath := viper.GetString("cache")
+
 		// add default ports for hosts if none are specified with flag
+		ports := viper.GetIntSlice("scan.ports")
 		if len(ports) == 0 {
 			if debug {
 				log.Debug().Msg("adding default ports")
@@ -84,7 +82,8 @@ var ScanCmd = &cobra.Command{
 		// format and combine flag and positional args
 		targetHosts = append(targetHosts, urlx.FormatHosts(args, ports, scheme, verbose)...)
 
-		for _, subnet := range subnets {
+		subnetMask := (viper.Get("scan.subnet-mask")).(net.IPMask)
+		for _, subnet := range viper.GetStringSlice("scan.subnets") {
 			// generate a slice of all hosts to scan from subnets
 			subnetHosts := magellan.GenerateHostsWithSubnet(subnet, &subnetMask, ports, scheme)
 			targetHosts = append(targetHosts, subnetHosts...)
@@ -102,6 +101,8 @@ var ScanCmd = &cobra.Command{
 		}
 
 		// show the parameters going into the scan
+		disableProbing := viper.GetBool("scan.disable-probing")
+		disableCache := viper.GetBool("scan.disable-caching")
 		if debug {
 			combinedTargetHosts := []string{}
 			for _, targetHost := range targetHosts {
@@ -111,10 +112,10 @@ var ScanCmd = &cobra.Command{
 				"hosts":           combinedTargetHosts,
 				"cache":           cachePath,
 				"concurrency":     concurrency,
-				"protocol":        protocol,
-				"subnets":         subnets,
+				"protocol":        viper.GetString("scan.protocol"),
+				"subnets":         viper.GetStringSlice("scan.subnets"),
 				"subnet-mask":     subnetMask.String(),
-				"cert":            cacertPath,
+				"cert":            viper.GetString("scan.cacert"), // FIXME: This doesn't exist. CA cert should be a global parameter
 				"disable-probing": disableProbing,
 				"disable-caching": disableCache,
 			}
@@ -136,14 +137,14 @@ var ScanCmd = &cobra.Command{
 		foundAssets := magellan.ScanForAssets(&magellan.ScanParams{
 			TargetHosts:    targetHosts,
 			Scheme:         scheme,
-			Protocol:       protocol,
+			Protocol:       viper.GetString("scan.protocol"),
 			Concurrency:    concurrency,
-			Timeout:        timeout,
+			Timeout:        viper.GetInt("timeout"),
 			DisableProbing: disableProbing,
 			Verbose:        verbose,
 			Debug:          debug,
-			Insecure:       insecure,
-			Include:        include,
+			Insecure:       viper.GetBool("scan.insecure"),
+			Include:        viper.GetStringSlice("scan.include"),
 		})
 
 		if len(foundAssets) > 0 && debug {
@@ -155,7 +156,7 @@ var ScanCmd = &cobra.Command{
 			return
 		}
 
-		if format != "" {
+		if format := viper.GetString("scan.format"); format != "" {
 			var output []byte
 			var err error
 			switch format {
@@ -170,7 +171,9 @@ var ScanCmd = &cobra.Command{
 				log.Error().Err(err).Msgf("Failed to marshal output to %s", format)
 				return
 			}
-			if outputPath != "" {
+
+			if viper.IsSet("scan.output") {
+				outputPath := viper.GetString("scan.output")
 				err := os.WriteFile(outputPath, output, 0644)
 				if err != nil {
 					log.Error().Err(err).Msgf("Failed to write to file: %s", outputPath)
@@ -198,25 +201,29 @@ var ScanCmd = &cobra.Command{
 }
 
 func init() {
-	ScanCmd.Flags().IntSliceVar(&ports, "port", nil, "Adds additional ports to scan for each host with unspecified ports.")
-	ScanCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme to use if not specified in host URI. (default is 'https')")
-	ScanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan. (default is 'tcp')")
-	ScanCmd.Flags().StringSliceVar(&subnets, "subnet", nil, "Add additional hosts from specified subnets to scan.")
-	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
-	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
-	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
-	ScanCmd.Flags().BoolVar(&insecure, "insecure", true, "Skip TLS certificate verification during probe")
-	ScanCmd.Flags().StringVarP(&format, "format", "F", "", "Output format (json, yaml)")
-	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
-	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
+	scanCmd.Flags().IntSlice("ports", nil, "Adds additional ports to scan for each host with unspecified ports.")
+	scanCmd.Flags().String("scheme", "https", "Set the default scheme to use if not specified in host URI. (default is 'https')")
+	scanCmd.Flags().String("protocol", "tcp", "Set the default protocol to use in scan. (default is 'tcp')")
+	scanCmd.Flags().StringSlice("subnets", nil, "Add additional hosts from specified subnets to scan.")
+	scanCmd.Flags().IPMask("subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
+	scanCmd.Flags().Bool("disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
+	scanCmd.Flags().Bool("disable-caching", false, "Disable saving found assets to a cache database specified with 'cache' flag")
+	scanCmd.Flags().Bool("insecure", true, "Skip TLS certificate verification during probe")
+	scanCmd.Flags().StringP("format", "F", "", "Output format (json, yaml)")
+	scanCmd.Flags().StringP("output", "o", "", "Output file path (for json/yaml formats)")
+	scanCmd.Flags().StringSlice("include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
 
-	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
-	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
-	checkBindFlagError(viper.BindPFlag("scan.protocol", ScanCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("scan.subnets", ScanCmd.Flags().Lookup("subnet")))
-	checkBindFlagError(viper.BindPFlag("scan.subnet-masks", ScanCmd.Flags().Lookup("subnet-mask")))
-	checkBindFlagError(viper.BindPFlag("scan.disable-probing", ScanCmd.Flags().Lookup("disable-probing")))
-	checkBindFlagError(viper.BindPFlag("scan.disable-cache", ScanCmd.Flags().Lookup("disable-cache")))
+	checkBindFlagError(viper.BindPFlag("scan.ports", scanCmd.Flags().Lookup("ports")))
+	checkBindFlagError(viper.BindPFlag("scan.scheme", scanCmd.Flags().Lookup("scheme")))
+	checkBindFlagError(viper.BindPFlag("scan.protocol", scanCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("scan.subnets", scanCmd.Flags().Lookup("subnets")))
+	checkBindFlagError(viper.BindPFlag("scan.subnet-mask", scanCmd.Flags().Lookup("subnet-mask")))
+	checkBindFlagError(viper.BindPFlag("scan.disable-probing", scanCmd.Flags().Lookup("disable-probing")))
+	checkBindFlagError(viper.BindPFlag("scan.disable-caching", scanCmd.Flags().Lookup("disable-caching")))
+	checkBindFlagError(viper.BindPFlag("scan.insecure", scanCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("scan.format", scanCmd.Flags().Lookup("format")))
+	checkBindFlagError(viper.BindPFlag("scan.output", scanCmd.Flags().Lookup("output")))
+	checkBindFlagError(viper.BindPFlag("scan.include", scanCmd.Flags().Lookup("include")))
 
-	rootCmd.AddCommand(ScanCmd)
+	rootCmd.AddCommand(scanCmd)
 }

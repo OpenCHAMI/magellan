@@ -15,12 +15,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var collectOutputFormat string
-
 // The `collect` command fetches data from a collection of BMC nodes.
 // This command should be ran after the `scan` to find available hosts
 // on a subnet.
-var CollectCmd = &cobra.Command{
+var collectCmd = &cobra.Command{
 	Use: "collect",
 	Example: `  // basic collect after scan without making a follow-up request
   magellan collect --cache ./assets.db --cacert ochami.pem -o nodes.yaml -t 30
@@ -37,6 +35,7 @@ var CollectCmd = &cobra.Command{
 	Long:  "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.",
 	PreRunE: func(cmd *cobra.Command, args []string) (error) {
 		// Validate the specified file format
+		collectOutputFormat := viper.GetString("collect.format")
 		if collectOutputFormat != util.FORMAT_JSON && collectOutputFormat != util.FORMAT_YAML {
 			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", collectOutputFormat)
 		}
@@ -44,12 +43,13 @@ var CollectCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan
-		scannedResults, err := sqlite.GetScannedAssets(cachePath)
+		scannedResults, err := sqlite.GetScannedAssets(viper.GetString("cache"))
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to get scanned results from cache")
 		}
 
 		// set the minimum/maximum number of concurrent processes
+		concurrency := viper.GetInt("concurrency")
 		if concurrency <= 0 {
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
@@ -109,21 +109,21 @@ var CollectCmd = &cobra.Command{
 
 		// set the collect parameters from CLI params
 		params := &magellan.CollectParams{
-			Timeout:     timeout,
+			Timeout:     viper.GetInt("timeout"),
 			Concurrency: concurrency,
-			Verbose:     verbose,
-			CaCertPath:  cacertPath,
-			OutputPath:  outputPath,
-			OutputDir:   outputDir,
-			Format:      collectOutputFormat,
-			ForceUpdate: forceUpdate,
+			Verbose:     viper.GetBool("verbose"),
+			CaCertPath:  viper.GetString("collect.cacert"),
+			OutputPath:  viper.GetString("collect.output-file"),
+			OutputDir:   viper.GetString("collect.output-dir"),
+			Format:      viper.GetString("collect.format"),
+			ForceUpdate: viper.GetBool("collect.force-update"),
 			AccessToken: viper.GetString("access-token"),
 			SecretStore: store,
-			BMCIDMap:    idMap,
+			BMCIDMap:    viper.GetString("collect.bmc-id-map"),
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
-		if verbose {
+		if viper.GetBool("verbose") {
 			log.Debug().Any("params", params)
 		}
 
@@ -135,26 +135,30 @@ var CollectCmd = &cobra.Command{
 }
 
 func init() {
-	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
-	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
-	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
-	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data using HIVE partitioning")
-	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
-	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	CollectCmd.Flags().StringVarP(&collectOutputFormat, "format", "F", util.FORMAT_JSON, "Set the default output data format (json|yaml) can be overridden by file extensions")
-	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
+	collectCmd.Flags().StringP("username", "u", "", "Set the master BMC username")
+	collectCmd.Flags().StringP("password", "p", "", "Set the master BMC password")
+	collectCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
+	collectCmd.Flags().String("protocol", "tcp", "Set the protocol used to query")
+	collectCmd.Flags().StringP("output-file", "o", "", "Set the path to store collection data using HIVE partitioning")
+	collectCmd.Flags().StringP("output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
+	collectCmd.Flags().Bool("force-update", false, "Set flag to force update data sent to SMD")
+	collectCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	collectCmd.Flags().StringP("format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
+	collectCmd.Flags().StringP("bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
-	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
+	collectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
 
 	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("collect.output-file", CollectCmd.Flags().Lookup("output-file")))
-	checkBindFlagError(viper.BindPFlag("collect.output-dir", CollectCmd.Flags().Lookup("output-dir")))
-	checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
-	checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
+	checkBindFlagError(viper.BindPFlag("username", collectCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("password", collectCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("secrets.file", collectCmd.Flags().Lookup("secrets-file")))
+	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol")))
+	checkBindFlagError(viper.BindPFlag("collect.output-file", collectCmd.Flags().Lookup("output-file")))
+	checkBindFlagError(viper.BindPFlag("collect.output-dir", collectCmd.Flags().Lookup("output-dir")))
+	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update")))
+	checkBindFlagError(viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlag("collect.format", collectCmd.Flags().Lookup("format")))
+	checkBindFlagError(viper.BindPFlag("collect.bmc-id-map", collectCmd.Flags().Lookup("bmc-id-map")))
 
-	rootCmd.AddCommand(CollectCmd)
+	rootCmd.AddCommand(collectCmd)
 }
