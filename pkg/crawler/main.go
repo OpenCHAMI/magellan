@@ -96,7 +96,7 @@ type InventoryDetail struct {
 	Chassis_Manufacturer string              `json:"chassis_manufacturer,omitempty"` // Manufacturer of the Chassis
 	Chassis_Model        string              `json:"chassis_model,omitempty"`        // Model of the Chassis
 	Links                Links               `json:"links,omitempty"`                // Links to specific resources
-	Node_ID              string              `json:"node_id,omitempty"`              // Node ID within the BMC, e.g. /redfish/v1/Systems/<ID>
+	NodeID               string              `json:"node_id,omitempty"`              // Node ID within the BMC, e.g. /redfish/v1/Systems/<ID>
 }
 
 // GetBMCClient connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -340,7 +340,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			ProcessorCount: rf_computersystem.ProcessorSummary.Count,
 			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
 			MemoryTotal:    rf_computersystem.MemorySummary.TotalSystemMemoryGiB,
-			Node_ID:        rf_computersystem.ID,
+			NodeID:         rf_computersystem.ID,
 		}
 		if rf_chassis != nil {
 			system.Chassis_SKU = rf_chassis.SKU

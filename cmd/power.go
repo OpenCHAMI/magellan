@@ -51,8 +51,8 @@ var PowerCmd = &cobra.Command{
 		// Parse node inventory
 		nodes, err := power.ParseInventory(datafile, viper.GetString("power.format"))
 		if err != nil {
-			log.Error().Err(err).Msgf("failed to parse inventory file %s", datafile)
-			return
+			log.Fatal().Err(err).Msgf("failed to parse inventory file %s", datafile)
+			// log.Fatal().Msg() does os.Exit(1) for us
 		}
 
 		// Set the minimum/maximum number of concurrent processes
@@ -114,7 +114,7 @@ var PowerCmd = &cobra.Command{
 		}
 
 		// Index nodes by xname, for faster lookup...
-		nodemap := make(map[string]power.NodeViaBMC, len(nodes))
+		nodemap := make(map[string]power.Node, len(nodes))
 		for i := range nodes {
 			nodemap[nodes[i].ClusterID] = nodes[i]
 		}
@@ -128,9 +128,9 @@ var PowerCmd = &cobra.Command{
 			}
 			target_nodes = append(target_nodes, power.CrawlableNode{
 				ClusterID: node.ClusterID,
-				NodeID:    node.Node_ID,
+				NodeID:    node.NodeID,
 				ConnConfig: crawler.CrawlerConfig{
-					URI:             "https://" + node.Bmc_IP,
+					URI:             "https://" + node.BmcIP,
 					CredentialStore: store,
 					Insecure:        insecure,
 				},

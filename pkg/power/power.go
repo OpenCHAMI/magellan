@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"gopkg.in/yaml.v3"
 
@@ -14,10 +15,10 @@ import (
 	"github.com/stmcginnis/gofish/redfish"
 )
 
-type NodeViaBMC struct {
+type Node struct {
 	ClusterID string `yaml:"cluster_id"`
-	Bmc_IP    string `yaml:"bmc_ip"`
-	Node_ID   string `yaml:"node_id"`
+	BmcIP     string `yaml:"bmc_ip"`
+	NodeID    string `yaml:"node_id"`
 }
 type CrawlableNode struct {
 	ClusterID  string
@@ -38,9 +39,9 @@ var savedClients map[string]*gofish.APIClient
 //   - filename: the path of the YAML file to parse for inventory data, or `-` for stdin.
 //
 // Returns:
-//   - []NodeViaBMC: A slice of structs containing relevant details for connecting to a node via its BMC.
+//   - []Node: A slice of structs containing relevant details for connecting to a node via its BMC.
 //   - error: An error object if any error occurs during the connection or reset process.
-func ParseInventory(filename string, format string) ([]NodeViaBMC, error) {
+func ParseInventory(filename string, format string) ([]Node, error) {
 	// Read `collect`ed data from YAML file
 	var (
 		contents []byte
@@ -63,9 +64,9 @@ func ParseInventory(filename string, format string) ([]NodeViaBMC, error) {
 		Systems []crawler.InventoryDetail `json:"Systems" yaml:"Systems"`
 	}
 	switch format {
-	case "json":
+	case util.FORMAT_JSON:
 		err = json.Unmarshal(contents, &inventory)
-	case "yaml":
+	case util.FORMAT_YAML:
 		err = yaml.Unmarshal(contents, &inventory)
 	default:
 		err = fmt.Errorf("unknown input format: %s", format)
@@ -75,19 +76,19 @@ func ParseInventory(filename string, format string) ([]NodeViaBMC, error) {
 		return nil, err
 	}
 
-	nodelist := make([]NodeViaBMC, 0, len(inventory))
+	nodelist := make([]Node, 0, len(inventory))
 	for i := range inventory {
 		systems := inventory[i].Systems
 		for j := range systems {
-			nodelist = append(nodelist, NodeViaBMC{
+			nodelist = append(nodelist, Node{
 				// TODO: This assumes indices in the Systems list correspond to nodes' "…nX" xname components.
 				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
 				// FIXME: This assumes strict xname formatting! To become xname-agnostic, this should be
 				// replaced with some other cluster-wide ID (which the BMC/ComputerSystem itself won't know, so
 				// it'll have to be generated/looked up from somewhere else).
 				ClusterID: fmt.Sprintf("%sn%d", inventory[i].ID, j),
-				Bmc_IP:    inventory[i].FQDN,
-				Node_ID:   systems[j].Node_ID,
+				BmcIP:     inventory[i].FQDN,
+				NodeID:    systems[j].NodeID,
 			})
 		}
 	}
