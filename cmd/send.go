@@ -16,11 +16,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	sendInputFormat string
-	sendDataArgs    []string
-)
-
 var sendCmd = &cobra.Command{
 	Use: "send [data]",
 	Example: `  // minimal working example
@@ -38,6 +33,7 @@ var sendCmd = &cobra.Command{
 	},
 	PreRunE: func(cmd *cobra.Command, args []string) (error) {
 		// Validate the specified file format
+		sendInputFormat := viper.GetString("send.format")
 		if sendInputFormat != util.FORMAT_JSON && sendInputFormat != util.FORMAT_YAML {
 			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", sendInputFormat)
 		}
@@ -47,7 +43,8 @@ var sendCmd = &cobra.Command{
 
 		// try and load cert if argument is passed for client
 		var smdClient = client.NewSmdClient()
-		if cacertPath != "" {
+		if viper.IsSet("send.cacert") {
+			cacertPath := viper.GetString("send.cacert")
 			log.Debug().Str("path", cacertPath).Msg("using provided certificate path")
 			err := client.LoadCertificateFromPath(smdClient, cacertPath)
 			if err != nil {
@@ -57,7 +54,7 @@ var sendCmd = &cobra.Command{
 
 		// make one request be host positional argument (restricted to 1 for now)
 		var inputData []map[string]any
-		temp := append(handleArgs(args), processDataArgs(sendDataArgs)...)
+		temp := append(handleArgs(args), processDataArgs(viper.GetStringSlice("send.data"))...)
 		for _, data := range temp {
 			if data != nil {
 				inputData = append(inputData, data)
@@ -69,7 +66,7 @@ var sendCmd = &cobra.Command{
 		}
 
 		// show the data that was just loaded as input
-		if verbose {
+		if viper.GetBool("verbose") {
 			output, err := json.Marshal(inputData)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to marshal input data")
@@ -110,7 +107,7 @@ var sendCmd = &cobra.Command{
 				err = smdClient.Add(body, headers)
 				if err != nil {
 					// try updating instead
-					if forceUpdate {
+					if viper.GetBool("send.force-update") {
 						smdClient.Xname = dataObject["ID"].(string)
 						err = smdClient.Update(body, headers)
 						if err != nil {
@@ -127,10 +124,16 @@ var sendCmd = &cobra.Command{
 }
 
 func init() {
-	sendCmd.Flags().StringArrayVarP(&sendDataArgs, "data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
-	sendCmd.Flags().StringVarP(&sendInputFormat, "format", "F", util.FORMAT_JSON, "Set the default data input format (json|yaml) can be overridden by file extension")
-	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
-	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	sendCmd.Flags().StringArrayP("data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
+	sendCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the default data input format (json|yaml) can be overridden by file extension")
+	sendCmd.Flags().BoolP("force-update", "f", false, "Set flag to force update data sent to SMD")
+	sendCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+
+	checkBindFlagError(viper.BindPFlag("send.data", sendCmd.Flags().Lookup("data")))
+	checkBindFlagError(viper.BindPFlag("send.format", sendCmd.Flags().Lookup("format")))
+	checkBindFlagError(viper.BindPFlag("send.force-update", sendCmd.Flags().Lookup("force-update")))
+	checkBindFlagError(viper.BindPFlag("send.cacert", sendCmd.Flags().Lookup("cacert")))
+
 	rootCmd.AddCommand(sendCmd)
 }
 
@@ -173,7 +176,7 @@ func processDataArgs(args []string) []map[string]any {
 				}
 
 				// convert/validate input data
-				data, err = parseInput(contents, util.DataFormatFromFileExt(path, sendInputFormat))
+				data, err = parseInput(contents, util.DataFormatFromFileExt(path, viper.GetString("send.format")))
 				if err != nil {
 					log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
 				}
@@ -216,7 +219,7 @@ func handleArgs(args []string) []map[string]any {
 		err        error
 	)
 
-	if len(sendDataArgs) > 0 {
+	if len(viper.GetStringSlice("send.data")) > 0 {
 		return nil
 	}
 	data, err = ReadStdin()
@@ -229,7 +232,7 @@ func handleArgs(args []string) []map[string]any {
 		return nil
 	}
 	fmt.Println(string(data))
-	collection, err = parseInput([]byte(data), sendInputFormat)
+	collection, err = parseInput([]byte(data), viper.GetString("send.format"))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to validate input from arg")
 	}

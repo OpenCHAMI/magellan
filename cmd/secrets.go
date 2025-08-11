@@ -13,12 +13,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	secretsFile           string
-	secretsStoreFormat    string
-	secretsStoreInputFile string
-)
-
 var secretsCmd = &cobra.Command{
 	Use: "secrets",
 	Example: `
@@ -64,17 +58,20 @@ var secretsStoreCmd = &cobra.Command{
 			err            error
 		)
 
-		// require either the args or input file
-		if len(args) < 1 && secretsStoreInputFile == "" {
-			log.Error().Msg("no input data or file")
-			os.Exit(1)
-		} else if len(args) > 1 && secretsStoreInputFile == "" {
-			// use args[1] here because args[0] is the secretID
-			secretValue = args[1]
+		if !viper.IsSet("secrets.input-file") {
+			if len(args) < 1 {
+				// require either the args or input file
+				log.Error().Msg("no input data or file")
+				os.Exit(1)
+			} else if len(args) > 1 {
+				// use args[1] here because args[0] is the secretID
+				secretValue = args[1]
+			}
 		}
 
+		secretsFile := viper.GetString("secrets.file")
 		// handle input file format
-		switch secretsStoreFormat {
+		switch viper.GetString("secrets.format") {
 		case "basic": // format: $username:$password
 			var (
 				values   []string
@@ -123,12 +120,12 @@ var secretsStoreCmd = &cobra.Command{
 			secretValue = string(decoded)
 		case "json": // format: {"username": $username, "password": $password}
 			// read input from file if set and override
-			if secretsStoreInputFile != "" {
+			if !viper.IsSet("secrets.input-file") {
 				if secretValue != "" {
 					log.Error().Msg("cannot use -i/--input-file with positional argument")
 					os.Exit(1)
 				}
-				inputFileBytes, err = os.ReadFile(secretsStoreInputFile)
+				inputFileBytes, err = os.ReadFile(viper.GetString("secrets.input-file"))
 				if err != nil {
 					log.Error().Err(err).Msg("failed to read input file")
 					os.Exit(1)
@@ -184,7 +181,7 @@ var secretsRetrieveCmd = &cobra.Command{
 			err         error
 		)
 
-		store, err = secrets.OpenStore(secretsFile)
+		store, err = secrets.OpenStore(viper.GetString("secrets.file"))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -204,7 +201,7 @@ var secretsListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	Short: "Lists all the secret IDs and their values.",
 	Run: func(cmd *cobra.Command, args []string) {
-		store, err := secrets.OpenStore(secretsFile)
+		store, err := secrets.OpenStore(viper.GetString("secrets.file"))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -227,6 +224,7 @@ var secretsRemoveCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Short: "Remove secrets by IDs from secret store.",
 	Run: func(cmd *cobra.Command, args []string) {
+		secretsFile := viper.GetString("secrets.file")
 		for _, secretID := range args {
 			// open secret store from file
 			store, err := secrets.OpenStore(secretsFile)
@@ -249,9 +247,13 @@ var secretsRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	secretsCmd.PersistentFlags().StringVarP(&secretsFile, "file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
-	secretsStoreCmd.Flags().StringVarP(&secretsStoreFormat, "format", "F", "basic", "Set the input format for the secrets file (basic|json|base64).")
-	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "Set the file to read as input.")
+	secretsCmd.PersistentFlags().StringP("file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
+	secretsStoreCmd.Flags().StringP("format", "F", "basic", "Set the input format for the secrets file (basic|json|base64).")
+	secretsStoreCmd.Flags().StringP("input-file", "i", "", "Set the file to read as input.")
+
+	checkBindFlagError(viper.BindPFlag("secrets.file", secretsCmd.Flags().Lookup("file")))
+	checkBindFlagError(viper.BindPFlag("secrets.format", secretsStoreCmd.Flags().Lookup("format")))
+	checkBindFlagError(viper.BindPFlag("secrets.input-file", secretsStoreCmd.Flags().Lookup("input-file")))
 
 	secretsCmd.AddCommand(secretsGenerateKeyCmd)
 	secretsCmd.AddCommand(secretsStoreCmd)
@@ -260,11 +262,4 @@ func init() {
 	secretsCmd.AddCommand(secretsRemoveCmd)
 
 	rootCmd.AddCommand(secretsCmd)
-
-	checkBindFlagError(viper.BindPFlags(secretsCmd.PersistentFlags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsStoreCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
 }

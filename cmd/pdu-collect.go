@@ -10,6 +10,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/pdu"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
@@ -73,7 +74,7 @@ var pduCmd = &cobra.Command{
 			return
 		}
 
-		if username == "" || password == "" {
+		if !viper.IsSet("pdu.username") || !viper.IsSet("pdu.password") {
 			log.Error().Msg("--username and --password are required for PDU collection")
 			return
 		}
@@ -84,8 +85,8 @@ var pduCmd = &cobra.Command{
 			log.Info().Msgf("Collecting from PDU: %s", host)
 			config := jaws.CrawlerConfig{
 				URI:      host,
-				Username: username,
-				Password: password,
+				Username: viper.GetString("pdu.username"),
+				Password: viper.GetString("pdu.password"),
 				Insecure: true,
 			}
 
@@ -109,8 +110,11 @@ var pduCmd = &cobra.Command{
 }
 
 func init() {
-	pduCmd.Flags().StringVarP(&username, "username", "u", "", "Set the PDU username")
-	pduCmd.Flags().StringVarP(&password, "password", "p", "", "Set the PDU password")
+	pduCmd.Flags().StringP("username", "u", "", "Set the PDU username")
+	pduCmd.Flags().StringP("password", "p", "", "Set the PDU password")
 
-	CollectCmd.AddCommand(pduCmd)
+	checkBindFlagError(viper.BindPFlag("pdu.username", listCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("pdu.password", listCmd.Flags().Lookup("password")))
+
+	collectCmd.AddCommand(pduCmd)
 }

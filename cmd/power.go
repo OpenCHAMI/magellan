@@ -24,7 +24,7 @@ var (
 
 // The `power` command gets and sets power states for a collection of BMC nodes.
 // This command should be run after `collect`, as it requires an existing node inventory.
-var PowerCmd = &cobra.Command{
+var powerCmd = &cobra.Command{
 	Use: "power <node-id>...",
 	Example: `  // get power state
   magellan power x1000c0s0b3n0
@@ -42,8 +42,8 @@ var PowerCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Read node inventory from CLI flag, or default `collect` YAML output
 		var datafile string
-		if viper.IsSet("inventory-file") {
-			datafile = viper.GetString("inventory-file")
+		if viper.IsSet("power.inventory-file") {
+			datafile = viper.GetString("power.inventory-file")
 		} else {
 			datafile = viper.GetString("collect.output-file")
 			log.Info().Msgf("parsing default inventory file from 'collect': %s", datafile)
@@ -56,6 +56,7 @@ var PowerCmd = &cobra.Command{
 		}
 
 		// Set the minimum/maximum number of concurrent processes
+		concurrency := viper.GetInt("concurrency")
 		if concurrency <= 0 {
 			concurrency = mathutil.Clamp(len(args), 1, 10000)
 		}
@@ -132,7 +133,7 @@ var PowerCmd = &cobra.Command{
 				ConnConfig: crawler.CrawlerConfig{
 					URI:             "https://" + node.BmcIP,
 					CredentialStore: store,
-					Insecure:        insecure,
+					Insecure:        viper.GetBool("power.insecure"),
 				},
 			})
 		}
@@ -233,23 +234,27 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 
 func init() {
 	// Alternative actions from the default power-state query
-	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "l", false, "List supported Redfish reset types")
-	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Redfish reset type to perform")
-	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
+	powerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "l", false, "List supported Redfish reset types")
+	powerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Redfish reset type to perform")
+	powerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
 
 	// Normal config options
-	PowerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory")
-	PowerCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
-	PowerCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
-	PowerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
-	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
-	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	PowerCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
+	powerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory")
+	powerCmd.Flags().StringP("username", "u", "", "Set the master BMC username")
+	powerCmd.Flags().StringP("password", "p", "", "Set the master BMC password")
+	powerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
+	powerCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
+	powerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	powerCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 
 	// Bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlag("power.format", PowerCmd.Flags().Lookup("format")))
-	checkBindFlagError(viper.BindPFlags(PowerCmd.Flags()))
+	checkBindFlagError(viper.BindPFlag("power.inventory-file", powerCmd.Flags().Lookup("inventory-file")))
+	checkBindFlagError(viper.BindPFlag("username", powerCmd.Flags().Lookup("username")))
+	checkBindFlagError(viper.BindPFlag("password", powerCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("secrets.file", powerCmd.Flags().Lookup("secrets-file")))
+	checkBindFlagError(viper.BindPFlag("power.insecure", powerCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("power.cacert", powerCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlag("power.format", powerCmd.Flags().Lookup("format")))
 
-	rootCmd.AddCommand(PowerCmd)
+	rootCmd.AddCommand(powerCmd)
 }
