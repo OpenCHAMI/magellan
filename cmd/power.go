@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -9,7 +8,6 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/power"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -61,58 +59,8 @@ var powerCmd = &cobra.Command{
 			concurrency = mathutil.Clamp(len(args), 1, 10000)
 		}
 
-		// Use secret store for BMC credentials, and/or credential CLI flags
-		var store secrets.SecretStore
-		if username != "" && password != "" {
-			// First, try and load credentials from --username and --password if both are set.
-			log.Debug().Msgf("--username and --password specified, using them for BMC credentials")
-			store = secrets.NewStaticStore(username, password)
-		} else {
-			// Alternatively, locate specific credentials (falling back to default) and override those
-			// with --username or --password if either are passed.
-			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
-			if store, err = secrets.OpenStore(secretsFile); err != nil {
-				log.Error().Err(err).Msg("failed to open local secrets store")
-			}
-
-			// Temporarily override username/password of each BMC if one of those
-			// flags is passed. The expectation is that if the flag is specified
-			// on the command line, it should be used.
-			if username != "" {
-				log.Info().Msg("--username passed, temporarily overriding all usernames from secret store with value")
-			}
-			if password != "" {
-				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
-			}
-			switch s := store.(type) {
-			case *secrets.StaticStore:
-				if username != "" {
-					s.Username = username
-				}
-				if password != "" {
-					s.Password = password
-				}
-			case *secrets.LocalSecretStore:
-				for k := range s.Secrets {
-					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
-					} else {
-						if username != "" {
-							creds.Username = username
-						}
-						if password != "" {
-							creds.Password = password
-						}
-
-						if newCreds, err := json.Marshal(creds); err != nil {
-							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
-						} else {
-							s.StoreSecretByID(k, string(newCreds))
-						}
-					}
-				}
-			}
-		}
+		// Build secret store, using Viper parameters
+		store := util.BuildSecretStore()
 
 		// Index nodes by xname, for faster lookup...
 		nodemap := make(map[string]bmc.Node, len(nodes))
