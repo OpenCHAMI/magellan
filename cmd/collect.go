@@ -1,14 +1,11 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/internal/util"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -33,7 +30,7 @@ var collectCmd = &cobra.Command{
   magellan collect -o nodes.yaml`,
 	Short: "Collect system information by interrogating BMC node",
 	Long:  "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.",
-	PreRunE: func(cmd *cobra.Command, args []string) (error) {
+	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// Validate the specified file format
 		collectOutputFormat := viper.GetString("collect.format")
 		if collectOutputFormat != util.FORMAT_JSON && collectOutputFormat != util.FORMAT_YAML {
@@ -54,58 +51,8 @@ var collectCmd = &cobra.Command{
 			concurrency = mathutil.Clamp(len(scannedResults), 1, 10000)
 		}
 
-		// use secret store for BMC credentials, and/or credential CLI flags
-		var store secrets.SecretStore
-		if username != "" && password != "" {
-			// First, try and load credentials from --username and --password if both are set.
-			log.Debug().Msgf("--username and --password specified, using them for BMC credentials")
-			store = secrets.NewStaticStore(username, password)
-		} else {
-			// Alternatively, locate specific credentials (falling back to default) and override those
-			// with --username or --password if either are passed.
-			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
-			if store, err = secrets.OpenStore(secretsFile); err != nil {
-				log.Error().Err(err).Msg("failed to open local secrets store")
-			}
-
-			// Temporarily override username/password of each BMC if one of those
-			// flags is passed. The expectation is that if the flag is specified
-			// on the command line, it should be used.
-			if username != "" {
-				log.Info().Msg("--username passed, temporarily overriding all usernames from secret store with value")
-			}
-			if password != "" {
-				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
-			}
-			switch s := store.(type) {
-			case *secrets.StaticStore:
-				if username != "" {
-					s.Username = username
-				}
-				if password != "" {
-					s.Password = password
-				}
-			case *secrets.LocalSecretStore:
-				for k, _ := range s.Secrets {
-					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
-					} else {
-						if username != "" {
-							creds.Username = username
-						}
-						if password != "" {
-							creds.Password = password
-						}
-
-						if newCreds, err := json.Marshal(creds); err != nil {
-							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
-						} else {
-							s.StoreSecretByID(k, string(newCreds))
-						}
-					}
-				}
-			}
-		}
+		// Build secret store, using Viper parameters
+		store := util.BuildSecretStore()
 
 		// set the collect parameters from CLI params
 		params := &magellan.CollectParams{
@@ -143,7 +90,7 @@ func init() {
 	collectCmd.Flags().StringP("output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
 	collectCmd.Flags().Bool("force-update", false, "Set flag to force update data sent to SMD")
 	collectCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	collectCmd.Flags().StringP("format", "F", FORMAT_JSON, "Set the output format (json|yaml)")
+	collectCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 	collectCmd.Flags().StringP("bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
 	collectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
