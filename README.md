@@ -140,7 +140,7 @@ This should return a JSON response with general information. The output below ha
 
 ### BMC ID Mapping
 
-While the `magellan collect` command collects data from RedFish servers and can produce node data suitable for use with SMD, the RedFish data has no defined way to provide BMC IDs that SMD can use. SMD consumes BMC IDs in the form of XNAMEs, which are names that provide both unique identification within a cluster and the topographical location information needed to phyically identify a BMC. Since RedFish does not provide a way to communicate BMC XNAMEs or other meaningful BMC IDs, `magellan` provides a mechanism to generate meaningful BMC IDs based on an external mapping. The `--bmc-id-map` (`-m`) option to `magellan` provides this mapping either in the form of a command line JSON string or in the form of a JSON or YAML file (by prepending the path to the file with an `@` sign). The YAML form of the mapping data is as follows:
+While the `magellan collect` command collects data from RedFish servers and can produce node data suitable for use with SMD, the RedFish data has no defined way to provide BMC IDs that have the are "meaningful" with respect to location semantics that some consumers of SMD data require. SMD consumes BMC IDs in the form of XNAMEs, which are names that provide both unique identification within a cluster and the topographical location information needed to phyically identify a BMC. Since RedFish does not provide a way to communicate BMC XNAMEs or other meaningful BMC IDs, `magellan` provides a mechanism to generate meaningful BMC IDs based on an external mapping. The `--bmc-id-map` (`-m`) option to `magellan` provides this mapping either in the form of a command line JSON string or in the form of a JSON or YAML file (by prepending the path to the file with an `@` sign). The YAML form of the mapping data is as follows:
 
 ```yaml
 map_key: bmc-ip-addr
@@ -159,7 +159,7 @@ x<cabinet>c<chassis>s<shelf>b<blade>
 
 where `<cabinet>` is a cabinet number in the cluster, `<chassis>` is a chassis within the cabinet, `<shelf>` is the shelf within the chassis and `<blade>` is the blade within a shelf where the BMC is located. The above mapping file (minus the elipsis) will work with the example described in the [Starting the Emulator](#starting-the-emulator) section.
 
-If you are using `magellan` within a system deployed using RIE in the [Quickstart Deployment Recipe](https://github.com/OpenCHAMI/deployment-recipes/blob/main/quickstart/README.md) you will need to generate a BMC ID Map from the RIE instances running under `docker-compose`. You can do this outside of the docker containers by running this script:
+If you are using `magellan` within a system deployed using RIE in the [Quickstart Deployment Recipe](https://github.com/OpenCHAMI/deployment-recipes/blob/main/quickstart/README.md) you can generate a BMC ID Map with XNAMEs that match the RIE configured XNAMEs from the RIE instances running under `docker-compose`. You can do this outside of the docker containers by running this script:
 
 ```bash
 #! /bin/sh
@@ -184,12 +184,14 @@ directing the output into a ID mapping file, then copying the ID mapping file in
 magellan collect --bmc-id-map @my_bmc_id_map.yaml -o nodes.yaml
 ```
 
-If you have real BMCs present in your system in addition to those presented by RIE, you will need to add their IP Address to XNAME mapping to the BMC ID Map. How you do that for any given configuration is beyond the scope of this README.
+If you have real BMCs present in your system in addition to those presented by RIE, and you want their XNAMEs to be meaningful, you will need to add each IP Address to XNAME mapping to the BMC ID Map. How you do that for any given configuration is beyond the scope of this README.
+
+If you do not care about the meaning of XNAMEs produced by `collect` you can omit the `--bmc-id-map` (`-m`) option entirely and `collect` will generate XNAMEs algorithmically based on the IPv4 address of each BMC.
 
 If you are using `magellan` in an application that is not OpenCHAMI and have a need for a different BMC ID mapping, you can construct a different kind of mapping file by replacing the XNAMEs with whatever your IDs should be.
 
 > [!NOTE]
-> If you do not specify a BMC ID Map, the IPv4 address of the BMC will be used in the ID field of all BMC data produced. If you do provide a BMC ID Map but some of the BMC map keys (IPv4 addresses) don't match anything in the file, those BMCs will be suppressed in the resulting data. This reflects the fact that `collect` does not know how to map those BMCs to valid IDs.
+> If you do provide a BMC ID Map but some of the BMC map keys (IPv4 addresses) don't match anything in the map, those BMCs will be suppressed in the resulting data. This reflects the fact that `collect` does not know how to map those BMCs to meaningful IDs.
 
 ### Running the Tool
 
@@ -260,13 +262,10 @@ We can then save the output and make a request with the `send` subcommand or pip
     --password $PASSWORD \
     --format yaml \
     --output-file nodes.yaml \
-    --cacert cacert.pem \
-    --bmc-id-map @my_bmc_id_map.yaml
+    --cacert cacert.pem
 ```
 
 This will initiate a crawler to fetch inventory data from the specified BMC host. The data can be saved, viewed, or modified from standard output by setting the `-v/--verbose` flag. Similarly, this output can also be saved by using the `-o/--output-file` flag and providing a path argument.
-
-To prepare a BMC ID Map (`my_bmc_id_map.yaml`) see the [BMC ID Mapping](#bmc-id-mapping).
 
 To make a request with the `collect` output, we specify the `-d/--data` flag for `send`. For files, use the `@` symbol before the file path. Make sure that you set the correct input format with `-F/--format`. Finally, specify the host as a positional argument.
 
@@ -399,9 +398,6 @@ magellan collect -o node_info.json
 ```
 
 This example should work just like running on real hardware, and produce a `node-info.json` output file that contains the collected data.
-
-> [!NOTE]
-> The output from the above `magellan collect` command will not be compatible with SMD because it contains IP addresses instead of XNAMEs as BMC IDs. To generate correct XNAME BMC IDs, you must supply a BMC ID Mapping. See [BMC ID Mapping](#bmc-id-mapping) for details on how to create and specify a BMC ID Mapping when running `magellan collect`.
 
 ### Updating Firmware
 
