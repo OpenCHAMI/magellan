@@ -11,6 +11,11 @@ type BMCCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
+type Node struct {
+	ClusterID string `yaml:"cluster_id"`
+	BmcIP     string `yaml:"bmc_ip"`
+	NodeID    string `yaml:"node_id"`
+}
 
 func GetBMCCredentialsDefault(store secrets.SecretStore) (BMCCredentials, error) {
 	var creds BMCCredentials

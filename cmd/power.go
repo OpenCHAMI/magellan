@@ -114,7 +114,7 @@ var PowerCmd = &cobra.Command{
 		}
 
 		// Index nodes by xname, for faster lookup...
-		nodemap := make(map[string]power.Node, len(nodes))
+		nodemap := make(map[string]bmc.Node, len(nodes))
 		for i := range nodes {
 			nodemap[nodes[i].ClusterID] = nodes[i]
 		}

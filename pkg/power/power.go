@@ -8,6 +8,7 @@ import (
 
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"gopkg.in/yaml.v3"
 
 	"github.com/rs/zerolog/log"
@@ -15,11 +16,6 @@ import (
 	"github.com/stmcginnis/gofish/redfish"
 )
 
-type Node struct {
-	ClusterID string `yaml:"cluster_id"`
-	BmcIP     string `yaml:"bmc_ip"`
-	NodeID    string `yaml:"node_id"`
-}
 type CrawlableNode struct {
 	ClusterID  string
 	ConnConfig crawler.CrawlerConfig
@@ -39,9 +35,9 @@ var savedClients map[string]*gofish.APIClient
 //   - filename: the path of the YAML file to parse for inventory data, or `-` for stdin.
 //
 // Returns:
-//   - []Node: A slice of structs containing relevant details for connecting to a node via its BMC.
+//   - []bmc.Node: A slice of structs containing relevant details for connecting to a node via its BMC.
 //   - error: An error object if any error occurs during the connection or reset process.
-func ParseInventory(filename string, format string) ([]Node, error) {
+func ParseInventory(filename string, format string) ([]bmc.Node, error) {
 	// Read `collect`ed data from YAML file
 	var (
 		contents []byte
@@ -76,11 +72,11 @@ func ParseInventory(filename string, format string) ([]Node, error) {
 		return nil, err
 	}
 
-	nodelist := make([]Node, 0, len(inventory))
+	nodelist := make([]bmc.Node, 0, len(inventory))
 	for i := range inventory {
 		systems := inventory[i].Systems
 		for j := range systems {
-			nodelist = append(nodelist, Node{
+			nodelist = append(nodelist, bmc.Node{
 				// TODO: This assumes indices in the Systems list correspond to nodes' "…nX" xname components.
 				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
 				// FIXME: This assumes strict xname formatting! To become xname-agnostic, this should be
