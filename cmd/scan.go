@@ -143,7 +143,7 @@ var scanCmd = &cobra.Command{
 			DisableProbing: disableProbing,
 			Verbose:        verbose,
 			Debug:          debug,
-			Insecure:       viper.GetBool("scan.insecure"),
+			Insecure:       viper.GetBool("insecure"),
 			Include:        viper.GetStringSlice("scan.include"),
 		})
 
@@ -213,6 +213,7 @@ func init() {
 	scanCmd.Flags().StringP("output", "o", "", "Output file path (for json/yaml formats)")
 	scanCmd.Flags().StringSlice("include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
 
+	checkBindFlagError(viper.BindPFlag("insecure", scanCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("scan.ports", scanCmd.Flags().Lookup("ports")))
 	checkBindFlagError(viper.BindPFlag("scan.scheme", scanCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("scan.protocol", scanCmd.Flags().Lookup("protocol")))
@@ -220,7 +221,6 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("scan.subnet-mask", scanCmd.Flags().Lookup("subnet-mask")))
 	checkBindFlagError(viper.BindPFlag("scan.disable-probing", scanCmd.Flags().Lookup("disable-probing")))
 	checkBindFlagError(viper.BindPFlag("scan.disable-caching", scanCmd.Flags().Lookup("disable-caching")))
-	checkBindFlagError(viper.BindPFlag("scan.insecure", scanCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("scan.format", scanCmd.Flags().Lookup("format")))
 	checkBindFlagError(viper.BindPFlag("scan.output", scanCmd.Flags().Lookup("output")))
 	checkBindFlagError(viper.BindPFlag("scan.include", scanCmd.Flags().Lookup("include")))

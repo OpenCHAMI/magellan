@@ -81,7 +81,7 @@ var powerCmd = &cobra.Command{
 				ConnConfig: crawler.CrawlerConfig{
 					URI:             "https://" + node.BmcIP,
 					CredentialStore: store,
-					Insecure:        viper.GetBool("power.insecure"),
+					Insecure:        viper.GetBool("insecure"),
 				},
 			})
 		}
@@ -200,8 +200,8 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("username", powerCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("password", powerCmd.Flags().Lookup("password")))
 	checkBindFlagError(viper.BindPFlag("cacert", powerCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlag("insecure", powerCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("secrets.file", powerCmd.Flags().Lookup("secrets-file")))
-	checkBindFlagError(viper.BindPFlag("power.insecure", powerCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("power.format", powerCmd.Flags().Lookup("format")))
 
 	rootCmd.AddCommand(powerCmd)

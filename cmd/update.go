@@ -39,7 +39,7 @@ var updateCmd = &cobra.Command{
 		for _, arg := range args {
 			firmwareUri := viper.GetString("update.firmware-uri")
 			transferProtocol := viper.GetString("update.scheme")
-			insecure := viper.GetBool("update.insecure")
+			insecure := viper.GetBool("insecure")
 			if viper.GetBool("update.status") {
 				err := magellan.GetUpdateStatus(&magellan.UpdateParams{
 					URI:              arg,
@@ -85,10 +85,10 @@ func init() {
 
 	checkBindFlagError(viper.BindPFlag("username", updateCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("password", updateCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("insecure", updateCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlag("update.scheme", updateCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("update.firmware-uri", updateCmd.Flags().Lookup("firmware-uri")))
 	checkBindFlagError(viper.BindPFlag("update.status", updateCmd.Flags().Lookup("status")))
-	checkBindFlagError(viper.BindPFlag("update.insecure", updateCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(updateCmd)
 }
