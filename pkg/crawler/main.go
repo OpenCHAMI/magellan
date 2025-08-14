@@ -96,14 +96,25 @@ type InventoryDetail struct {
 	Chassis_Manufacturer string              `json:"chassis_manufacturer,omitempty"` // Manufacturer of the Chassis
 	Chassis_Model        string              `json:"chassis_model,omitempty"`        // Model of the Chassis
 	Links                Links               `json:"links,omitempty"`                // Links to specific resources
+	NodeID               string              `json:"node_id,omitempty"`              // Node ID within the BMC, e.g. /redfish/v1/Systems/<ID>
 }
 
-// CrawlBMCForSystems pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
-func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
-	var (
-		systems    = make(map[string]*InventoryDetail)
-		rf_systems []*redfish.ComputerSystem
-	)
+// GetBMCClient connects to a BMC (Baseboard Management Controller) using the provided configuration,
+// and returns the active client.
+//
+// Parameters:
+//   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
+//
+// Returns:
+//   - *gofish.APIClient: The active client for the BMC.
+//   - error: An error object if any error occurs during the connection or retrieval process.
+//
+// The function performs the following steps:
+//  1. Initializes a gofish client with the provided configuration.
+//  2. Attempts to connect to the BMC using the gofish client.
+//  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
+//  4. Returns the active gofish client.
+func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
 	// get username and password from secret store
 	bmc_creds, err := loadBMCCreds(config)
 	if err != nil {
@@ -131,6 +142,20 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 		event := log.Error()
 		event.Err(err)
 		event.Msg("failed to connect to BMC")
+		return nil, err
+	}
+	return client, nil
+}
+
+// CrawlBMCForSystems pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
+func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
+	var (
+		systems    = make(map[string]*InventoryDetail)
+		rf_systems []*redfish.ComputerSystem
+	)
+
+	client, err := GetBMCClient(config)
+	if err != nil {
 		return []InventoryDetail{}, err
 	}
 	defer client.Logout()
@@ -197,42 +222,15 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 //   - error: An error object if any error occurs during the connection or retrieval process.
 //
 // The function performs the following steps:
-//  1. Initializes a gofish client with the provided configuration.
-//  2. Attempts to connect to the BMC using the gofish client.
-//  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
-//  4. Logs out from the client after the operations are completed.
-//  5. Retrieves the ServiceRoot from the connected BMC.
-//  6. Fetches the list of managers from the ServiceRoot.
-//  7. Returns the list of managers and any error encountered during the process.
+//  1. Creates a logged-in gofish client for the BMC with the provided configuration.
+//  2. Logs out from the client after the operations are completed.
+//  3. Retrieves the ServiceRoot from the connected BMC.
+//  4. Fetches the list of managers from the ServiceRoot.
+//  5. Returns the list of managers and any error encountered during the process.
 func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
-
-	// get username and password from secret store
-	bmc_creds, err := loadBMCCreds(config)
-	if err != nil {
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to load BMC credentials")
-		return nil, err
-	}
-	// initialize gofish client
 	var managers []Manager
-	client, err := gofish.Connect(gofish.ClientConfig{
-		Endpoint:  config.URI,
-		Username:  bmc_creds.Username,
-		Password:  bmc_creds.Password,
-		Insecure:  config.Insecure,
-		BasicAuth: true,
-	})
+	client, err := GetBMCClient(config)
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "404:") {
-			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
-		}
-		if strings.HasPrefix(err.Error(), "401:") {
-			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
-		}
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to connect to BMC")
 		return managers, err
 	}
 	defer client.Logout()
@@ -342,6 +340,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			ProcessorCount: rf_computersystem.ProcessorSummary.Count,
 			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
 			MemoryTotal:    rf_computersystem.MemorySummary.TotalSystemMemoryGiB,
+			NodeID:         rf_computersystem.ID,
 		}
 		if rf_chassis != nil {
 			system.Chassis_SKU = rf_chassis.SKU
