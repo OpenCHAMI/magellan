@@ -115,7 +115,7 @@ var scanCmd = &cobra.Command{
 				"protocol":        viper.GetString("scan.protocol"),
 				"subnets":         viper.GetStringSlice("scan.subnets"),
 				"subnet-mask":     subnetMask.String(),
-				"cert":            viper.GetString("scan.cacert"), // FIXME: This doesn't exist. CA cert should be a global parameter
+				"cert":            viper.GetString("cacert"),
 				"disable-probing": disableProbing,
 				"disable-caching": disableCache,
 			}
