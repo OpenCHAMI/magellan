@@ -43,8 +43,8 @@ var sendCmd = &cobra.Command{
 
 		// try and load cert if argument is passed for client
 		var smdClient = client.NewSmdClient()
-		if viper.IsSet("send.cacert") {
-			cacertPath := viper.GetString("send.cacert")
+		if viper.IsSet("cacert") {
+			cacertPath := viper.GetString("cacert")
 			log.Debug().Str("path", cacertPath).Msg("using provided certificate path")
 			err := client.LoadCertificateFromPath(smdClient, cacertPath)
 			if err != nil {
@@ -132,7 +132,7 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("send.data", sendCmd.Flags().Lookup("data")))
 	checkBindFlagError(viper.BindPFlag("send.format", sendCmd.Flags().Lookup("format")))
 	checkBindFlagError(viper.BindPFlag("send.force-update", sendCmd.Flags().Lookup("force-update")))
-	checkBindFlagError(viper.BindPFlag("send.cacert", sendCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlag("cacert", sendCmd.Flags().Lookup("cacert")))
 
 	rootCmd.AddCommand(sendCmd)
 }

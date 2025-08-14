@@ -199,9 +199,9 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("power.inventory-file", powerCmd.Flags().Lookup("inventory-file")))
 	checkBindFlagError(viper.BindPFlag("username", powerCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("password", powerCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("cacert", powerCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlag("secrets.file", powerCmd.Flags().Lookup("secrets-file")))
 	checkBindFlagError(viper.BindPFlag("power.insecure", powerCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("power.cacert", powerCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlag("power.format", powerCmd.Flags().Lookup("format")))
 
 	rootCmd.AddCommand(powerCmd)

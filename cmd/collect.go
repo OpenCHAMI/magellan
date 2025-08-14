@@ -59,7 +59,7 @@ var collectCmd = &cobra.Command{
 			Timeout:     viper.GetInt("timeout"),
 			Concurrency: concurrency,
 			Verbose:     viper.GetBool("verbose"),
-			CaCertPath:  viper.GetString("collect.cacert"),
+			CaCertPath:  viper.GetString("cacert"),
 			OutputPath:  viper.GetString("collect.output-file"),
 			OutputDir:   viper.GetString("collect.output-dir"),
 			Format:      viper.GetString("collect.format"),
@@ -98,12 +98,12 @@ func init() {
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("username", collectCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("password", collectCmd.Flags().Lookup("password")))
+	checkBindFlagError(viper.BindPFlag("cacert", collectCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlag("secrets.file", collectCmd.Flags().Lookup("secrets-file")))
 	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol")))
 	checkBindFlagError(viper.BindPFlag("collect.output-file", collectCmd.Flags().Lookup("output-file")))
 	checkBindFlagError(viper.BindPFlag("collect.output-dir", collectCmd.Flags().Lookup("output-dir")))
 	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update")))
-	checkBindFlagError(viper.BindPFlag("collect.cacert", collectCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlag("collect.format", collectCmd.Flags().Lookup("format")))
 	checkBindFlagError(viper.BindPFlag("collect.bmc-id-map", collectCmd.Flags().Lookup("bmc-id-map")))
 
