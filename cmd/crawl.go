@@ -62,7 +62,7 @@ var crawlCmd = &cobra.Command{
 			config   = crawler.CrawlerConfig{
 				URI:             uri,
 				CredentialStore: store,
-				Insecure:        viper.GetBool("crawl.insecure"),
+				Insecure:        viper.GetBool("insecure"),
 				UseDefault:      true,
 			}
 		)
@@ -115,8 +115,8 @@ func init() {
 
 	checkBindFlagError(viper.BindPFlag("username", crawlCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("password", crawlCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", crawlCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("crawl.secrets-file", crawlCmd.Flags().Lookup("secrets-file")))
+	checkBindFlagError(viper.BindPFlag("insecure", crawlCmd.Flags().Lookup("insecure")))
+	checkBindFlagError(viper.BindPFlag("secrets.file", crawlCmd.Flags().Lookup("secrets-file")))
 	checkBindFlagError(viper.BindPFlag("crawl.format", crawlCmd.Flags().Lookup("format")))
 
 	rootCmd.AddCommand(crawlCmd)
