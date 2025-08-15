@@ -93,8 +93,6 @@ func init() {
 	collectCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 	collectCmd.Flags().StringP("bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
-	collectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
-
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("username", collectCmd.Flags().Lookup("username")))
 	checkBindFlagError(viper.BindPFlag("password", collectCmd.Flags().Lookup("password")))
