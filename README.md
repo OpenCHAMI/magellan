@@ -21,6 +21,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
     - [Managing Secrets](#managing-secrets)
     - [Starting the Emulator](#starting-the-emulator)
     - [Updating Firmware](#updating-firmware)
+    - [Managing Power](#managing-power)
     - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
     - [Running with Docker](#running-with-docker)
   - [How It Works](#how-it-works)
@@ -38,6 +39,7 @@ The `magellan` tool comes packed with a handleful of features for doing discover
 - Simple network scanning
 - Redfish-based inventory collection
 - Redfish-based firmware updating
+- Redfish-based power control
 - Integration with OpenCHAMI SMD
 - Write inventory data to JSON
 - Store and manage BMC secrets
