@@ -21,6 +21,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
     - [Managing Secrets](#managing-secrets)
     - [Starting the Emulator](#starting-the-emulator)
     - [Updating Firmware](#updating-firmware)
+    - [Managing Power](#managing-power)
     - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
     - [Running with Docker](#running-with-docker)
   - [How It Works](#how-it-works)
@@ -38,6 +39,7 @@ The `magellan` tool comes packed with a handleful of features for doing discover
 - Simple network scanning
 - Redfish-based inventory collection
 - Redfish-based firmware updating
+- Redfish-based power control
 - Integration with OpenCHAMI SMD
 - Write inventory data to JSON
 - Store and manage BMC secrets
@@ -420,6 +422,29 @@ Then, the update status can be viewed by including the `--status` flag along wit
 # ...or...
 watch -n 1 "./magellan update https://172.16.0.110 --status --username $bmc_username --password $bmc_password | jq '.'"
 ```
+
+### Managing Power
+
+The `magellan power` tool facilitates control of node power states by identifying and communicating with the specified node(s)' controlling BMC.
+As such, it requires a `collect` to be performed before it can translate a node name into a particular ComputerSystem within the correct BMC.
+(For now, `collect` output should be saved to a file, and passed to `power` via the `-f/--inventory-file` flag. Support for retrieving inventory from SMD will be added soon.)
+
+Power control is accomplished via the Redfish [Reset action](https://pkg.go.dev/github.com/stmcginnis/gofish/redfish#ComputerSystem.Reset), which supports various types of resets.
+The supported reset types depend on BMC firmware implementation, and can be queried with the `-l/--list-reset-types` flag.
+Once the desired reset type is identified, it can be applied via the `-r/--reset-type` flag.
+
+```bash
+# get power state
+./magellan power x1000c0s0b3n0
+# perform a particular type of reset
+./magellan power x1000c0s0b3n0 -r On
+./magellan power x1000c0s0b3n0 -r PowerCycle
+# list supported reset types
+./magellan power x1000c0s0b3n0 -l
+```
+
+All `power` commands demonstrated here can accept additional options and multiple target nodes, for example `magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2`.
+These options are omitted from the examples above for clarity.
 
 ### Getting an Access Token (WIP)
 
