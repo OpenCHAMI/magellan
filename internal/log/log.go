@@ -2,39 +2,80 @@ package log
 
 import (
 	"fmt"
-	"os"
-	"time"
+	"slices"
+	"strings"
 
 	"github.com/rs/zerolog"
 )
 
-var Logger zerolog.Logger
+// string representation that directly corresponds to zerolog.Level
+type LogLevel string
 
-func Init(logLevel, logFormat string) error {
-	var (
-		ll zerolog.Level
-		cw = zerolog.ConsoleWriter{Out: os.Stderr}
-	)
-	switch logLevel {
-	case "warning":
-		ll = zerolog.WarnLevel
-	case "info":
-		ll = zerolog.InfoLevel
-	case "debug":
-		ll = zerolog.DebugLevel
+const (
+	DEBUG    LogLevel = "debug"
+	INFO     LogLevel = "info"
+	WARN     LogLevel = "warn"
+	ERROR    LogLevel = "error"
+	DISABLED LogLevel = "disabled"
+	TRACE    LogLevel = "trace"
+)
+
+var levels = [6]LogLevel{DEBUG, INFO, WARN, ERROR, DISABLED, TRACE}
+
+func (ll LogLevel) String() string {
+	return string(ll)
+}
+
+func (ll *LogLevel) Set(v string) error {
+	switch LogLevel(v) {
+	case DEBUG, INFO, WARN, ERROR, DISABLED, TRACE:
+		*ll = LogLevel(v)
+		return nil
 	default:
-		return fmt.Errorf("unknown log level: %s", ll)
+		return fmt.Errorf("must be one of %v", []LogLevel{
+			DEBUG,
+			INFO,
+			WARN,
+			ERROR,
+			DISABLED,
+			TRACE,
+		})
 	}
+}
 
-	switch logFormat {
-	case "basic":
-		cw.TimeFormat = time.RFC3339
-		// cw.FormatCaller
-	case "json":
-		Logger = zerolog.New(cw).Level(ll).With().Timestamp().Logger()
-	default:
-		return fmt.Errorf("unknown log format %s", logFormat)
+func (df LogLevel) Type() string {
+	return "LogLevel"
+}
+
+func strToLogLevel(ll LogLevel) (zerolog.Level, error) {
+	var tostr = func(lls []LogLevel) []string {
+		s := []string{}
+		for _, l := range lls {
+			s = append(s, string(l))
+		}
+		return s
 	}
+	if index := slices.Index(levels[:], ll); index >= 0 {
+		// handle special cases to map index to DISABLED and TRACE
+		switch index {
+		case 4:
+			return zerolog.Disabled, nil
+		case 5:
+			return zerolog.TraceLevel, nil
+		}
+		return zerolog.Level(index), nil
+	}
+	return -100, fmt.Errorf(
+		"invalid log level (options: %s)", strings.Join(tostr(levels[:]), ", "),
+	) // use 'info' by default
+}
 
+func Init(logLevel LogLevel, logFormat string) error {
+	// set the logging level
+	level, err := strToLogLevel(logLevel)
+	if err != nil {
+		return fmt.Errorf("failed to convert log level: %v", err)
+	}
+	zerolog.SetGlobalLevel(level)
 	return nil
 }
