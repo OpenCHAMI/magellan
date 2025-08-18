@@ -7,17 +7,16 @@ import (
 	"os"
 	"strings"
 
+	"github.com/OpenCHAMI/magellan/internal/format"
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
-	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
-	sendInputFormat string
+	sendInputFormat format.DataFormat = format.FORMAT_JSON
 	sendDataArgs    []string
 )
 
@@ -36,22 +35,14 @@ var sendCmd = &cobra.Command{
 	Args: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
-	PreRunE: func(cmd *cobra.Command, args []string) (error) {
-		// Validate the specified file format
-		if sendInputFormat != util.FORMAT_JSON && sendInputFormat != util.FORMAT_YAML {
-			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", sendInputFormat)
-		}
-		return nil
-	},
 	Run: func(cmd *cobra.Command, args []string) {
-
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {
 			var err error
 			accessToken, err = auth.LoadAccessToken(tokenPath)
-			if err != nil && verbose {
-				log.Warn().Err(err).Msgf("could not load access token")
-			} else if debug && accessToken != "" {
+			if err != nil {
+				log.Warn().Err(err).Msg("could not load access token")
+			} else if accessToken != "" {
 				log.Debug().Str("access_token", accessToken).Msg("using access token")
 			}
 		}
@@ -62,7 +53,7 @@ var sendCmd = &cobra.Command{
 			log.Debug().Str("path", cacertPath).Msg("using provided certificate path")
 			err := client.LoadCertificateFromPath(smdClient, cacertPath)
 			if err != nil {
-				log.Warn().Err(err).Msg("could not load certificate")
+				log.Warn().Err(err).Str("path", cacertPath).Msg("could not load certificate")
 			}
 		}
 
@@ -75,18 +66,12 @@ var sendCmd = &cobra.Command{
 			}
 		}
 		if len(inputData) == 0 {
-			log.Error().Msg("must include data with standard input or -d/--data flag")
+			log.Error().Msg("data required with standard input or -d/--data flag")
 			os.Exit(1)
 		}
 
 		// show the data that was just loaded as input
-		if verbose {
-			output, err := json.Marshal(inputData)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to marshal input data")
-			}
-			fmt.Println(string(output))
-		}
+		log.Debug().Any("input", inputData).Send()
 
 		for _, host := range args {
 			var (
@@ -139,7 +124,7 @@ var sendCmd = &cobra.Command{
 
 func init() {
 	sendCmd.Flags().StringArrayVarP(&sendDataArgs, "data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
-	sendCmd.Flags().StringVarP(&sendInputFormat, "format", "F", util.FORMAT_JSON, "Set the default data input format (json|yaml) can be overridden by file extension")
+	sendCmd.Flags().VarP(&sendInputFormat, "format", "F", "Set the default data input format (json|yaml) can be overridden by file extension")
 	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	rootCmd.AddCommand(sendCmd)
@@ -184,7 +169,7 @@ func processDataArgs(args []string) []map[string]any {
 				}
 
 				// convert/validate input data
-				data, err = parseInput(contents, util.DataFormatFromFileExt(path, sendInputFormat))
+				data, err = parseInput(contents, format.DataFormatFromFileExt(path, sendInputFormat))
 				if err != nil {
 					log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
 				}
@@ -247,26 +232,16 @@ func handleArgs(args []string) []map[string]any {
 	return collection
 }
 
-func parseInput(contents []byte, format string) ([]map[string]any, error) {
+func parseInput(contents []byte, dataFormat format.DataFormat) ([]map[string]any, error) {
 	var (
 		data []map[string]any
 		err  error
 	)
 
 	// convert/validate JSON input format
-	switch format {
-	case util.FORMAT_JSON:
-		err = json.Unmarshal(contents, &data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal input in JSON: %v", err)
-		}
-	case util.FORMAT_YAML:
-		err = yaml.Unmarshal(contents, &data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal input in YAML: %v", err)
-		}
-	default:
-		return nil, fmt.Errorf("unrecognized format")
+	err = format.Unmarshal(contents, &data, dataFormat)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal data: %v", err)
 	}
 	return data, nil
 }

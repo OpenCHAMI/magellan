@@ -19,6 +19,8 @@ import (
 	"net"
 	"os"
 
+	magellan "github.com/OpenCHAMI/magellan/internal"
+	logger "github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -39,11 +41,12 @@ var (
 	outputPath  string
 	outputDir   string
 	configPath  string
-	verbose     bool
-	debug       bool
+	showOutput  bool
 	forceUpdate bool
 	insecure    bool
 	idMap       string
+	logLevel    logger.LogLevel = logger.INFO
+	logFormat   string
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -52,19 +55,15 @@ var rootCmd = &cobra.Command{
 	Use:   "magellan",
 	Short: "Redfish-based BMC discovery tool",
 	Long:  "Redfish-based BMC discovery tool with dynamic discovery features.",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			err := cmd.Help()
-			if err != nil {
-				log.Error().Err(err).Msg("failed to print help")
-			}
-			os.Exit(0)
-		}
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		logger.Init(logLevel, logFormat)
 	},
 }
 
 // This Execute() function is called from main to run the CLI.
 func Execute() {
+	// initialize the logger
+	logger.Init(logLevel, logFormat)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -76,18 +75,17 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "j", -1, "Set the number of concurrent processes")
 	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests in seconds")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Set to enable/disable verbose output")
-	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Set to enable/disable debug messages")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Set the access token")
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
+	rootCmd.PersistentFlags().VarP(&logLevel, "log-level", "l", "Set the logger log-level (info|debug|warning|disabled)")
 
 	// bind viper config flags with cobra
 	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))
 	checkBindFlagError(viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")))
-	checkBindFlagError(viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")))
-	checkBindFlagError(viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")))
+	checkBindFlagError(viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")))
 	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.PersistentFlags().Lookup("access-token")))
 	checkBindFlagError(viper.BindPFlag("cache", rootCmd.PersistentFlags().Lookup("cache")))
+
 }
 
 func checkBindFlagError(err error) {
@@ -154,5 +152,8 @@ func SetDefaults() {
 	viper.SetDefault("update.firmware.version", "")
 	viper.SetDefault("update.component", "")
 	viper.SetDefault("update.status", false)
+<<<<<<< HEAD
 	viper.SetDefault("power.cacert", "")
+=======
+>>>>>>> a36795f (refactor: updated format and log usage)
 }
