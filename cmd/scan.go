@@ -9,6 +9,7 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/internal/format"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
@@ -102,8 +103,12 @@ var ScanCmd = &cobra.Command{
 		for _, targetHost := range targetHosts {
 			combinedTargetHosts = append(combinedTargetHosts, targetHost...)
 		}
+		var hostMsg any = "set '--log-level' to 'trace' to show"
+		if log.Logger.GetLevel() == zerolog.TraceLevel {
+			hostMsg = combinedTargetHosts
+		}
 		log.Debug().Any("flags", map[string]any{
-			"hosts":           "set '--log-level' to 'trace' to show",
+			"hosts":           hostMsg,
 			"cache":           cachePath,
 			"concurrency":     concurrency,
 			"protocol":        protocol,
@@ -113,7 +118,6 @@ var ScanCmd = &cobra.Command{
 			"disable-probing": disableProbing,
 			"disable-caching": disableCache,
 		}).Send()
-		log.Trace().Any("host", combinedTargetHosts).Send()
 
 		// set the number of concurrent requests (1 request per BMC node)
 		//

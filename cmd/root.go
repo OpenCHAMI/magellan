@@ -46,7 +46,7 @@ var (
 	insecure    bool
 	idMap       string
 	logLevel    logger.LogLevel = logger.INFO
-	logFormat   string
+	logFile     string
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -56,14 +56,33 @@ var rootCmd = &cobra.Command{
 	Short: "Redfish-based BMC discovery tool",
 	Long:  "Redfish-based BMC discovery tool with dynamic discovery features.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		logger.Init(logLevel, logFormat)
+		// initialize the logger
+		err := logger.InitWithLogLevel(logLevel, logFile)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to initialize logger")
+			os.Exit(1)
+		}
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			err := cmd.Help()
+			if err != nil {
+				log.Error().Err(err).Msg("failed to print help")
+			}
+			os.Exit(0)
+		}
+	},
+	PostRun: func(cmd *cobra.Command, args []string) {
+		log.Debug().Msg("closing log file")
+		err := logger.LogFile.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to close log file")
+		}
 	},
 }
 
 // This Execute() function is called from main to run the CLI.
 func Execute() {
-	// initialize the logger
-	logger.Init(logLevel, logFormat)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -77,7 +96,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Set the access token")
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
-	rootCmd.PersistentFlags().VarP(&logLevel, "log-level", "l", "Set the logger log-level (info|debug|warning|disabled)")
+	rootCmd.PersistentFlags().VarP(&logLevel, "log-level", "l", "Set the logger log-level (debug|info|warn|error|trace|disabled)")
+	rootCmd.PersistentFlags().StringVar(&logFile, "log-file", "", "Set the path to store a log file")
 
 	// bind viper config flags with cobra
 	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))
