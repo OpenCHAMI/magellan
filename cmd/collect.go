@@ -82,28 +82,16 @@ var collectCmd = &cobra.Command{
 }
 
 func init() {
-	collectCmd.Flags().StringP("username", "u", "", "Set the master BMC username")
-	collectCmd.Flags().StringP("password", "p", "", "Set the master BMC password")
-	collectCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
-	collectCmd.Flags().String("protocol", "tcp", "Set the protocol used to query")
-	collectCmd.Flags().StringP("output-file", "o", "", "Set the path to store collection data using HIVE partitioning")
-	collectCmd.Flags().StringP("output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
-	collectCmd.Flags().Bool("force-update", false, "Set flag to force update data sent to SMD")
-	collectCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	collectCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
-	collectCmd.Flags().StringP("bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
-
-	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("username", collectCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("password", collectCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("cacert", collectCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlag("secrets.file", collectCmd.Flags().Lookup("secrets-file")))
-	checkBindFlagError(viper.BindPFlag("collect.protocol", collectCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("collect.output-file", collectCmd.Flags().Lookup("output-file")))
-	checkBindFlagError(viper.BindPFlag("collect.output-dir", collectCmd.Flags().Lookup("output-dir")))
-	checkBindFlagError(viper.BindPFlag("collect.force-update", collectCmd.Flags().Lookup("force-update")))
-	checkBindFlagError(viper.BindPFlag("collect.format", collectCmd.Flags().Lookup("format")))
-	checkBindFlagError(viper.BindPFlag("collect.bmc-id-map", collectCmd.Flags().Lookup("bmc-id-map")))
+	addFlag("username", collectCmd, "username", "u", "", "Set the master BMC username")
+	addFlag("password", collectCmd, "password", "p", "", "Set the master BMC password")
+	addFlag("cacert", collectCmd, "cacert", "", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	addFlag("secrets.file", collectCmd, "secrets-file", "", "", "Set path to the node secrets file")
+	addFlag("collect.protocol", collectCmd, "protocol", "", "tcp", "Set the protocol used to query")
+	addFlag("collect.output-file", collectCmd, "output-file", "o", "", "Set the path to store collection data using HIVE partitioning")
+	addFlag("collect.output-dir", collectCmd, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
+	addFlag("collect.force-update", collectCmd, "force-update", "", false, "Set flag to force update data sent to SMD")
+	addFlag("collect.format", collectCmd, "format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
+	addFlag("collect.bmc-id-map", collectCmd, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
 	rootCmd.AddCommand(collectCmd)
 }

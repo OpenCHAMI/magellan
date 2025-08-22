@@ -247,13 +247,9 @@ var secretsRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	secretsCmd.PersistentFlags().StringP("file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
-	secretsStoreCmd.Flags().StringP("format", "F", "basic", "Set the input format for the secrets file (basic|json|base64).")
-	secretsStoreCmd.Flags().StringP("input-file", "i", "", "Set the file to read as input.")
-
-	checkBindFlagError(viper.BindPFlag("secrets.file", secretsCmd.Flags().Lookup("file")))
-	checkBindFlagError(viper.BindPFlag("secrets.format", secretsStoreCmd.Flags().Lookup("format")))
-	checkBindFlagError(viper.BindPFlag("secrets.input-file", secretsStoreCmd.Flags().Lookup("input-file")))
+	addFlag("secrets.file", secretsCmd, "file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
+	addFlag("secrets.format", secretsStoreCmd, "format", "F", "basic", "Set the input format for the secrets file (basic|json|base64).")
+	addFlag("secrets.input-file", secretsStoreCmd, "input-file", "i", "", "Set the file to read as input.")
 
 	secretsCmd.AddCommand(secretsGenerateKeyCmd)
 	secretsCmd.AddCommand(secretsStoreCmd)

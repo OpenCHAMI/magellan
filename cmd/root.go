@@ -62,25 +62,16 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(InitializeConfig)
-	rootCmd.PersistentFlags().IntP("concurrency", "j", -1, "Set the number of concurrent processes")
-	rootCmd.PersistentFlags().IntP("timeout", "t", 5, "Set the timeout for requests in seconds")
-	rootCmd.PersistentFlags().StringP("config", "c", "", "Set the config file path")
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Set to enable/disable verbose output")
-	rootCmd.PersistentFlags().Bool("debug", false, "Set to enable/disable debug messages")
-	rootCmd.PersistentFlags().String("access-token", "", "Set the access token")
-	rootCmd.PersistentFlags().String("token-path", ".ochami-token", "Set the path to load/save the access token")
-	rootCmd.PersistentFlags().String("cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
 
-	// bind viper config flags with cobra
-	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))
-	checkBindFlagError(viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")))
-	checkBindFlagError(viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config")))
-	checkBindFlagError(viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")))
-	checkBindFlagError(viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")))
-	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.PersistentFlags().Lookup("access-token")))
+	addFlag("concurrency", rootCmd, "concurrency", "j", -1, "Set the number of concurrent processes")
+	addFlag("timeout", rootCmd, "timeout", "t", 5, "Set the timeout for requests in seconds")
+	addFlag("config", rootCmd, "config", "c", "", "Set the config file path")
+	addFlag("verbose", rootCmd, "verbose", "v", false, "Set to enable/disable verbose output")
+	addFlag("debug", rootCmd, "debug", "", false, "Set to enable/disable debug messages")
+	addFlag("access-token", rootCmd, "access-token", "", "", "Set the access token")
 	checkBindFlagError(viper.BindEnv("access-token", "ACCESS_TOKEN"))
-	checkBindFlagError(viper.BindPFlag("token-path", rootCmd.PersistentFlags().Lookup("token-path")))
-	checkBindFlagError(viper.BindPFlag("cache", rootCmd.PersistentFlags().Lookup("cache")))
+	addFlag("token-path", rootCmd, "token-path", "", ".ochami-token", "Set the path to load/save the access token")
+	addFlag("cache", rootCmd, "cache", "", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
 }
 
 func checkBindFlagError(err error) {
@@ -115,34 +106,24 @@ func InitializeConfig() {
 	}
 }
 
-// SetDefaults() resets all of the viper properties back to their
-// default values.
-//
-// TODO: This function should probably be moved to 'internal/config.go'
-// instead of in this file.
-func SetDefaults() {
-	viper.SetDefault("threads", 1)
-	viper.SetDefault("timeout", 5)
-	viper.SetDefault("config", "")
-	viper.SetDefault("username", "")
-	viper.SetDefault("password", "")
-	viper.SetDefault("verbose", false)
-	viper.SetDefault("debug", false)
-	viper.SetDefault("cacert", "")
-	viper.SetDefault("cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()))
-	viper.SetDefault("scan.hosts", []string{})
-	viper.SetDefault("scan.ports", []int{})
-	viper.SetDefault("scan.subnets", []string{})
-	viper.SetDefault("scan.subnet-masks", []net.IP{})
-	viper.SetDefault("scan.disable-probing", false)
-	viper.SetDefault("scan.disable-caching", false)
-	viper.SetDefault("collect.protocol", "tcp")
-	viper.SetDefault("collect.output", "/tmp/magellan/data/")
-	viper.SetDefault("collect.force-update", false)
-	viper.SetDefault("update.transfer-protocol", "https")
-	viper.SetDefault("update.protocol", "tcp")
-	viper.SetDefault("update.firmware.url", "")
-	viper.SetDefault("update.firmware.version", "")
-	viper.SetDefault("update.component", "")
-	viper.SetDefault("update.status", false)
+// Add a flag to `cmd` which is bound to `configKey` in Viper. The flag's type is inferred from `defaultValue`.
+func addFlag(configKey string, cmd *cobra.Command, flagName string, flagShort string, defaultValue any, usage string) {
+	switch defaultValue := defaultValue.(type) {
+	case bool:
+		cmd.PersistentFlags().BoolVarP(new(bool), flagName, flagShort, defaultValue, usage)
+	case int:
+		cmd.PersistentFlags().IntVarP(new(int), flagName, flagShort, defaultValue, usage)
+	case []int:
+		cmd.PersistentFlags().IntSliceVarP(new([]int), flagName, flagShort, defaultValue, usage)
+	case string:
+		cmd.PersistentFlags().StringVarP(new(string), flagName, flagShort, defaultValue, usage)
+	case []string:
+		cmd.PersistentFlags().StringArrayVarP(new([]string), flagName, flagShort, defaultValue, usage)
+	case net.IPMask:
+		cmd.PersistentFlags().IPMaskVarP(new(net.IPMask), flagName, flagShort, defaultValue, usage)
+	default:
+		log.Fatal().Msgf("unhandled flag type '%T', cannot add flag of that type", defaultValue)
+		// Calls os.Exit() for us
+	}
+	checkBindFlagError(viper.BindPFlag(configKey, cmd.PersistentFlags().Lookup(flagName)))
 }

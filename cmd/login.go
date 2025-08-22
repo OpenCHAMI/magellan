@@ -65,17 +65,11 @@ var loginCmd = &cobra.Command{
 }
 
 func init() {
-	loginCmd.Flags().String("url", "http://127.0.0.1:3333/login", "Set the login URL")
-	loginCmd.Flags().String("target-host", "127.0.0.1", "Set the target host to return the access code")
-	loginCmd.Flags().Int("target-port", 5000, "Set the target host to return the access code")
-	loginCmd.Flags().BoolP("force", "f", false, "Start the login process even with a valid token")
-	loginCmd.Flags().Bool("no-browser", false, "Prevent the default browser from being opened automatically")
-
-	checkBindFlagError(viper.BindPFlag("login.url", crawlCmd.Flags().Lookup("url")))
-	checkBindFlagError(viper.BindPFlag("login.target-host", crawlCmd.Flags().Lookup("target-host")))
-	checkBindFlagError(viper.BindPFlag("login.target-port", crawlCmd.Flags().Lookup("target-port")))
-	checkBindFlagError(viper.BindPFlag("login.force", crawlCmd.Flags().Lookup("force")))
-	checkBindFlagError(viper.BindPFlag("login.no-browser", crawlCmd.Flags().Lookup("no-browser")))
+	addFlag("login.url", loginCmd, "url", "", "http://127.0.0.1:3333/login", "Set the login URL")
+	addFlag("login.target-host", loginCmd, "target-host", "", "127.0.0.1", "Set the target host to return the access code")
+	addFlag("login.target-port", loginCmd, "target-port", "", 5000, "Set the target host to return the access code")
+	addFlag("login.force", loginCmd, "force", "f", false, "Start the login process even with a valid token")
+	addFlag("login.no-browser", loginCmd, "no-browser", "", false, "Prevent the default browser from being opened automatically")
 
 	rootCmd.AddCommand(loginCmd)
 }
