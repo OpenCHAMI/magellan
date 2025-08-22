@@ -110,11 +110,8 @@ var pduCmd = &cobra.Command{
 }
 
 func init() {
-	pduCmd.Flags().StringP("username", "u", "", "Set the PDU username")
-	pduCmd.Flags().StringP("password", "p", "", "Set the PDU password")
-
-	checkBindFlagError(viper.BindPFlag("pdu.username", listCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("pdu.password", listCmd.Flags().Lookup("password")))
+	addFlag("pdu.username", pduCmd, "username", "u", "", "Set the PDU username")
+	addFlag("pdu.password", pduCmd, "password", "p", "", "Set the PDU password")
 
 	collectCmd.AddCommand(pduCmd)
 }

@@ -79,9 +79,8 @@ var listCmd = &cobra.Command{
 
 func init() {
 	listCmd.Flags().BoolVarP(&showCache, "cache-info", "", false, "Show cache information and exit")
-	listCmd.Flags().StringP("format", "F", util.FORMAT_LIST, "Set the output format (json|yaml|table)")
 
-	checkBindFlagError(viper.BindPFlag("list.format", listCmd.Flags().Lookup("format")))
+	addFlag("list.format", listCmd, "format", "F", util.FORMAT_LIST, "Set the output format (json|yaml|list)")
 
 	rootCmd.AddCommand(listCmd)
 }

@@ -76,19 +76,12 @@ var updateCmd = &cobra.Command{
 }
 
 func init() {
-	updateCmd.Flags().StringP("username", "u", "", "Set the BMC user")
-	updateCmd.Flags().StringP("password", "p", "", "Set the BMC password")
-	updateCmd.Flags().String("scheme", "https", "Set the transfer protocol")
-	updateCmd.Flags().String("firmware-uri", "", "Set the URI to retrieve the firmware")
-	updateCmd.Flags().Bool("status", false, "Get the status of the update")
-	updateCmd.Flags().BoolP("insecure", "i", false, "Allow insecure connections to the server")
-
-	checkBindFlagError(viper.BindPFlag("username", updateCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("password", updateCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("insecure", updateCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("update.scheme", updateCmd.Flags().Lookup("scheme")))
-	checkBindFlagError(viper.BindPFlag("update.firmware-uri", updateCmd.Flags().Lookup("firmware-uri")))
-	checkBindFlagError(viper.BindPFlag("update.status", updateCmd.Flags().Lookup("status")))
+	addFlag("username", updateCmd, "username", "u", "", "Set the BMC user")
+	addFlag("password", updateCmd, "password", "p", "", "Set the BMC password")
+	addFlag("insecure", updateCmd, "insecure", "i", false, "Allow insecure connections to the server")
+	addFlag("update.scheme", updateCmd, "scheme", "", "https", "Set the transfer protocol")
+	addFlag("update.firmware-uri", updateCmd, "firmware-uri", "", "", "Set the URI to retrieve the firmware")
+	addFlag("update.status", updateCmd, "status", "", false, "Get the status of the update")
 
 	rootCmd.AddCommand(updateCmd)
 }

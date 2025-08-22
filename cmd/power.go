@@ -186,23 +186,13 @@ func init() {
 	powerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Redfish reset type to perform")
 	powerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
 
-	// Normal config options
-	powerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory")
-	powerCmd.Flags().StringP("username", "u", "", "Set the master BMC username")
-	powerCmd.Flags().StringP("password", "p", "", "Set the master BMC password")
-	powerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
-	powerCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
-	powerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	powerCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
-
-	// Bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("power.inventory-file", powerCmd.Flags().Lookup("inventory-file")))
-	checkBindFlagError(viper.BindPFlag("username", powerCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("password", powerCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("cacert", powerCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlag("insecure", powerCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("secrets.file", powerCmd.Flags().Lookup("secrets-file")))
-	checkBindFlagError(viper.BindPFlag("power.format", powerCmd.Flags().Lookup("format")))
+	addFlag("username", powerCmd, "username", "u", "", "Set the master BMC username")
+	addFlag("password", powerCmd, "password", "p", "", "Set the master BMC password")
+	addFlag("cacert", powerCmd, "cacert", "", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+	addFlag("insecure", powerCmd, "insecure", "i", false, "Ignore SSL errors")
+	addFlag("power.inventory-file", powerCmd, "inventory-file", "f", "", "YAML file containing node inventory")
+	addFlag("secrets.file", powerCmd, "secrets-file", "", "", "Set path to the node secrets file")
+	addFlag("power.format", powerCmd, "format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 
 	rootCmd.AddCommand(powerCmd)
 }

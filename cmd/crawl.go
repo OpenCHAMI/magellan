@@ -107,17 +107,11 @@ var crawlCmd = &cobra.Command{
 }
 
 func init() {
-	crawlCmd.Flags().StringP("username", "u", "", "Set the username for the BMC")
-	crawlCmd.Flags().StringP("password", "p", "", "Set the password for the BMC")
-	crawlCmd.Flags().BoolP("insecure", "i", false, "Ignore SSL errors")
-	crawlCmd.Flags().StringP("secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	crawlCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
-
-	checkBindFlagError(viper.BindPFlag("username", crawlCmd.Flags().Lookup("username")))
-	checkBindFlagError(viper.BindPFlag("password", crawlCmd.Flags().Lookup("password")))
-	checkBindFlagError(viper.BindPFlag("insecure", crawlCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("secrets.file", crawlCmd.Flags().Lookup("secrets-file")))
-	checkBindFlagError(viper.BindPFlag("crawl.format", crawlCmd.Flags().Lookup("format")))
+	addFlag("username", crawlCmd, "username", "u", "", "Set the username for the BMC")
+	addFlag("password", crawlCmd, "password", "p", "", "Set the password for the BMC")
+	addFlag("insecure", crawlCmd, "insecure", "i", false, "Ignore SSL errors")
+	addFlag("secrets.file", crawlCmd, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
+	addFlag("crawl.format", crawlCmd, "format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
 
 	rootCmd.AddCommand(crawlCmd)
 }

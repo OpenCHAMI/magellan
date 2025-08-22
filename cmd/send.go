@@ -124,15 +124,10 @@ var sendCmd = &cobra.Command{
 }
 
 func init() {
-	sendCmd.Flags().StringArrayP("data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
-	sendCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the default data input format (json|yaml) can be overridden by file extension")
-	sendCmd.Flags().BoolP("force-update", "f", false, "Set flag to force update data sent to SMD")
-	sendCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-
-	checkBindFlagError(viper.BindPFlag("send.data", sendCmd.Flags().Lookup("data")))
-	checkBindFlagError(viper.BindPFlag("send.format", sendCmd.Flags().Lookup("format")))
-	checkBindFlagError(viper.BindPFlag("send.force-update", sendCmd.Flags().Lookup("force-update")))
-	checkBindFlagError(viper.BindPFlag("cacert", sendCmd.Flags().Lookup("cacert")))
+	addFlag("send.data", sendCmd, "data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
+	addFlag("send.format", sendCmd, "format", "F", util.FORMAT_JSON, "Set the default data input format (json|yaml) can be overridden by file extension")
+	addFlag("send.force-update", sendCmd, "force-update", "f", false, "Set flag to force update data sent to SMD")
+	addFlag("cacert", sendCmd, "cacert", "", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 
 	rootCmd.AddCommand(sendCmd)
 }
