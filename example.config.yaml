@@ -4,41 +4,67 @@
 #   - If $XDG_CONFIG_HOME is not defined, it is assumed to be ~/.config
 # Also, while this example uses YAML, other formats are also supported via the Go Viper package.
 # File type will be auto-detected based on extension, e.g. ~/.config/magellan/config.json will be parsed as JSON.
+username: BMC_USER
+password: BMC_PASS
+pdu:
+  password: PDU_USER
+  username: PDU_PASS
+
+access-token: "YOUR-TOKEN-HERE"
+cacert: "cacert.pem"
+cache: "/tmp/magellan/magellan.db"
+collect:
+  bmc-id-map: "@bmc-map-file"
+  force-update: false
+  format: "yaml"
+  output-dir: "/tmp/magellan/data/"
+  output-file: "/tmp/magellan/collect.yml"
+  protocol: "tcp"
+concurrency: 1
+crawl:
+  format: "yaml"
+debug: false
+insecure: true
+list:
+  format: "list"
+login:
+  force: false
+  no-browser: false
+  target-host: "127.0.0.1"
+  target-port: 5000
+  url: "http://127.0.0.1:3333/login"
+power:
+  format: "yaml"
+  inventory-file: "/tmp/magellan/collect.yml"
 scan:
-  hosts:
-    - "172.16.1.15"
-    - "10.0.0.1"
+  disable-caching: false
+  disable-probing: false
+  format: "db"
+  include:
+    - "bmcs"
+    #- "pdus"
+  output: "ignored for DB format"
+  ports:
+    - 443
+  protocol: "tcp"
+  scheme: "https"
+  subnet-mask: "255.255.255.0"
   subnets:
     - "172.16.0.0"
     - "172.16.0.0/24"
-  subnet-masks:
-    - "255.255.255.0"
-  ports:
-    - 443
-  disable-probing: false
-  disable-caching: false
-  protocol: "tcp"
-  scheme: "https"
-collect:
-  protocol: "tcp"
-  output: "/tmp/magellan/data/"
-  threads: 1
+secrets:
+  file: "secrets.json"
+  format: "basic"
+  input-file: "my-basic-secrets-file"
+send:
+  data:
+    - "@/tmp/magellan/collect.yml"
   force-update: false
-  cacert: "cacert.pem"
-update:
-  host:
-  port: 443
-  transfer-protocol: "https"
-  firmware:
-    url:
-    version:
-  component:
-  secure-tls: false
-  status: false
-power:
-  cacert: "cacert.pem"
-concurrency: 1
+  format: "yaml"
 timeout: 30
+token-path: ".ochami-token"
+update:
+  firmware-uri: "http://172.16.0.255:8005/firmware/bios/image.RBU"
+  scheme: "https"
+  status: false
 verbose: true
-cache:
-  path: "/tmp/magellan/magellan.db"
