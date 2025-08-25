@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
+	"github.com/OpenCHAMI/magellan/internal/util"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
@@ -158,9 +159,9 @@ var ScanCmd = &cobra.Command{
 			var output []byte
 			var err error
 			switch format {
-			case "json":
+			case util.FORMAT_JSON:
 				output, err = json.MarshalIndent(foundAssets, "", "  ")
-			case "yaml":
+			case util.FORMAT_YAML:
 				output, err = yaml.Marshal(foundAssets)
 			default:
 				log.Error().Msgf("unknown format specified: %s. Please use 'json', or 'yaml'.", format)
