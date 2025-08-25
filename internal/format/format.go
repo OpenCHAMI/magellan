@@ -14,7 +14,6 @@ const (
 	FORMAT_LIST DataFormat = "list"
 	FORMAT_JSON DataFormat = "json"
 	FORMAT_YAML DataFormat = "yaml"
-	FORMAT_DB   DataFormat = "db"
 )
 
 func (df DataFormat) String() string {
@@ -23,12 +22,12 @@ func (df DataFormat) String() string {
 
 func (df *DataFormat) Set(v string) error {
 	switch DataFormat(v) {
-	case FORMAT_LIST, FORMAT_JSON, FORMAT_YAML, FORMAT_DB:
+	case FORMAT_LIST, FORMAT_JSON, FORMAT_YAML:
 		*df = DataFormat(v)
 		return nil
 	default:
 		return fmt.Errorf("must be one of %v", []DataFormat{
-			FORMAT_LIST, FORMAT_JSON, FORMAT_YAML, FORMAT_DB,
+			FORMAT_LIST, FORMAT_JSON, FORMAT_YAML,
 		})
 	}
 }
@@ -55,7 +54,7 @@ func Marshal(data interface{}, outFormat DataFormat) ([]byte, error) {
 		} else {
 			return bytes, nil
 		}
-	case FORMAT_LIST, FORMAT_DB:
+	case FORMAT_LIST:
 		return nil, fmt.Errorf("this data format cannot be marshaled")
 	default:
 		return nil, fmt.Errorf("unknown data format: %s", outFormat)
@@ -77,7 +76,7 @@ func Unmarshal(data []byte, v interface{}, inFormat DataFormat) error {
 		if err := yaml.Unmarshal(data, v); err != nil {
 			return fmt.Errorf("failed to unmarshal data into YAML: %w", err)
 		}
-	case FORMAT_LIST, FORMAT_DB:
+	case FORMAT_LIST:
 		return fmt.Errorf("this data format cannot be unmarshaled")
 	default:
 		return fmt.Errorf("unknown data format: %s", inFormat)
