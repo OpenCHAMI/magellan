@@ -236,7 +236,6 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
 ./magellan scan \
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
-    --format json \
     --cache data/assets.db
 ```
 
