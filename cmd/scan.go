@@ -26,7 +26,7 @@ var (
 	include        []string
 	disableProbing bool
 	disableCache   bool
-	scanFormat     format.DataFormat = format.FORMAT_DB
+	scanFormat     format.DataFormat
 )
 
 // The `scan` command is usually the first step to using the CLI tool.

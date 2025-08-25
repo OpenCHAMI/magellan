@@ -19,7 +19,6 @@ import (
 	"net"
 	"os"
 
-	magellan "github.com/OpenCHAMI/magellan/internal"
 	logger "github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
@@ -172,8 +171,5 @@ func SetDefaults() {
 	viper.SetDefault("update.firmware.version", "")
 	viper.SetDefault("update.component", "")
 	viper.SetDefault("update.status", false)
-<<<<<<< HEAD
 	viper.SetDefault("power.cacert", "")
-=======
->>>>>>> a36795f (refactor: updated format and log usage)
 }
