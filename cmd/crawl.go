@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -47,32 +48,60 @@ var CrawlCmd = &cobra.Command{
 
 		if username != "" && password != "" {
 			// First, try and load credentials from --username and --password if both are set.
-			log.Debug().Str("id", uri).Msgf("--username and --password specified, using them for BMC credentials")
+			log.Debug().Str("uri", uri).Msgf("--username and --password specified, using them for BMC credentials")
 			store = secrets.NewStaticStore(username, password)
 		} else {
 			// Alternatively, locate specific credentials (falling back to default) and override those
 			// with --username or --password if either are passed.
-			log.Debug().Str("id", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
+			log.Debug().Str("uri", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
 			if store, err = secrets.OpenStore(secretsFile); err != nil {
-				log.Error().Str("id", uri).Err(err).Msg("failed to open local secrets store")
+				log.Error().Str("uri", uri).Err(err).Msg("failed to open local secrets store")
 			}
 
 			// Either none of the flags were passed or only one of them were; get
 			// credentials from secrets store to fill in the gaps.
-			bmcCreds, _ := bmc.GetBMCCredentials(store, uri)
-			nodeCreds := secrets.StaticStore{
-				Username: bmcCreds.Username,
-				Password: bmcCreds.Password,
+			//
+			// Attempt to get URI-specific credentials.
+			var nodeCreds secrets.StaticStore
+			if uriCreds, err := store.GetSecretByID(uri); err != nil {
+				// Specific credentials for URI not found, fetch default.
+				log.Warn().Str("uri", uri).Msg("specific credentials not found, falling back to default")
+				defaultSecret, err := store.GetSecretByID(secrets.DEFAULT_KEY)
+				if err != nil {
+					// We've exhausted all options, the credentials will be blank unless
+					// overridden by a CLI flag.
+					log.Warn().Str("uri", uri).Err(err).Msg("no default credentials were set, they will be blank unless overridden by CLI flags")
+				} else {
+					// Default credentials found, use them.
+					var creds bmc.BMCCredentials
+					if err = json.Unmarshal([]byte(defaultSecret), &creds); err != nil {
+						log.Warn().Str("uri", uri).Err(err).Msg("failed to unmarshal default secrets store credentials")
+					} else {
+						log.Info().Str("uri", uri).Msg("default credentials found, using")
+						nodeCreds.Username = creds.Username
+						nodeCreds.Password = creds.Password
+					}
+				}
+			} else {
+				// Specific URI credentials found, use them.
+				var creds bmc.BMCCredentials
+				if err = json.Unmarshal([]byte(uriCreds), &creds); err != nil {
+					log.Warn().Str("uri", uri).Err(err).Msg("failed to unmarshal uri credentials")
+				} else {
+					nodeCreds.Username = creds.Username
+					nodeCreds.Password = creds.Password
+					log.Info().Str("uri", uri).Msg("specific credentials found, using")
+				}
 			}
 
 			// If either of the flags were passed, override the fetched
 			// credentials with them.
 			if username != "" {
-				log.Info().Str("id", uri).Msg("--username was set, overriding username for this BMC")
+				log.Info().Str("uri", uri).Msg("--username was set, overriding username for this BMC")
 				nodeCreds.Username = username
 			}
 			if password != "" {
-				log.Info().Str("id", uri).Msg("--password was set, overriding password for this BMC")
+				log.Info().Str("uri", uri).Msg("--password was set, overriding password for this BMC")
 				nodeCreds.Password = password
 			}
 
