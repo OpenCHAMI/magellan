@@ -14,25 +14,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add README content describing use of BMC ID Mapping
 - Clean up left-over --host option remnants from 'collect'
 
-## 0.4.1
+## [0.4.1]
 
 ### Fixed
 
 - Fixed `secrets` cmd not showing error message for commands that do not exist
 
-## 0.4.0
+## [0.4.0]
 
 ### Added
 
 - Added PDU scanning and `--include` flag
 
-## 0.3.1
+## [0.3.1]
 
 ### Fixed
 
 - Fixed panic from invalid chassis in crawler
 
-## 0.3.0
+## [0.3.0]
 
 ### Added
 

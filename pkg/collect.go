@@ -2,7 +2,6 @@
 package magellan
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -12,12 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/OpenCHAMI/magellan/pkg/idmap"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
-	"gopkg.in/yaml.v3"
 
 	"github.com/rs/zerolog/log"
 
@@ -33,13 +33,12 @@ type CollectParams struct {
 	Concurrency int                 // set the of concurrent jobs with the 'concurrency' flag
 	Timeout     int                 // set the timeout with the 'timeout' flag
 	CaCertPath  string              // set the cert path with the 'cacert' flag
-	Verbose     bool                // set whether to include verbose output with 'verbose' flag
 	OutputPath  string              // set the path to save output with 'output' flag
 	OutputDir   string              // set the directory path to save output with `output-dir` flag
-	Format      string              // set the output format
+	Format      format.DataFormat   // set the output format
 	ForceUpdate bool                // set whether to force updating SMD with 'force-update' flag
 	AccessToken string              // set the access token to include in request with 'access-token' flag
-	BMCIDMap   string              // Set the path to the BMC ID mapping YAML or JSON data or file name (if any)
+	BMCIDMap    string              // Set the path to the BMC ID mapping YAML or JSON data or file name (if any)
 	SecretStore secrets.SecretStore // set BMC credentials
 }
 
@@ -61,11 +60,11 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	// collect bmc information asynchronously
 	var (
 		wg         sync.WaitGroup
-		collection = make([]map[string]any, 0)
-		found      = make([]string, 0, len(*assets))
-		done       = make(chan struct{}, params.Concurrency+1)
-		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
-		mapper     idMapper = pickIDMapper(params)
+		collection              = make([]map[string]any, 0)
+		found                   = make([]string, 0, len(*assets))
+		done                    = make(chan struct{}, params.Concurrency+1)
+		chanAssets              = make(chan RemoteAsset, params.Concurrency+1)
+		mapper     idmap.Mapper = idmap.PickIDMapper(params.BMCIDMap, params.Format)
 		err        error
 	)
 
@@ -81,11 +80,11 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				}
 
 				trimmedHost := strings.TrimPrefix(sr.Host, "https://")
-				uri  := fmt.Sprintf("%s:%d", sr.Host, sr.Port)
-				keys :=	&idMapperKeys {
+				uri := fmt.Sprintf("%s:%d", sr.Host, sr.Port)
+				keys := &idmap.MapperKeys{
 					IPv4Addr: trimmedHost,
 				}
-				bmcID := mapper.getMappedID(keys)
+				bmcID := mapper.GetMappedID(keys)
 
 				// If bmcID is empty, skip this
 				// BMC. Empty means that there is a
@@ -200,35 +199,28 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	close(done)
 
 	var (
-		output []byte
+		output     []byte
+		formatType format.DataFormat
 	)
 
 	// format our output to write to file or standard out
-	format := util.DataFormatFromFileExt(params.OutputPath, params.Format)
-	switch format {
-	case util.FORMAT_JSON:
-		output, err = json.MarshalIndent(collection, "", "    ")
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to marshal output to JSON")
-		}
-	case util.FORMAT_YAML:
-		output, err = yaml.Marshal(collection)
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to marshal output to YAML")
-		}
-	}
-
-	// print the final combined output at the end to write to file
-	if params.Verbose {
-		fmt.Printf("%v\n", string(output))
+	formatType = format.DataFormatFromFileExt(params.OutputPath, params.Format)
+	output, err = format.Marshal(collection, formatType)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to marshal output to %s", strings.ToUpper(formatType.String()))
 	}
 
 	// write data to file in preset directory if output path is set using set format
 	if params.OutputDir != "" {
 		for _, data := range collection {
 			var (
-				finalPath = fmt.Sprintf("./%s/%s/%d.%s", path.Clean(params.OutputDir), data["ID"], time.Now().Unix(), format)
-				finalDir  = filepath.Dir(finalPath)
+				finalPath = fmt.Sprintf("./%s/%s/%d.%s",
+					path.Clean(params.OutputDir),
+					data["ID"],
+					time.Now().Unix(),
+					formatType,
+				)
+				finalDir = filepath.Dir(finalPath)
 			)
 			// if it doesn't, make the directory and write file
 			err = os.MkdirAll(finalDir, 0o777)

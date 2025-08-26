@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 
@@ -51,17 +50,16 @@ var loginCmd = &cobra.Command{
 			}
 		}
 
-		if verbose {
-			log.Printf("Listening for token on %s:%d", targetHost, targetPort)
-		}
+		log.Debug().
+			Str("host", targetHost).
+			Int("port", targetPort).
+			Msg("listening for token")
 
 		// start the login flow
 		var err error
 		accessToken, err = magellan.Login(loginUrl, targetHost, targetPort)
 		if errors.Is(err, http.ErrServerClosed) {
-			if verbose {
-				fmt.Printf("\n=========================================\nServer closed.\n=========================================\n\n")
-			}
+			log.Debug().Msg("server closed")
 		} else if err != nil {
 			log.Error().Err(err).Msgf("failed to start server")
 		}

@@ -37,15 +37,13 @@ func TrimScheme(uri string) string {
 // port. The intention is to have all of the URLs for a single host combined into
 // a single slice to initiate one goroutine per host, but making request to multiple
 // ports.
-func FormatHosts(hosts []string, ports []int, scheme string, verbose bool) [][]string {
+func FormatHosts(hosts []string, ports []int, scheme string) [][]string {
 	// format each positional arg as a complete URL
 	var formattedHosts [][]string
 	for _, host := range hosts {
 		uri, err := url.ParseRequestURI(host)
 		if err != nil {
-			if verbose {
-				log.Warn().Msgf("invalid URI parsed: %s", host)
-			}
+			log.Warn().Msgf("invalid URI parsed: %s", host)
 			continue
 		}
 
