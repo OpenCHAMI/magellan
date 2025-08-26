@@ -54,14 +54,14 @@ var rootCmd = &cobra.Command{
 	Use:   "magellan",
 	Short: "Redfish-based BMC discovery tool",
 	Long:  "Redfish-based BMC discovery tool with dynamic discovery features.",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// initialize the logger
-		err := logger.InitWithLogLevel(logLevel, logFile)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to initialize logger")
-			os.Exit(1)
-		}
-	},
+	// PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	// 	// initialize the logger
+	// 	err := logger.InitWithLogLevel(logLevel, logFile)
+	// 	if err != nil {
+	// 		log.Error().Err(err).Msg("failed to initialize logger")
+	// 		os.Exit(1)
+	// 	}
+	// },
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			err := cmd.Help()
@@ -89,7 +89,10 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(InitializeConfig)
+	cobra.OnInitialize(
+		InitializeLogger,
+		InitializeConfig,
+	)
 	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "j", -1, "Set the number of concurrent processes")
 	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests in seconds")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
@@ -109,7 +112,7 @@ func init() {
 
 func checkBindFlagError(err error) {
 	if err != nil {
-		log.Error().Err(err).Msg("failed to bind cobra/viper flag")
+		log.Warn().Err(err).Msg("failed to bind cobra/viper flag")
 	}
 }
 
@@ -136,6 +139,15 @@ func InitializeConfig() {
 			err = fmt.Errorf("failed to load config file: %w", err)
 		}
 		log.Error().Err(err).Msg("failed to load config")
+	}
+}
+
+func InitializeLogger() {
+	// initialize the logger
+	err := logger.InitWithLogLevel(logLevel, logFile)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to initialize logger")
+		os.Exit(1)
 	}
 }
 
