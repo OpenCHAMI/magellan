@@ -138,7 +138,7 @@ func InitializeConfig() {
 		} else {
 			err = fmt.Errorf("failed to load config file: %w", err)
 		}
-		log.Error().Err(err).Msg("failed to load config")
+		log.Warn().Err(err).Msg("failed to load config")
 	}
 }
 
