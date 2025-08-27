@@ -131,7 +131,7 @@ var CrawlCmd = &cobra.Command{
 		}
 
 		// print the formatted output
-		output, err = format.Marshal(map[string]any{
+		output, err = format.MarshalData(map[string]any{
 			"Systems":  systems,
 			"Managers": managers,
 		}, crawlOutputFormat)

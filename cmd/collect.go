@@ -133,7 +133,7 @@ var CollectCmd = &cobra.Command{
 		}
 
 		if showOutput {
-			output, err := format.Marshal(inventory, collectOutputFormat)
+			output, err := format.MarshalData(inventory, collectOutputFormat)
 			if err != nil {
 				log.Error().Msgf("failed to marshal inventory to %s", strings.ToUpper(collectOutputFormat.String()))
 				os.Exit(1)

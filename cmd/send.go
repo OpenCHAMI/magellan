@@ -239,7 +239,7 @@ func parseInput(contents []byte, dataFormat format.DataFormat) ([]map[string]any
 	)
 
 	// convert/validate JSON input format
-	err = format.Unmarshal(contents, &data, dataFormat)
+	err = format.UnmarshalData(contents, &data, dataFormat)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %v", err)
 	}

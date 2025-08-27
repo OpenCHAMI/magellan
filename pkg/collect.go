@@ -205,7 +205,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 	// format our output to write to file or standard out
 	formatType = format.DataFormatFromFileExt(params.OutputPath, params.Format)
-	output, err = format.Marshal(collection, formatType)
+	output, err = format.MarshalData(collection, formatType)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to marshal output to %s", strings.ToUpper(formatType.String()))
 	}

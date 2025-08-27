@@ -41,7 +41,7 @@ var ListCmd = &cobra.Command{
 			log.Error().Err(err).Msg("failed to get scanned assets")
 		}
 
-		output, err := format.Marshal(scannedResults, listOutputFormat)
+		output, err := format.MarshalData(scannedResults, listOutputFormat)
 		if err != nil {
 
 		}

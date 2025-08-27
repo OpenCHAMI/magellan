@@ -145,6 +145,7 @@ var ScanCmd = &cobra.Command{
 			log.Trace().Any("assets", foundAssets).Msgf("found assets from scan")
 		} else {
 			log.Warn().Msg("no responsive assets found")
+			// return instead of exit to close log file
 			return
 		}
 
@@ -156,7 +157,7 @@ var ScanCmd = &cobra.Command{
 					err    error
 				)
 
-				output, err = format.Marshal(foundAssets, scanFormat)
+				output, err = format.MarshalData(foundAssets, scanFormat)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to marshal output to %s", scanFormat)
 					return
