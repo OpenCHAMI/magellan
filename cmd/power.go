@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -37,7 +38,7 @@ var powerCmd = &cobra.Command{
   magellan collect -v ... | magellan power -f - x1000c0s0b3n0`,
 	Short: "Get and set node power states",
 	Long:  "Determine and control the power states of nodes found by a previous inventory crawl.\nSee the 'scan' and 'crawl' commands for further details.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Read node inventory from CLI flag, or default `collect` YAML output
 		var datafile string
 		if viper.IsSet("power.inventory-file") {
@@ -49,8 +50,8 @@ var powerCmd = &cobra.Command{
 		// Parse node inventory
 		nodes, err := power.ParseInventory(datafile, viper.GetString("power.format"))
 		if err != nil {
-			log.Fatal().Err(err).Msgf("failed to parse inventory file %s", datafile)
-			// log.Fatal().Msg() does os.Exit(1) for us
+			log.Error().Err(err).Msgf("failed to parse inventory file %s", datafile)
+			return errors.New("failed to parse inventory file")
 		}
 
 		// Set the minimum/maximum number of concurrent processes
@@ -123,8 +124,10 @@ var powerCmd = &cobra.Command{
 		results := concurrent_helper(concurrency, target_nodes, action_func)
 		power.LogoutBMCSessions()
 		for node, status := range results {
-			fmt.Printf("%s:\t%s\n", node, status)
+			fmt.Fprintf(cmd.OutOrStdout(), "%s:\t%s\n", node, status)
 		}
+
+		return nil
 	},
 }
 
