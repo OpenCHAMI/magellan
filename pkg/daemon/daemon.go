@@ -73,6 +73,10 @@ func createCommandHandler(cmd *cobra.Command) func(w http.ResponseWriter, r *htt
 	if parent != nil {
 		parent.RemoveCommand(cmd)
 	}
+	// NOTE: Printing anything prior to setting an HTTP status code will
+	// automatically send a status of 200. Silence the usage message, to
+	// let us control the HTTP status header.
+	cmd.SilenceUsage = true
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		cmd.SetOut(w)
@@ -90,7 +94,6 @@ func createCommandHandler(cmd *cobra.Command) func(w http.ResponseWriter, r *htt
 		// Run the actual command
 		err = cmd.Execute()
 		if err != nil {
-			// FIXME: Fails since the first call to Write() creates a 200 status
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}
