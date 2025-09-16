@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/OpenCHAMI/magellan/internal/format"
 	logger "github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
@@ -114,6 +115,20 @@ func checkBindFlagError(err error) {
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to bind cobra/viper flag")
 	}
+}
+
+func helpMapToSlice(help map[string]string) []string {
+	var helpSlice []string
+	for k, v := range help {
+		helpSlice = append(helpSlice, fmt.Sprintf("%s\t%s", k, v))
+	}
+	return helpSlice
+}
+
+// completionFormatData is the cobra completion function for any flag that uses
+// the format.DataFormat type.
+func completionFormatData(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return helpMapToSlice(format.DataFormatHelpMap), cobra.ShellCompDirectiveDefault
 }
 
 // InitializeConfig() initializes a new config object by loading it
