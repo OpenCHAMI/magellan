@@ -52,5 +52,8 @@ var ListCmd = &cobra.Command{
 func init() {
 	ListCmd.Flags().VarP(&listOutputFormat, "format", "F", "Set the output format (list|json|yaml)")
 	ListCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
+
+	ListCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+
 	rootCmd.AddCommand(ListCmd)
 }

@@ -247,6 +247,8 @@ func init() {
 	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	PowerCmd.Flags().VarP(&powerFormat, "format", "F", "Set the output format (json|yaml)")
 
+	PowerCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+
 	// Bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlag("power.format", PowerCmd.Flags().Lookup("format")))

@@ -127,6 +127,8 @@ func init() {
 	sendCmd.Flags().VarP(&sendInputFormat, "format", "F", "Set the default data input format (json|yaml) can be overridden by file extension")
 	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
+
+	sendCmd.RegisterFlagCompletionFunc("format", completionFormatData)
 	rootCmd.AddCommand(sendCmd)
 }
 
