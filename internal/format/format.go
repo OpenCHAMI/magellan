@@ -8,7 +8,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type DataFormat string
+type (
+	DataFormat string
+	HelpMap    map[string]string
+)
 
 const (
 	FORMAT_LIST DataFormat = "list"
@@ -19,6 +22,14 @@ const (
 func (df DataFormat) String() string {
 	return string(df)
 }
+
+var (
+	DataFormatHelpMap = HelpMap{
+		string(FORMAT_LIST): "List format",
+		string(FORMAT_JSON): "JSON format",
+		string(FORMAT_YAML): "YAML format",
+	}
+)
 
 func (df *DataFormat) Set(v string) error {
 	switch DataFormat(v) {
