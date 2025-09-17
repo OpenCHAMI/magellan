@@ -1,12 +1,13 @@
 // Package magellan implements the core routines for the tools.
-package magellan
+package idmap
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/rs/zerolog/log"
-	"github.com/OpenCHAMI/magellan/internal/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,17 +16,17 @@ import (
 // MapKey specifies what string to use as the key to the map. For now, that is
 // always 'bmc-ip-addr'. In the future other options may be available.
 type bmcIDMap struct {
-	IDMap      map[string]string `json:"id_map" yaml:"id_map"`
-	MapKey     string `json:"map_key" yaml:"map_key"`
+	IDMap  map[string]string `json:"id_map" yaml:"id_map"`
+	MapKey string            `json:"map_key" yaml:"map_key"`
 }
 
 type userProvidedMapper struct {
-	IDMapStr string
-	IDMapFormat string
-	IDMap  *bmcIDMap
+	IDMapStr    string
+	IDMapFormat format.DataFormat
+	IDMap       *bmcIDMap
 }
 
-func getBMCIDMap(data string, format string)(*bmcIDMap, error) {
+func getBMCIDMap(data string, formatType format.DataFormat) (*bmcIDMap, error) {
 	// If no mapping is provided, there is no error, but there is
 	// also no mapping, just return nil with no error and let the
 	// caller pass that around.
@@ -57,14 +58,14 @@ func getBMCIDMap(data string, format string)(*bmcIDMap, error) {
 	}
 
 	// Decode the file based on the appropriate format.
-	switch util.DataFormatFromFileExt(path, format) {
-	case util.FORMAT_JSON:
+	switch format.DataFormatFromFileExt(path, formatType) {
+	case format.FORMAT_JSON:
 		// Read in JSON file
 		err := json.Unmarshal(input, &bmcIDMap)
 		if err != nil {
 			return nil, err
 		}
-	case util.FORMAT_YAML:
+	case format.FORMAT_YAML:
 		// Read in YAML file
 		err := yaml.Unmarshal(input, &bmcIDMap)
 		if err != nil {
@@ -74,13 +75,12 @@ func getBMCIDMap(data string, format string)(*bmcIDMap, error) {
 	return &bmcIDMap, nil
 }
 
-
 // Generate a BMC ID string associated with 'selector' in the provided
 // 'bmcIDMap'. If there is no map, then return the selector string
 // itself.  If the map is present but the host is not present in the
 // map, then log a warning and return an empty string indicating that
 // the BMC ID was not composed.
-func getBMCID(bmcIDMap *bmcIDMap, selector string)(string) {
+func getBMCID(bmcIDMap *bmcIDMap, selector string) string {
 	if bmcIDMap == nil {
 		return selector
 	}
@@ -96,7 +96,7 @@ func getBMCID(bmcIDMap *bmcIDMap, selector string)(string) {
 	return bmcID
 }
 
-func (mapper userProvidedMapper)initialize()(idMapper, error) {
+func (mapper userProvidedMapper) Initialize() (Mapper, error) {
 	// Get the host to BMC ID mapping
 	idMap, err := getBMCIDMap(mapper.IDMapStr, mapper.IDMapFormat)
 	if err != nil {
@@ -118,7 +118,7 @@ func (mapper userProvidedMapper)initialize()(idMapper, error) {
 	return mapper, nil
 }
 
-func (mapper userProvidedMapper)getMappedID(keys *idMapperKeys)(string) {
+func (mapper userProvidedMapper) GetMappedID(keys *MapperKeys) string {
 	// Get the map key. We already validated the key name in
 	// initialize() so the default here should never happen. Log a
 	// debug message if it does and return no ID.

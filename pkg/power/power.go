@@ -6,9 +6,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
+	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"gopkg.in/yaml.v3"
 
 	"github.com/rs/zerolog/log"
@@ -37,7 +37,7 @@ var savedClients map[string]*gofish.APIClient
 // Returns:
 //   - []bmc.Node: A slice of structs containing relevant details for connecting to a node via its BMC.
 //   - error: An error object if any error occurs during the connection or reset process.
-func ParseInventory(filename string, format string) ([]bmc.Node, error) {
+func ParseInventory(filename string, dataFormat format.DataFormat) ([]bmc.Node, error) {
 	// Read `collect`ed data from YAML file
 	var (
 		contents []byte
@@ -59,13 +59,13 @@ func ParseInventory(filename string, format string) ([]bmc.Node, error) {
 		FQDN    string                    `json:"FQDN" yaml:"FQDN"`
 		Systems []crawler.InventoryDetail `json:"Systems" yaml:"Systems"`
 	}
-	switch format {
-	case util.FORMAT_JSON:
+	switch dataFormat {
+	case format.FORMAT_JSON:
 		err = json.Unmarshal(contents, &inventory)
-	case util.FORMAT_YAML:
+	case format.FORMAT_YAML:
 		err = yaml.Unmarshal(contents, &inventory)
 	default:
-		err = fmt.Errorf("unknown input format: %s", format)
+		err = fmt.Errorf("unknown input format: %v", dataFormat)
 	}
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to unmarshal contents of collected inventory file %s", filename)

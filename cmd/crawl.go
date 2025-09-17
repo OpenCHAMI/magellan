@@ -6,10 +6,9 @@ import (
 	"os"
 
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 
+	"github.com/OpenCHAMI/magellan/internal/format"
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
-	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -17,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var crawlOutputFormat string
+var crawlOutputFormat format.DataFormat = format.FORMAT_JSON
 
 // The `crawl` command walks a collection of Redfish endpoints to collect
 // specfic inventory detail. This command only expects host names and does
@@ -40,13 +39,6 @@ var CrawlCmd = &cobra.Command{
 		}
 		return nil
 	},
-	PreRunE: func(cmd *cobra.Command, args []string) (error) {
-		// Validate the specified file format
-		if crawlOutputFormat != util.FORMAT_JSON && crawlOutputFormat != util.FORMAT_YAML {
-			return fmt.Errorf("specified format '%s' is invalid, must be (json|yaml)", crawlOutputFormat)
-		}
-		return nil
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			uri    = args[0]
@@ -57,32 +49,61 @@ var CrawlCmd = &cobra.Command{
 
 		if username != "" && password != "" {
 			// First, try and load credentials from --username and --password if both are set.
-			log.Debug().Str("id", uri).Msgf("--username and --password specified, using them for BMC credentials")
+			log.Debug().Str("uri", uri).Msgf("--username and --password specified, using them for BMC credentials")
 			store = secrets.NewStaticStore(username, password)
 		} else {
 			// Alternatively, locate specific credentials (falling back to default) and override those
 			// with --username or --password if either are passed.
-			log.Debug().Str("id", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
+			log.Debug().Str("uri", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
 			if store, err = secrets.OpenStore(secretsFile); err != nil {
-				log.Error().Str("id", uri).Err(err).Msg("failed to open local secrets store")
+				log.Error().Str("uri", uri).Err(err).Msg("failed to open local secrets store")
+				os.Exit(1)
 			}
 
 			// Either none of the flags were passed or only one of them were; get
 			// credentials from secrets store to fill in the gaps.
-			bmcCreds, _ := bmc.GetBMCCredentials(store, uri)
-			nodeCreds := secrets.StaticStore{
-				Username: bmcCreds.Username,
-				Password: bmcCreds.Password,
+			//
+			// Attempt to get URI-specific credentials.
+			var nodeCreds secrets.StaticStore
+			if uriCreds, err := store.GetSecretByID(uri); err != nil {
+				// Specific credentials for URI not found, fetch default.
+				log.Warn().Str("uri", uri).Msg("specific credentials not found, falling back to default")
+				defaultSecret, err := store.GetSecretByID(secrets.DEFAULT_KEY)
+				if err != nil {
+					// We've exhausted all options, the credentials will be blank unless
+					// overridden by a CLI flag.
+					log.Warn().Str("uri", uri).Err(err).Msg("no default credentials were set, they will be blank unless overridden by CLI flags")
+				} else {
+					// Default credentials found, use them.
+					var creds bmc.BMCCredentials
+					if err = json.Unmarshal([]byte(defaultSecret), &creds); err != nil {
+						log.Warn().Str("uri", uri).Err(err).Msg("failed to unmarshal default secrets store credentials")
+					} else {
+						log.Info().Str("uri", uri).Msg("default credentials found, using")
+						nodeCreds.Username = creds.Username
+						nodeCreds.Password = creds.Password
+					}
+				}
+			} else {
+				// Specific URI credentials found, use them.
+				var creds bmc.BMCCredentials
+				if err = json.Unmarshal([]byte(uriCreds), &creds); err != nil {
+					log.Warn().Str("uri", uri).Err(err).Msg("failed to unmarshal uri credentials")
+				} else {
+					nodeCreds.Username = creds.Username
+					nodeCreds.Password = creds.Password
+					log.Info().Str("uri", uri).Msg("specific credentials found, using")
+				}
 			}
 
 			// If either of the flags were passed, override the fetched
 			// credentials with them.
 			if username != "" {
-				log.Info().Str("id", uri).Msg("--username was set, overriding username for this BMC")
+				log.Info().Str("uri", uri).Msg("--username was set, overriding username for this BMC")
 				nodeCreds.Username = username
 			}
 			if password != "" {
-				log.Info().Str("id", uri).Msg("--password was set, overriding password for this BMC")
+				log.Info().Str("uri", uri).Msg("--password was set, overriding password for this BMC")
 				nodeCreds.Password = password
 			}
 
@@ -109,33 +130,18 @@ var CrawlCmd = &cobra.Command{
 			log.Error().Err(err).Msg("failed to crawl BMC for managers")
 		}
 
-		data := map[string]any{
+		// print the formatted output
+		output, err = format.MarshalData(map[string]any{
 			"Systems":  systems,
 			"Managers": managers,
-		}
-
-		switch crawlOutputFormat {
-		case util.FORMAT_JSON:
-			// Marshal the inventory details to JSON
-			output, err = json.MarshalIndent(data, "", "  ")
-			if err != nil {
-				log.Error().Err(err).Msg("failed to marshal JSON")
-				return
-			}
-		case util.FORMAT_YAML:
-			// Marshal the inventory details to JSON
-			output, err = yaml.Marshal(data)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to marshal JSON")
-				return
-			}
-		default:
-			log.Error().Str("hint", "Try setting --format/-F to 'json' or 'yaml'").Msg("unrecognized format")
+		}, crawlOutputFormat)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to marshal output JSON")
 			os.Exit(1)
 		}
-
-		// Print the pretty JSON or YAML
-		fmt.Println(string(output))
+		if showOutput {
+			fmt.Println(string(output))
+		}
 	},
 }
 
@@ -144,10 +150,11 @@ func init() {
 	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
 	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	CrawlCmd.Flags().StringVarP(&crawlOutputFormat, "format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
+	CrawlCmd.Flags().BoolVar(&showOutput, "show", false, "Show the output of a collect run")
+	CrawlCmd.Flags().VarP(&crawlOutputFormat, "format", "F", "Set the output format (json|yaml)")
 
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
+	CrawlCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+
 	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(CrawlCmd)

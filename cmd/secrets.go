@@ -15,7 +15,7 @@ import (
 
 var (
 	secretsFile           string
-	secretsStoreFormat    string
+	secretsStoreFormat    string // slightly different from format.DataFormat
 	secretsStoreInputFile string
 )
 

@@ -1,17 +1,16 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"path"
 
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/internal/format"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/cznic/mathutil"
@@ -24,10 +23,10 @@ var (
 	subnets        []string
 	subnetMask     net.IPMask
 	targetHosts    [][]string
+	include        []string
 	disableProbing bool
 	disableCache   bool
-	format         string
-	include        []string
+	scanFormat     format.DataFormat
 )
 
 // The `scan` command is usually the first step to using the CLI tool.
@@ -75,14 +74,12 @@ var ScanCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// add default ports for hosts if none are specified with flag
 		if len(ports) == 0 {
-			if debug {
-				log.Debug().Msg("adding default ports")
-			}
 			ports = magellan.GetDefaultPorts()
+			log.Debug().Ints("ports", ports).Msg("default ports")
 		}
 
 		// format and combine flag and positional args
-		targetHosts = append(targetHosts, urlx.FormatHosts(args, ports, scheme, verbose)...)
+		targetHosts = append(targetHosts, urlx.FormatHosts(args, ports, scheme)...)
 
 		for _, subnet := range subnets {
 			// generate a slice of all hosts to scan from subnets
@@ -92,35 +89,35 @@ var ScanCmd = &cobra.Command{
 
 		// if there are no target hosts, then there's nothing to do
 		if len(targetHosts) <= 0 {
-			log.Warn().Msg("nothing to do (no valid target hosts)")
-			return
+			log.Error().Msg("nothing to do (no valid target hosts)")
+			os.Exit(1)
 		} else {
 			if len(targetHosts[0]) <= 0 {
-				log.Warn().Msg("nothing to do (no valid target hosts)")
-				return
+				log.Error().Msg("nothing to do (no valid target hosts)")
+				os.Exit(1)
 			}
 		}
 
 		// show the parameters going into the scan
-		if debug {
-			combinedTargetHosts := []string{}
-			for _, targetHost := range targetHosts {
-				combinedTargetHosts = append(combinedTargetHosts, targetHost...)
-			}
-			c := map[string]any{
-				"hosts":           combinedTargetHosts,
-				"cache":           cachePath,
-				"concurrency":     concurrency,
-				"protocol":        protocol,
-				"subnets":         subnets,
-				"subnet-mask":     subnetMask.String(),
-				"cert":            cacertPath,
-				"disable-probing": disableProbing,
-				"disable-caching": disableCache,
-			}
-			b, _ := json.MarshalIndent(c, "", "    ")
-			fmt.Printf("%s", string(b))
+		combinedTargetHosts := []string{}
+		for _, targetHost := range targetHosts {
+			combinedTargetHosts = append(combinedTargetHosts, targetHost...)
 		}
+		var hostMsg any = "set '--log-level' to 'trace' to show"
+		if log.Logger.GetLevel() == zerolog.TraceLevel {
+			hostMsg = combinedTargetHosts
+		}
+		log.Debug().Any("flags", map[string]any{
+			"hosts":           hostMsg,
+			"cache":           cachePath,
+			"concurrency":     concurrency,
+			"protocol":        protocol,
+			"subnets":         subnets,
+			"subnet-mask":     subnetMask.String(),
+			"cert":            cacertPath,
+			"disable-probing": disableProbing,
+			"disable-caching": disableCache,
+		}).Send()
 
 		// set the number of concurrent requests (1 request per BMC node)
 		//
@@ -140,60 +137,56 @@ var ScanCmd = &cobra.Command{
 			Concurrency:    concurrency,
 			Timeout:        timeout,
 			DisableProbing: disableProbing,
-			Verbose:        verbose,
-			Debug:          debug,
 			Insecure:       insecure,
 			Include:        include,
 		})
 
-		if len(foundAssets) > 0 && debug {
-			log.Info().Any("assets", foundAssets).Msgf("found assets from scan")
-		}
-
-		if len(foundAssets) == 0 {
-			log.Warn().Msg("Scan complete. No responsive assets were found.")
+		if len(foundAssets) > 0 {
+			log.Trace().Any("assets", foundAssets).Msgf("found assets from scan")
+		} else {
+			log.Warn().Msg("no responsive assets found")
+			// return instead of exit to close log file
 			return
 		}
 
-		if format != "" {
-			var output []byte
-			var err error
-			switch format {
-			case util.FORMAT_JSON:
-				output, err = json.MarshalIndent(foundAssets, "", "  ")
-			case util.FORMAT_YAML:
-				output, err = yaml.Marshal(foundAssets)
-			default:
-				log.Error().Msgf("unknown format specified: %s. Please use 'json', or 'yaml'.", format)
-			}
-			if err != nil {
-				log.Error().Err(err).Msgf("Failed to marshal output to %s", format)
-				return
-			}
-			if outputPath != "" {
-				err := os.WriteFile(outputPath, output, 0644)
-				if err != nil {
-					log.Error().Err(err).Msgf("Failed to write to file: %s", outputPath)
-				} else {
-					log.Info().Msgf("Scan results successfully written to %s", outputPath)
-				}
-			} else {
-				fmt.Println(string(output))
-			}
-		}
-		if !disableCache && cachePath != "" {
-			err := os.MkdirAll(path.Dir(cachePath), 0755)
-			if err != nil {
-				log.Printf("failed to make cache directory: %v", err)
-			}
-			err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to write scanned assets to cache")
-			} else if verbose {
-				log.Info().Msgf("Saved assets to cache: %s", cachePath)
-			}
-		}
+		if scanFormat != "" {
+			switch scanFormat {
+			case format.FORMAT_JSON, format.FORMAT_YAML:
+				var (
+					output []byte
+					err    error
+				)
 
+				output, err = format.MarshalData(foundAssets, scanFormat)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to marshal output to %s", scanFormat)
+					return
+				}
+				if outputPath != "" {
+					err := os.WriteFile(outputPath, output, 0644)
+					if err != nil {
+						log.Error().Err(err).Msgf("failed to write to file: %s", outputPath)
+					} else {
+						log.Debug().Msgf("scan results written to %s", outputPath)
+					}
+				} else {
+					fmt.Println(string(output))
+				}
+			default:
+				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanFormat)
+			}
+			if !disableCache && cachePath != "" {
+				err := os.MkdirAll(path.Dir(cachePath), 0755)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to make cache directory")
+				}
+				err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to write scanned assets to cache")
+				}
+				log.Debug().Msgf("Saved assets to cache: %s", cachePath)
+			}
+		}
 	},
 }
 
@@ -206,7 +199,7 @@ func init() {
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 	ScanCmd.Flags().BoolVar(&insecure, "insecure", true, "Skip TLS certificate verification during probe")
-	ScanCmd.Flags().StringVarP(&format, "format", "F", "", "Output format (json, yaml)")
+	ScanCmd.Flags().VarP(&scanFormat, "format", "F", "Output format (json, yaml)")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
 	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
 

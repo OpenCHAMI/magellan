@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/power"
@@ -20,6 +20,7 @@ import (
 var (
 	list_reset_types bool
 	reset_type       string
+	powerFormat      format.DataFormat = format.FORMAT_JSON
 )
 
 // The `power` command gets and sets power states for a collection of BMC nodes.
@@ -49,7 +50,7 @@ var PowerCmd = &cobra.Command{
 			log.Info().Msgf("parsing default inventory file from 'collect': %s", datafile)
 		}
 		// Parse node inventory
-		nodes, err := power.ParseInventory(datafile, viper.GetString("power.format"))
+		nodes, err := power.ParseInventory(datafile, powerFormat)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("failed to parse inventory file %s", datafile)
 			// log.Fatal().Msg() does os.Exit(1) for us
@@ -244,7 +245,9 @@ func init() {
 	PowerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
 	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	PowerCmd.Flags().StringP("format", "F", util.FORMAT_JSON, "Set the output format (json|yaml)")
+	PowerCmd.Flags().VarP(&powerFormat, "format", "F", "Set the output format (json|yaml)")
+
+	PowerCmd.RegisterFlagCompletionFunc("format", completionFormatData)
 
 	// Bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
