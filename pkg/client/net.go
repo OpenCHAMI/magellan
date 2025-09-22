@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 )
 
 // HTTP aliases for readibility
@@ -72,9 +74,12 @@ func MakeRequest(client *http.Client, url string, httpMethod string, body HTTPBo
 		return nil, nil, fmt.Errorf("failed to make request: %v", err)
 	}
 	b, err := io.ReadAll(res.Body)
-	res.Body.Close()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	if err := res.Body.Close(); err != nil {
+		log.Warn().Err(err).Msg("could not close response resource")
 	}
 	return res, b, err
 }

@@ -12,9 +12,11 @@ import (
 )
 
 // string representation that directly corresponds to zerolog.Level
-type LogLevel string
-type LogLevelList []LogLevel
-type LogFilter string
+type (
+	LogFilter    string
+	LogLevel     string
+	LogLevelList []LogLevel
+)
 
 const (
 	DEBUG    LogLevel = "debug"
@@ -70,7 +72,7 @@ func InitWithLogLevel(logLevel LogLevel, logPath string) error {
 
 	// add the default stderr writer
 	writers = append(writers, &zerolog.FilteredLevelWriter{
-		Writer: &zerolog.LevelWriterAdapter{os.Stderr},
+		Writer: &zerolog.LevelWriterAdapter{Writer: os.Stderr},
 		Level:  level,
 	})
 
@@ -83,7 +85,7 @@ func InitWithLogLevel(logLevel LogLevel, logPath string) error {
 
 		// add another write to write to the specified log file
 		writers = append(writers, &zerolog.FilteredLevelWriter{
-			Writer: zerolog.LevelWriterAdapter{LogFile},
+			Writer: zerolog.LevelWriterAdapter{Writer: LogFile},
 			Level:  level,
 		})
 	}

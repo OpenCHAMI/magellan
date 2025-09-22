@@ -13,10 +13,7 @@ import (
 )
 
 var (
-	host             string
 	firmwareUri      string
-	firmwareVersion  string
-	component        string
 	transferProtocol string
 	showStatus       bool
 	Insecure         bool

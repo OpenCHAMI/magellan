@@ -1,6 +1,9 @@
 package util
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // FormatErrorList() is a wrapper function that unifies error list formatting
 // and makes printing error lists consistent.
@@ -9,12 +12,12 @@ import "fmt"
 // Instead, it is a single condensed error composed of all of the errors included
 // in the errList argument.
 func FormatErrorList(errList []error) error {
-	var err error
+	var errmsg string
 	for i, e := range errList {
 		// NOTE: for multi-error formating, we want to include \n here
-		err = fmt.Errorf("\t[%d] %v\n", i, e)
+		errmsg = fmt.Sprintf("\t[%d] %v\n", i, e)
 	}
-	return err
+	return errors.New(errmsg)
 }
 
 // HasErrors() is a simple wrapper function to check if an error list contains

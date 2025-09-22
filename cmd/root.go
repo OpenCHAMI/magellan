@@ -117,6 +117,12 @@ func checkBindFlagError(err error) {
 	}
 }
 
+func checkRegisterFlagCompletionError(err error) {
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to register completion function")
+	}
+}
+
 func helpMapToSlice(help map[string]string) []string {
 	var helpSlice []string
 	for k, v := range help {

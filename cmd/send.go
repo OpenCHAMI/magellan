@@ -128,7 +128,7 @@ func init() {
 	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 
-	sendCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+	checkRegisterFlagCompletionError(sendCmd.RegisterFlagCompletionFunc("format", completionFormatData))
 	rootCmd.AddCommand(sendCmd)
 }
 
@@ -153,7 +153,7 @@ func processDataArgs(args []string) []map[string]any {
 			// determine if we're reading from file to load contents
 			if strings.HasPrefix(arg, "@") {
 				var (
-					path     string = strings.TrimLeft(arg, "@")
+					path     = strings.TrimLeft(arg, "@")
 					contents []byte
 					data     JSONArray
 					err      error

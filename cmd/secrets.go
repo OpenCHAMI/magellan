@@ -160,17 +160,18 @@ var secretsStoreCmd = &cobra.Command{
 
 func isValidCredsJSON(val string) bool {
 	var (
-		valid = !json.Valid([]byte(val))
-		creds map[string]string
-		err   error
+		validUsername bool
+		validPassword bool
+		creds         map[string]string
+		err           error
 	)
 	err = json.Unmarshal([]byte(val), &creds)
 	if err != nil {
 		return false
 	}
-	_, valid = creds["username"]
-	_, valid = creds["password"]
-	return valid
+	_, validUsername = creds["username"]
+	_, validPassword = creds["password"]
+	return !json.Valid([]byte(val)) && validUsername && validPassword
 }
 
 var secretsRetrieveCmd = &cobra.Command{
@@ -243,7 +244,10 @@ var secretsRemoveCmd = &cobra.Command{
 			}
 
 			// update store by saving to original file
-			secrets.SaveSecrets(secretsFile, store.(*secrets.LocalSecretStore).Secrets)
+			err = secrets.SaveSecrets(secretsFile, store.(*secrets.LocalSecretStore).Secrets)
+			if err != nil {
+				log.Error().Err(err).Str("path", secretsFile).Msg("failed to save secrets to file")
+			}
 		}
 	},
 }

@@ -107,7 +107,10 @@ var PowerCmd = &cobra.Command{
 						if newCreds, err := json.Marshal(creds); err != nil {
 							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
 						} else {
-							s.StoreSecretByID(k, string(newCreds))
+							err = s.StoreSecretByID(k, string(newCreds))
+							if err != nil {
+								log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
+							}
 						}
 					}
 				}
@@ -247,7 +250,7 @@ func init() {
 	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	PowerCmd.Flags().VarP(&powerFormat, "format", "F", "Set the output format (json|yaml)")
 
-	PowerCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+	checkRegisterFlagCompletionError(PowerCmd.RegisterFlagCompletionFunc("format", completionFormatData))
 
 	// Bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Structure to store encrypted secrets in a JSON file
@@ -33,7 +35,10 @@ func NewLocalSecretStore(masterKeyHex, filename string, create bool) (*LocalSecr
 		if err != nil {
 			return nil, fmt.Errorf("unable to create file %s: %v", filename, err)
 		}
-		file.Close()
+		if err = file.Close(); err != nil {
+			log.Warn().Err(err).Msg("could not close file")
+		}
+
 		secrets = make(map[string]string)
 	}
 
@@ -139,10 +144,12 @@ func SaveSecrets(jsonFile string, store map[string]string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
+	if err := file.Close(); err != nil {
+		log.Warn().Err(err).Msg("could not close file")
+	}
 	return encoder.Encode(store)
 }
 
@@ -152,10 +159,12 @@ func loadSecrets(jsonFile string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open secret file %s:%v", jsonFile, err)
 	}
-	defer file.Close()
 
 	store := make(map[string]string)
 	decoder := json.NewDecoder(file)
+	if err = file.Close(); err != nil {
+		log.Warn().Err(err).Msg("could not close file")
+	}
 	err = decoder.Decode(&store)
 	return store, err
 }

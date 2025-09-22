@@ -116,13 +116,17 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 
 								res, err := probeClient.Do(req)
 								if err == nil && res != nil && res.StatusCode == http.StatusOK {
-									res.Body.Close()
+									if err := res.Body.Close(); err != nil {
+										log.Warn().Err(err).Msg("could not close response resource")
+									}
 									foundAsset.ServiceType = probe.Type
 									assetsToAdd = append(assetsToAdd, foundAsset)
 									break // Found a valid service, no need to probe other types
 								}
 								if res != nil {
-									res.Body.Close()
+									if err := res.Body.Close(); err != nil {
+										log.Warn().Err(err).Msg("could not close response resource")
+									}
 								}
 							}
 						}
@@ -237,7 +241,9 @@ func rawConnect(address string, protocol string, timeoutSeconds int, keepOpenOnl
 	}
 	if conn != nil {
 		asset.State = true
-		defer conn.Close()
+		if err = conn.Close(); err != nil {
+			log.Warn().Err(err).Msg("could not close connection")
+		}
 	}
 	if keepOpenOnly {
 		if asset.State {
