@@ -60,11 +60,11 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	// collect bmc information asynchronously
 	var (
 		wg         sync.WaitGroup
-		collection              = make([]map[string]any, 0)
-		found                   = make([]string, 0, len(*assets))
-		done                    = make(chan struct{}, params.Concurrency+1)
-		chanAssets              = make(chan RemoteAsset, params.Concurrency+1)
-		mapper     idmap.Mapper = idmap.PickIDMapper(params.BMCIDMap, params.Format)
+		collection = make([]map[string]any, 0)
+		found      = make([]string, 0, len(*assets))
+		done       = make(chan struct{}, params.Concurrency+1)
+		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
+		mapper     = idmap.PickIDMapper(params.BMCIDMap, params.Format)
 		err        error
 	)
 

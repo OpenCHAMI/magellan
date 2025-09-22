@@ -46,7 +46,7 @@ func Login(loginUrl string, targetHost string, targetPort int) (string, error) {
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// try and extract access token from headers
 		accessToken = r.Header.Get("access_token")
-		s.Close()
+		_ = s.Close()
 	})
 	return accessToken, s.ListenAndServe()
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"os"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 )
 
 func TestNewLocalSecretStore(t *testing.T) {
@@ -13,7 +15,6 @@ func TestNewLocalSecretStore(t *testing.T) {
 	}
 
 	filename := "test_secrets.json"
-	defer os.Remove(filename)
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
@@ -26,6 +27,10 @@ func TestNewLocalSecretStore(t *testing.T) {
 
 	if hex.EncodeToString(store.masterKey) != masterKey {
 		t.Errorf("Expected master key %s, got %s", masterKey, hex.EncodeToString(store.masterKey))
+	}
+
+	if err = os.Remove(filename); err != nil {
+		log.Warn().Err(err).Msg("could not close response resource")
 	}
 }
 
@@ -47,7 +52,6 @@ func TestStoreAndGetSecretByID(t *testing.T) {
 	}
 
 	filename := "test_secrets.json"
-	defer os.Remove(filename)
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
@@ -70,6 +74,10 @@ func TestStoreAndGetSecretByID(t *testing.T) {
 	if retrievedSecret != secretValue {
 		t.Errorf("Expected secret value %s, got %s", secretValue, retrievedSecret)
 	}
+
+	if err = os.Remove(filename); err != nil {
+		log.Warn().Err(err).Msg("could not close response resource")
+	}
 }
 
 func TestStoreAndGetSecretJSON(t *testing.T) {
@@ -79,7 +87,6 @@ func TestStoreAndGetSecretJSON(t *testing.T) {
 	}
 
 	filename := "test_secrets.json"
-	defer os.Remove(filename)
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
@@ -101,6 +108,9 @@ func TestStoreAndGetSecretJSON(t *testing.T) {
 	if retrieved != jsonSecret {
 		t.Errorf("Expected %s, got %s", jsonSecret, retrieved)
 	}
+	if err = os.Remove(filename); err != nil {
+		log.Warn().Err(err).Msg("could not close response resource")
+	}
 }
 
 func TestListSecrets(t *testing.T) {
@@ -110,7 +120,6 @@ func TestListSecrets(t *testing.T) {
 	}
 
 	filename := "test_secrets.json"
-	defer os.Remove(filename)
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
@@ -147,5 +156,8 @@ func TestListSecrets(t *testing.T) {
 
 	if secrets[secretID2] != store.Secrets[secretID2] {
 		t.Errorf("Expected secret value %s, got %s", store.Secrets[secretID2], secrets[secretID2])
+	}
+	if err = os.Remove(filename); err != nil {
+		log.Warn().Err(err).Msg("could not close response resource")
 	}
 }

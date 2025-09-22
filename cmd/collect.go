@@ -103,7 +103,10 @@ var CollectCmd = &cobra.Command{
 						if newCreds, err := json.Marshal(creds); err != nil {
 							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
 						} else {
-							s.StoreSecretByID(k, string(newCreds))
+							err = s.StoreSecretByID(k, string(newCreds))
+							if err != nil {
+								log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
+							}
 						}
 					}
 				}
@@ -157,7 +160,7 @@ func init() {
 	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
-	CollectCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+	_ = CollectCmd.RegisterFlagCompletionFunc("format", completionFormatData)
 
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))

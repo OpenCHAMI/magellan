@@ -16,8 +16,8 @@ import (
 func deriveAESKey(masterKey []byte, secretID string) []byte {
 	salt := []byte(secretID)
 	hkdf := hkdf.New(sha256.New, masterKey, salt, nil)
-	derivedKey := make([]byte, 32) // AES-256 key
-	io.ReadFull(hkdf, derivedKey)
+	derivedKey := make([]byte, 32)       // AES-256 key
+	_, _ = io.ReadFull(hkdf, derivedKey) // no need to check err here
 	return derivedKey
 }
 
