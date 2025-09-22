@@ -153,7 +153,7 @@ func init() {
 	CrawlCmd.Flags().BoolVar(&showOutput, "show", false, "Show the output of a collect run")
 	CrawlCmd.Flags().VarP(&crawlOutputFormat, "format", "F", "Set the output format (json|yaml)")
 
-	_ = CrawlCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("format", completionFormatData))
 
 	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 

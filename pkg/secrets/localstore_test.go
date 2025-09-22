@@ -15,6 +15,11 @@ func TestNewLocalSecretStore(t *testing.T) {
 	}
 
 	filename := "test_secrets.json"
+	defer func() {
+		if err = os.Remove(filename); err != nil {
+			log.Warn().Err(err).Msg("could not close response resource")
+		}
+	}()
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
@@ -27,10 +32,6 @@ func TestNewLocalSecretStore(t *testing.T) {
 
 	if hex.EncodeToString(store.masterKey) != masterKey {
 		t.Errorf("Expected master key %s, got %s", masterKey, hex.EncodeToString(store.masterKey))
-	}
-
-	if err = os.Remove(filename); err != nil {
-		log.Warn().Err(err).Msg("could not close response resource")
 	}
 }
 
@@ -52,6 +53,11 @@ func TestStoreAndGetSecretByID(t *testing.T) {
 	}
 
 	filename := "test_secrets.json"
+	defer func() {
+		if err = os.Remove(filename); err != nil {
+			log.Warn().Err(err).Msg("could not close response resource")
+		}
+	}()
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
@@ -74,10 +80,6 @@ func TestStoreAndGetSecretByID(t *testing.T) {
 	if retrievedSecret != secretValue {
 		t.Errorf("Expected secret value %s, got %s", secretValue, retrievedSecret)
 	}
-
-	if err = os.Remove(filename); err != nil {
-		log.Warn().Err(err).Msg("could not close response resource")
-	}
 }
 
 func TestStoreAndGetSecretJSON(t *testing.T) {
@@ -87,6 +89,11 @@ func TestStoreAndGetSecretJSON(t *testing.T) {
 	}
 
 	filename := "test_secrets.json"
+	defer func() {
+		if err = os.Remove(filename); err != nil {
+			log.Warn().Err(err).Msg("could not close response resource")
+		}
+	}()
 
 	store, err := NewLocalSecretStore(masterKey, filename, true)
 	if err != nil {
@@ -108,9 +115,6 @@ func TestStoreAndGetSecretJSON(t *testing.T) {
 	if retrieved != jsonSecret {
 		t.Errorf("Expected %s, got %s", jsonSecret, retrieved)
 	}
-	if err = os.Remove(filename); err != nil {
-		log.Warn().Err(err).Msg("could not close response resource")
-	}
 }
 
 func TestListSecrets(t *testing.T) {
@@ -125,6 +129,11 @@ func TestListSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create LocalSecretStore: %v", err)
 	}
+	defer func() {
+		if err = os.Remove(filename); err != nil {
+			log.Warn().Err(err).Msg("could not close response resource")
+		}
+	}()
 
 	secretID1 := "test_secret_1"
 	secretValue1 := "my_secret_value_1"

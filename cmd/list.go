@@ -54,7 +54,7 @@ func init() {
 	ListCmd.Flags().VarP(&listOutputFormat, "format", "F", "Set the output format (list|json|yaml)")
 	ListCmd.Flags().BoolVar(&showCache, "cache-info", false, "Show cache information and exit")
 
-	_ = ListCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+	checkRegisterFlagCompletionError(ListCmd.RegisterFlagCompletionFunc("format", completionFormatData))
 
 	rootCmd.AddCommand(ListCmd)
 }

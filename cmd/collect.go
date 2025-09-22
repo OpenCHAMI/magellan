@@ -160,7 +160,9 @@ func init() {
 	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
-	_ = CollectCmd.RegisterFlagCompletionFunc("format", completionFormatData)
+
+	// register completion flag functions
+	checkRegisterFlagCompletionError(CollectCmd.RegisterFlagCompletionFunc("format", completionFormatData))
 
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))

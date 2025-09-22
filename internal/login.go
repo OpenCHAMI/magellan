@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/browser"
+	"github.com/rs/zerolog/log"
 )
 
 // Login() initiates the process to retrieve an access token from an identity provider.
@@ -46,7 +47,10 @@ func Login(loginUrl string, targetHost string, targetPort int) (string, error) {
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// try and extract access token from headers
 		accessToken = r.Header.Get("access_token")
-		_ = s.Close()
+		err = s.Close()
+		if err != nil {
+			log.Warn().Err(err).Msg("could not close server")
+		}
 	})
 	return accessToken, s.ListenAndServe()
 }
