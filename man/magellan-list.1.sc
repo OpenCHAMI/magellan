@@ -13,8 +13,14 @@ magellan list [OPTIONS]++
 *--cache-info*
     Show cache information and exit
 
-*-F, --format* _DataFormat_
+*-F, --format* _format_
     Set the output format (list|json|yaml) (default list)
+
+    Possible _format_ values:
+    
+    - list
+    - json
+    - yaml
 
 # AUTHOR
 

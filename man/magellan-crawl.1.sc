@@ -8,6 +8,11 @@ magellan-crawl - Retrieve Redfish data from a single BMC node
 
 magellan crawl [OPTIONS] _host_++
 
+# EXAMPLES
+
+magellan crawl https://bmc.example.com
+  magellan crawl https://bmc.example.com -i -u username -p password
+
 # FLAGS
 
 *-F, --format* _DataFormat_
