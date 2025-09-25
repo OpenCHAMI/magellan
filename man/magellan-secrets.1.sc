@@ -26,6 +26,9 @@ magellan secrets store
   // list creds from specific secrets
   magellan secrets list -f nodes.json
 
+# FLAGS
+
+See *magellan*(1) for information about global flags used for all commands.
 
 # COMMANDS
 

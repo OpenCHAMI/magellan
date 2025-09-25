@@ -101,10 +101,28 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 
 *-p, --password* string
     Set the master BMC password
-      --protocol string       Set the protocol used to query (default "tcp")
-      --secrets-file string   Set path to the node secrets file
-      --show                  Show the output of a collect run
-  -u, --username string       Set the master BMC username
+
+*--protocol* _type_       
+    Set the protocol used to make requests. The default value for _type_ is "tcp".
+
+*--secrets-file* _path_
+    Set path to a secrets file. 
+    
+    Requires the MASTER_KEY environment variable to be set. This can be set by
+    generating a new key with the *magellan secrets generatekey* command.
+    
+    Credentials from the 
+    secrets file can only be accessed using the same key initially used to store 
+    the credential.
+
+    See *magellan-secrets*(1) for more details.
+
+*--show*
+    Show the output of a collect run
+
+*-u, --username* _value_       
+    Set the master BMC username
+
 
 See *magellan*(1) for information about global flags used for all commands.
 

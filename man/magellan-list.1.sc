@@ -17,10 +17,12 @@ magellan list [OPTIONS]++
     Set the output format (list|json|yaml) (default list)
 
     Possible _format_ values:
-    
+
     - list
     - json
     - yaml
+
+See *magellan*(1) for information about global flags used for all commands.
 
 # AUTHOR
 

@@ -44,6 +44,7 @@ magellan send [OPTIONS] _host_
 *-F, --format* _format_
     Set the default data input format (json|yaml) can be overridden by file extension (default json)
 
+See *magellan*(1) for information about global flags used for all commands.
 
 # AUTHOR
 

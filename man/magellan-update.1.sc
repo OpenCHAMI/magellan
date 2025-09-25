@@ -12,32 +12,33 @@ magellan update [OPTIONS] _host_...++
 
 // perform an firmware update
 magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password \
-    --firmware-url http://172.16.0.200:8005/firmware/bios/image.RBU \
-    --component BIOS
+    --firmware-uri http://172.16.0.200:8005/firmware/bios/image.RBU 
 
 // check update status
 magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status
 
-
 # FLAGS
 
---firmware-uri _string_   
-    Set the URI to retrieve the firmware
+*--firmware-uri* _string_   
+    Set the URI to retrieve the firmware binary or executable.
 
--i, --insecure
-    Allow insecure connections to the server
+*-i, --insecure*
+    Skip TLS verification when making HTTP requests. This allows making requests
+    to HTTPS hosts without needing to supply a CA certificate.
 
--p, --password string
-    Set the BMC password
+*-p, --password* _value_
+    Set the password for basic authentication for requests to the BMC node.
 
---scheme string
-    Set the transfer protocol (default "https")
+*--scheme* string
+    Specify the transfer protocol scheme to use for the request to the remote host.
 
---status
-    Get the status of the update
+*--status*
+    Return the status of the update job.
 
--u, --username string
-    Set the BMC user
+*-u, --username* _value_
+    Set the username for basic authentication for requests to the BMC node.
+
+See *magellan*(1) for information about global flags used for all commands.
 
 # AUTHOR
 

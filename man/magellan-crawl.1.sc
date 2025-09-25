@@ -15,23 +15,31 @@ magellan crawl https://bmc.example.com
 
 # FLAGS
 
-*-F, --format* _DataFormat_
-    Set the output format (json|yaml) (default json)
+*-F, --format* _format_
+    Set the output data format.
+    
+    Possible output formats:
+    
+    - json (default)
+    - yaml 
 
 *-i, --insecure*              
-    Ignore SSL errors
+    Skip TLS verification when making HTTP requests. This allows making requests
+    to HTTPS hosts without needing to supply a CA certificate.
 
-*-p, --password* _string_
-    Set the password for the BMC
+*-p, --password* _value_
+    Set the password for basic authentication for requests to the BMC node.
 
 *-f, --secrets-file* _string_
-    Set path to the node secrets file (default "secrets.json")
+    Set the path to a secrets file. To use 
+    
+     (default "secrets.json")
 
 *--show*
-    Show the output of a collect run
+    Show the output of a successful crawl. 
 
-*-u, --username* _string_
-    Set the username for the BMC
+*-u, --username* _value_
+    Set the username for basic authentication for requests to the BMC node.
 
 See *magellan*(1) for information about global flags used for all commands.
 
