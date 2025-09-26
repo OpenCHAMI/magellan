@@ -6,21 +6,21 @@ magellan-list - Show Redfish devices found from scan
 
 # SYNOPSIS
 
-magellan list [OPTIONS]++
+magellan list [OPTIONS]
 
 # FLAGS
 
 *--cache-info*
-    Show cache information and exit
+	Show cache information and exit
 
 *-F, --format* _format_
-    Set the output format (list|json|yaml) (default list)
+	Set the output format (list|json|yaml) (default list)
 
-    Possible _format_ values:
+	Possible _format_ values:
 
-    - list
-    - json
-    - yaml
+	- list
+	- json
+	- yaml
 
 See *magellan*(1) for information about global flags used for all commands.
 

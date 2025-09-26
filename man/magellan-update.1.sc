@@ -19,8 +19,9 @@ magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status
 
 # FLAGS
 
-*--firmware-uri* _string_   
-    Set the URI to retrieve the firmware binary or executable.
+*--firmware-uri* _uri_   
+    Set the URI to retrieve the firmware binary or executable. A download request
+    is made using the protocol set with the *--scheme* flag.
 
 *-i, --insecure*
     Skip TLS verification when making HTTP requests. This allows making requests
@@ -29,11 +30,13 @@ magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status
 *-p, --password* _value_
     Set the password for basic authentication for requests to the BMC node.
 
-*--scheme* string
-    Specify the transfer protocol scheme to use for the request to the remote host.
+*--scheme* _scheme_
+    Specify the transfer protocol scheme to use for the request to the remote 
+    host. Values are case-insensitive and converted to use upper-case letters. 
+    Additionally, the default value for _scheme_ is HTTPS.
 
 *--status*
-    Return the status of the update job.
+    Return the status of active update jobs.
 
 *-u, --username* _value_
     Set the username for basic authentication for requests to the BMC node.

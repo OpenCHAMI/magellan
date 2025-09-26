@@ -6,40 +6,41 @@ magellan-crawl - Retrieve Redfish data from a single BMC node
 
 # SYNOPSIS
 
-magellan crawl [OPTIONS] _host_++
+magellan crawl [OPTIONS] _host_
 
 # EXAMPLES
 
 magellan crawl https://bmc.example.com
-  magellan crawl https://bmc.example.com -i -u username -p password
+magellan crawl https://bmc.example.com -i -u username -p password
 
 # FLAGS
 
 *-F, --format* _format_
-    Set the output data format.
-    
-    Possible output formats:
-    
-    - json (default)
-    - yaml 
+	Set the output data format.
+	
+	Possible output formats:
+	
+	- json (default)
+	- yaml 
 
 *-i, --insecure*              
-    Skip TLS verification when making HTTP requests. This allows making requests
-    to HTTPS hosts without needing to supply a CA certificate.
+	Skip TLS verification when making HTTP requests. This allows making requests
+	to HTTPS hosts without needing to supply a CA certificate.
 
 *-p, --password* _value_
-    Set the password for basic authentication for requests to the BMC node.
+	Set the password for basic authentication for requests to the BMC node.
 
-*-f, --secrets-file* _string_
-    Set the path to a secrets file. To use 
-    
-     (default "secrets.json")
+*-f, --secrets-file* _path_
+	Set the path to a secrets file. The MASTER_KEY environment variable must be
+	set first. The default _path_ value is "secrets.json".
+
+	See *magellan-secrets*(1) for more information about using the secrets file.
 
 *--show*
-    Show the output of a successful crawl. 
+	Show the output of a successful crawl. 
 
 *-u, --username* _value_
-    Set the username for basic authentication for requests to the BMC node.
+	Set the username for basic authentication for requests to the BMC node.
 
 See *magellan*(1) for information about global flags used for all commands.
 
