@@ -57,7 +57,7 @@ var ScanCmd = &cobra.Command{
   magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
 
   // assumes subnet without CIDR has a subnet-mask of 255.255.0.0
-  magellan scan --subnet 10.0.0.0/24 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db`,
+  magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db`,
 	Short: "Scan to discover BMC nodes on a network",
 	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response.\n" +
 		"Each host is passed *with a full URL* including the protocol and port. Additional subnets can be added\n" +
@@ -184,7 +184,7 @@ var ScanCmd = &cobra.Command{
 				if err != nil {
 					log.Error().Err(err).Msg("failed to write scanned assets to cache")
 				}
-				log.Debug().Msgf("Saved assets to cache: %s", cachePath)
+				log.Debug().Str("path", cachePath).Msg("saved assets to cache")
 			}
 		}
 	},

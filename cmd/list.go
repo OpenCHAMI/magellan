@@ -38,15 +38,27 @@ var ListCmd = &cobra.Command{
 		// load the assets found from scan
 		scannedResults, err := sqlite.GetScannedAssets(cachePath)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to get scanned assets")
+			log.Error().Err(err).Str("path", cachePath).Msg("failed to get scanned assets")
 		}
 
-		output, err := format.MarshalData(scannedResults, listOutputFormat)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to marshal data")
-			return
+		switch listOutputFormat {
+		case format.FORMAT_JSON, format.FORMAT_YAML:
+			output, err := format.MarshalData(scannedResults, listOutputFormat)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal data")
+				return
+			}
+			log.Printf(string(output))
 		}
-		log.Printf(string(output))
+		var output string
+		for _, scanned := range scannedResults {
+			output += fmt.Sprintf("%s %s %v %s",
+				scanned.Host,
+				scanned.Protocol,
+				scanned.Timestamp,
+				scanned.ServiceType,
+			)
+		}
 	},
 }
 
