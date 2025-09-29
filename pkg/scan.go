@@ -25,6 +25,15 @@ type RemoteAsset struct {
 	ServiceType string    `json:"service_type,omitempty"`
 }
 
+func (ra *RemoteAsset) String() string {
+	return fmt.Sprintf("%v %s %s %s",
+		ra.Timestamp,
+		ra.Host,
+		ra.Protocol,
+		ra.ServiceType,
+	)
+}
+
 // ScanParams is a collection of commom parameters passed to the CLI
 type ScanParams struct {
 	TargetHosts    [][]string
@@ -60,10 +69,6 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 		done      = make(chan struct{}, params.Concurrency+1)
 		chanHosts = make(chan []string, params.Concurrency+1)
 	)
-
-	if params.Verbose {
-		log.Info().Any("args", params).Msg("starting scan...")
-	}
 
 	probesToRun := []struct {
 		Type, Path string
