@@ -79,9 +79,11 @@ The *magellan* command accepts
 
 ## GETTING STARTED
 
+Nothing here yet.
+
 ## CONFIGURATION
 
-
+Nothing here yet.
 
 # AUTHOR
 

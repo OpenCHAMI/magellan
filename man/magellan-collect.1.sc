@@ -11,22 +11,22 @@ magellan collect pdu [OPTIONS] hosts...
 
 # EXAMPLES
 
-// basic collect after scan without making a follow-up request
+// basic collect after scan without making a follow-up request++
 magellan collect --cache ./assets.db --cacert ochami.pem -o nodes.yaml -t 30
 
-// set username and password for all nodes and produce the collected
-// data in a file called 'nodes.yaml'
+// set username and password for all nodes and produce the collected++
+// data in a file called 'nodes.yaml'++
 magellan collect -u $bmc_username -p $bmc_password -o nodes.yaml
 
-// run a collect using secrets from the secrets manager
-export MASTER_KEY=$(magellan secrets generatekey)
-magellan secrets store $node_creds_json -f nodes.json
+// run a collect using secrets from the secrets manager++
+export MASTER_KEY=$(magellan secrets generatekey)++
+magellan secrets store $node_creds_json -f nodes.json++
 magellan collect -o nodes.yaml
 
-// Collect inventory from a single PDU using credentials
+// Collect inventory from a single PDU using credentials++
 magellan collect pdu x3000m0 --username admin --password initial0
 
-// Collect from multiple PDUs and send to SMD
+// Collect from multiple PDUs and send to SMD++
 magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https://smd.example.com
 
 # FLAGS
@@ -67,7 +67,7 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 
 	Supported values _format_ are:
 
-		- _json (default)
+		- _json_ (default)
 		- _yaml_
 
 *-O, --output-dir* _path_

@@ -10,11 +10,10 @@ magellan update [OPTIONS] _host_...
 
 # EXAMPLES
 
-// perform an firmware update
-magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password \
-    --firmware-uri http://172.16.0.200:8005/firmware/bios/image.RBU
+// perform an firmware update++
+magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --firmware-uri http://172.16.0.200:8005/firmware/bios/image.RBU
 
-// check update status
+// check update status++
 magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status
 
 # FLAGS

@@ -10,14 +10,14 @@ magellan send [OPTIONS] _host_
 
 # EXAMPLES
 
-// minimal working example
+// minimal working example++
 magellan send -d @inventory.json https://smd.openchami.cluster
 
-// send data from multiple files (must specify -f/--format if not JSON)
-magellan send -d @cluster-1.json -d @cluster-2.json https://smd.openchami.cluster
+// send data from multiple files (must specify -f/--format if not JSON)++
+magellan send -d @cluster-1.json -d @cluster-2.json https://smd.openchami.cluster++
 magellan send -d '{...}' -d @cluster-1.json https://proxy.example.com
 
-// send data to remote host by piping output of collect directly
+// send data to remote host by piping output of collect directly++
 magellan collect -v -F yaml | magellan send -d @inventory.yaml -F yaml https://smd.openchami.cluster
 
 # FLAGS

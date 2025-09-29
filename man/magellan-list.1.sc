@@ -14,13 +14,13 @@ magellan list [OPTIONS]
 	Show cache information and exit
 
 *-F, --format* _format_
-	Set the output format (list|json|yaml) (default list)
+	Set the output format.
 
 	Possible _format_ values:
 
-	- list
-	- json
-	- yaml
+	- _list_ (default)
+	- _json_
+	- _yaml_
 
 See *magellan*(1) for information about global flags used for all commands.
 

@@ -10,36 +10,36 @@ magellan scan [OPTIONS] _host_...
 
 # EXAMPLES
 
-// assumes host https://10.0.0.101:443
+// assumes host https://10.0.0.101:443++
 magellan scan 10.0.0.101
 
-// assumes subnet using HTTPS and port 443 except for specified host
+// assumes subnet using HTTPS and port 443 except for specified host++
 magellan scan http://10.0.0.101:80 https://$user:$password@10.0.0.102:443 http://172.16.0.105:8080 --subnet 172.16.0.0/24
 
-// assumes hosts http://10.0.0.101:8080 and http://10.0.0.102:8080
+// assumes hosts http://10.0.0.101:8080 and http://10.0.0.102:8080++
 magellan scan 10.0.0.101 10.0.0.102 https://172.16.0.10:443 --port 8080 --protocol tcp
 
-// assumes subnet using default unspecified subnet-masks
+// assumes subnet using default unspecified subnet-masks++
 magellan scan --subnet 10.0.0.0
 
-// assumes subnet using HTTPS and port 443 with specified CIDR
+// assumes subnet using HTTPS and port 443 with specified CIDR++
 magellan scan --subnet 10.0.0.0/16
 
-// assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16
+// assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16++
 magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
 
-// assumes subnet without CIDR has a subnet-mask of 255.255.0.0
+// assumes subnet without CIDR has a subnet-mask of 255.255.0.0++
 magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db
 
 # FLAGS
 
 *--disable-cache*
 	Disable saving found remote assets that respond to a Redfish request to a
-	cache database specified with 'cache' flag. By default, the cache is saved
-	at `/tmp/$USER/magellan/assets.db` as a SQLite3 file with a table named
-	*magellan_scanned_assets*. It is set to 'false' by default.
+	cache database specified with *--cache* flag. By default, the cache is saved
+	at */tmp/$USER/magellan/assets.db* as a SQLite3 file with a table named
+	*magellan_scanned_assets*. It is set to _false_ by default.
 
-	See the '--cache' flag in *magellan*(1) for more details.
+	See the *--cache* flag in *magellan*(1) for more details.
 
 *--disable-probing*
 	Disable making the probing request after finding assets on the specified
@@ -53,8 +53,8 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 
 	Possible format values:
 
-	- json
-	- yaml
+	- _json_
+	- _yaml_
 
 *--include* _type_...
 	Set which asset types to include in the scan. BMC nodes are detected using
@@ -63,8 +63,8 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 
 	Possible _type_ values:
 
-	- bmcs (default)
-	- pdus
+	- _bmcs_ (default)
+	- _pdus_
 
 	For more information related to the JAWS API, see the following:
 
@@ -99,8 +99,8 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 
 	Protocol types available are:
 
-	- tcp (default)
-	- udp
+	- _tcp_ (default)
+	- _udp_
 
 *--scheme* _scheme_
 	Set the default scheme to use if not specified in host URI. The default
