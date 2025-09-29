@@ -51,7 +51,7 @@ func (df DataFormat) Type() string {
 // If a marshalling error occurs or outFormat is unknown, an error is returned.
 //
 // Supported values are: json, list, yaml
-func MarshalData(data interface{}, outFormat DataFormat) ([]byte, error) {
+func MarshalData(data any, outFormat DataFormat) ([]byte, error) {
 	switch outFormat {
 	case FORMAT_JSON:
 		if bytes, err := json.MarshalIndent(data, "", "  "); err != nil {
@@ -77,7 +77,7 @@ func MarshalData(data interface{}, outFormat DataFormat) ([]byte, error) {
 // returned.
 //
 // Supported values are: json, list, yaml
-func UnmarshalData(data []byte, v interface{}, inFormat DataFormat) error {
+func UnmarshalData(data []byte, v any, inFormat DataFormat) error {
 	switch inFormat {
 	case FORMAT_JSON:
 		if err := json.Unmarshal(data, v); err != nil {
