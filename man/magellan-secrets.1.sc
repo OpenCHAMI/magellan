@@ -1,4 +1,4 @@
-MAGELLAN-SECRETS "OpenCHAMI" "Manual Page for magellan-secrets"
+MAGELLAN-SECRETS(1) "OpenCHAMI" "Manual Page for magellan-secrets"
 
 # NAME
 
