@@ -102,18 +102,18 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 *-p, --password* _value_
 	Set the password to _value_ used for basic authentication to the BMC node.
 	When this flag is set, the value overrides all of the values loaded from the
-	secrets file. 
+	secrets file.
 
-*--protocol* _type_       
+*--protocol* _type_
 	Set the protocol used to make requests. The default value for _type_ is "tcp".
 
 *--secrets-file* _path_
-	Set path to a secrets file. 
-	
+	Set path to a secrets file.
+
 	Requires the MASTER_KEY environment variable to be set. This can be set by
 	generating a new key with the *magellan secrets generatekey* command.
-	
-	Credentials from the secrets file can only be accessed using the same key 
+
+	Credentials from the secrets file can only be accessed using the same key
 	initially used to store the credential.
 
 	See *magellan-secrets*(1) for more details.
@@ -121,10 +121,10 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 *--show*
 	Show the output of a collect run
 
-*-u, --username* _value_       
+*-u, --username* _value_
 	Set the username to _value_ used for basic authentication to the BMC node.
 	When this flag is set, the value overrides all of the values loaded from the
-	secrets file. 
+	secrets file.
 
 
 See *magellan*(1) for information about global flags used for all commands.

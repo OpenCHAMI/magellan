@@ -26,19 +26,19 @@ magellan secrets list -f nodes.json
 # FLAGS
 
 *-f, --file* _path_
-	Set path to a secrets file to manage secrets. 
-	
+	Set path to a secrets file to manage secrets.
+
 	Requires the MASTER_KEY environment variable to be set. This can be set by
 	generating a new key with the *magellan secrets generatekey* command.
-	
-	Credentials from the secrets file can only be accessed using the same key 
+
+	Credentials from the secrets file can only be accessed using the same key
 	initially used to store the credential.
 
 See *magellan*(1) for information about global flags used for all commands.
 
 # COMMANDS
 
-Manage, list, retrieve, remove, and store BMC credentials. All 
+Manage, list, retrieve, remove, and store BMC credentials. All
 
 ## generatekey
 
@@ -57,7 +57,7 @@ Remove secrets by IDs from secrets file specified with _path_.
 Retrieve secret by ID from secrets file specified with _path_.
 
 *store* [-f _path_] _secret_id_ _data_
-	*-F, --format* _format_       
+	*-F, --format* _format_
 		Set the input data format to store secrets in the secrets file.
 
 	*-i, --input-file* _string_

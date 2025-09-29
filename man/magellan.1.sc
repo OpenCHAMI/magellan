@@ -10,15 +10,15 @@ magellan [OPTIONS] COMMAND
 
 # DESCRIPTION
 
-The `magellan` CLI tool provides a frontend for interface with board management 
-controllers (BMCs) through the Redfish protocol. 
+The `magellan` CLI tool provides a frontend for interface with board management
+controllers (BMCs) through the Redfish protocol.
 
 List of available commands:
 
 [[ *Command*
 :< *Description*
 |  *scan*
-:  Perform scan to discover BMC or PDU nodes 
+:  Perform scan to discover BMC or PDU nodes
 |  *collect*
 :  Retrieve node data using Redfish or JAWS API
 |  *send*
@@ -57,14 +57,14 @@ The *magellan* command accepts
 	or used (default).
 
 *-l, --log-level* _level_
-	Set the global logger log level. Log levels with higher internal values than 
-	the log level that is set will be printed as well. For example, if _level_ is 
-	set to *debug* then all other messages other than *trace* level messages will 
+	Set the global logger log level. Log levels with higher internal values than
+	the log level that is set will be printed as well. For example, if _level_ is
+	set to *debug* then all other messages other than *trace* level messages will
 	be printed. Likewise, if _level_ is set to *error*, then only error messages
 	will be printed.
-	
+
 	Available log levels:
-	
+
 	- trace
 	- debug
 	- info (default)
@@ -89,7 +89,7 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 
 # SEE ALSO
 
-*magellan-scan*(1), *magellan-collect*(1), *magellan-crawl*(1), 
+*magellan-scan*(1), *magellan-collect*(1), *magellan-crawl*(1),
 *magellan-list*(1), *magellan-secrets*(1), *magellan-update*(1)
 *magellan-send*(1)
 

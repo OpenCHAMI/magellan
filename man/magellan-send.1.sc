@@ -35,7 +35,7 @@ magellan collect -v -F yaml | magellan send -d @inventory.yaml -F yaml https://s
 	JSON format:
 
 	```
-	
+
 	```
 
 *-f, --force-update*

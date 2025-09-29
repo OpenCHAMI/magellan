@@ -17,13 +17,13 @@ magellan crawl https://bmc.example.com -i -u username -p password
 
 *-F, --format* _format_
 	Set the output data format.
-	
-	Possible output formats:
-	
-	- json (default)
-	- yaml 
 
-*-i, --insecure*              
+	Possible output formats:
+
+	- json (default)
+	- yaml
+
+*-i, --insecure*
 	Skip TLS verification when making HTTP requests. This allows making requests
 	to HTTPS hosts without needing to supply a CA certificate.
 
@@ -37,7 +37,7 @@ magellan crawl https://bmc.example.com -i -u username -p password
 	See *magellan-secrets*(1) for more information about using the secrets file.
 
 *--show*
-	Show the output of a successful crawl. 
+	Show the output of a successful crawl.
 
 *-u, --username* _value_
 	Set the username for basic authentication for requests to the BMC node.
