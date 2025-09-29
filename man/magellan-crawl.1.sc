@@ -10,7 +10,7 @@ magellan crawl [OPTIONS] _host_
 
 # EXAMPLES
 
-magellan crawl https://bmc.example.com
+magellan crawl https://bmc.example.com++
 magellan crawl https://bmc.example.com -i -u username -p password
 
 # FLAGS
@@ -20,8 +20,8 @@ magellan crawl https://bmc.example.com -i -u username -p password
 
 	Possible output formats:
 
-	- json (default)
-	- yaml
+	- _json_ (default)
+	- _yaml_
 
 *-i, --insecure*
 	Skip TLS verification when making HTTP requests. This allows making requests

@@ -110,7 +110,7 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 *--secrets-file* _path_
 	Set path to a secrets file.
 
-	Requires the MASTER_KEY environment variable to be set. This can be set by
+	Requires the *MASTER_KEY* environment variable to be set. This can be set by
 	generating a new key with the *magellan secrets generatekey* command.
 
 	Credentials from the secrets file can only be accessed using the same key
@@ -119,7 +119,7 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 	See *magellan-secrets*(1) for more details.
 
 *--show*
-	Show the output of a collect run
+	Show the output of a collect run.
 
 *-u, --username* _value_
 	Set the username to _value_ used for basic authentication to the BMC node.

@@ -65,12 +65,12 @@ The *magellan* command accepts
 
 	Available log levels:
 
-	- trace
-	- debug
-	- info (default)
-	- warn
-	- error
-	- disabled
+	- _trace_
+	- _debug_
+	- _info_ (default)
+	- _warn_
+	- _error_
+	- _disabled_
 
 *-t, --timeout* _time_in_secs_
 	Set the timeout for requests in seconds. This includes requests used in *scan*,
