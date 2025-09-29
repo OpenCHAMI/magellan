@@ -7,7 +7,7 @@ magellan-collect - Retrieve Redfish data from scanned BMC nodes
 # SYNOPSIS
 
 magellan collect [OPTIONS]++
-magellan collect pdu [OPTIONS] hosts...
+magellan collect pdu [OPTIONS] _host_...
 
 # EXAMPLES
 
