@@ -162,9 +162,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 	wg.Wait()
 	close(done)
 
-	if params.Verbose {
-		log.Info().Msg("scan complete")
-	}
+	log.Trace().Msg("scan complete")
 	return results
 }
 
