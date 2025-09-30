@@ -170,17 +170,17 @@ var ScanCmd = &cobra.Command{
 			default:
 				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanFormat)
 			}
-			if !disableCache && cachePath != "" {
-				err := os.MkdirAll(path.Dir(cachePath), 0755)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to make cache directory")
-				}
-				err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to write scanned assets to cache")
-				}
-				log.Debug().Str("path", cachePath).Msg("saved assets to cache")
+		}
+		if !disableCache && cachePath != "" {
+			err := os.MkdirAll(path.Dir(cachePath), 0755)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to make cache directory")
 			}
+			err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to write scanned assets to cache")
+			}
+			log.Debug().Str("path", cachePath).Msg("saved assets to cache")
 		}
 	},
 }
@@ -193,7 +193,7 @@ func init() {
 	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
-	ScanCmd.Flags().BoolVar(&insecure, "insecure", true, "Skip TLS certificate verification during probe")
+	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
 	ScanCmd.Flags().VarP(&scanFormat, "format", "F", "Output format (json, yaml)")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
 	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
