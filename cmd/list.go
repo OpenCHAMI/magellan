@@ -31,7 +31,7 @@ var ListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// check if we just want to show cache-related info and exit
 		if showCache {
-			fmt.Printf("cache: %s\n", cachePath)
+			log.Info().Str("cache", cachePath).Send()
 			return
 		}
 
@@ -48,16 +48,20 @@ var ListCmd = &cobra.Command{
 				log.Error().Err(err).Msg("failed to marshal data")
 				return
 			}
-			log.Printf(string(output))
-		}
-		var output string
-		for _, scanned := range scannedResults {
-			output += fmt.Sprintf("%s %s %v %s",
-				scanned.Host,
-				scanned.Protocol,
-				scanned.Timestamp,
-				scanned.ServiceType,
-			)
+			fmt.Print(string(output))
+		case format.FORMAT_LIST:
+			fallthrough
+		default:
+			var output string
+			for _, scanned := range scannedResults {
+				output += fmt.Sprintf("%s %s %v %s\n",
+					scanned.Host,
+					scanned.Protocol,
+					scanned.Timestamp,
+					scanned.ServiceType,
+				)
+			}
+			fmt.Print(output)
 		}
 	},
 }
