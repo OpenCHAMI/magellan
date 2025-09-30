@@ -55,6 +55,10 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 
 	**DEPRECATED**
 
+	This flag will be removed in the future since the *collect* command no longer
+	makes a request to a remote host. That functionality has been moved to the
+	*send* command.
+
 *--force-update*
 	Set this flag to force updating the *RedfishEndpoint*s, *Component*s, and
 	*ComponentEndpoint*s in SMD. This is done by making seperate requests to
