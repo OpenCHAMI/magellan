@@ -14,7 +14,17 @@ magellan secrets store [OPTIONS] _secret_id_ _data_
 
 # EXAMPLES
 
-// store specific BMC node creds for collect and crawl in default secrets store (--file/-f flag not set)++
+// perform scan and store in local cache++
+magellan scan --subnet 172.16.0.0/24 --cache ./assets.db
+
+// view the results of the scan in local cache++
+magellan list --cache ./assets.db
+
+// export secret key to variable++
+export MASTER_KEY=$(magellan secrets generatekey)
+
+// store specific BMC node creds for *collect* and *crawl* in default secrets store++
+// which uses *nodes.json* by default (--file/-f flag not set)++
 magellan secrets store $bmc_host $bmc_creds
 
 // retrieve creds from secrets store++
@@ -22,6 +32,9 @@ magellan secrets retrieve $bmc_host -f nodes.json
 
 // list creds from specific secrets++
 magellan secrets list -f nodes.json
+
+// perform a collect using the secret store++
+magellan collect --secrets-file node.json
 
 # FLAGS
 
