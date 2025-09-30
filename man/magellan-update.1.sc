@@ -32,7 +32,7 @@ magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status
 *--scheme* _scheme_
 	Specify the transfer protocol scheme to use for the request to the remote
 	host. Values are case-insensitive and converted to use upper-case letters.
-	Additionally, the default value for _scheme_ is HTTPS.
+	Additionally, the default value for _scheme_ is *https*.
 
 *--status*
 	Return the status of active update jobs.

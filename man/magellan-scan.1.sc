@@ -73,7 +73,10 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 *--insecure*
 	Skip TLS certificate verification with the BMC when performing probing
 	requests. After finding remote assets on a network, a subsequent request is
-	made to determine which assets run a Redfish service. (default true)
+	made to determine which assets run a Redfish service. The default value for
+	this flag is *true*.
+
+	When *--insecure* is set to *false*, 
 
 *-o, --output* _path_
 	Output file path (for json/yaml formats)

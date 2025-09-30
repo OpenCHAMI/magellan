@@ -28,14 +28,170 @@ magellan collect -v -F yaml | magellan send -d @inventory.yaml -F yaml https://s
 *-d, --data* -F _format_ (_node_object_,... | @_path_)
 	Specify node data objects to send to specified host. Objects can be loaded
 	from files using the '@' symbol followed by the path to the file. The input
-	format for (json, yaml)he objects can be specified to be either JSON or YAML by setting
+	format for the objects can be specified to be either JSON or YAML by setting
 	the *--format* flag.
 
 	An example of a node data object would look like the following using the
 	JSON format:
 
 	```
-
+	{
+		"FQDN": "172.16.0.104",
+		"ID": "x1000c1s7b3",
+		"MACAddr": "...",
+		"MACRequired": true,
+		"Managers": [
+			{
+			"uri": "https://172.16.0.104:443/redfish/v1/Managers/1",
+			"uuid": "...",
+			"name": "Manager",
+			"model": "iLO 5",
+			"type": "BMC",
+			"firmware_version": "iLO 5 v3.02",
+			"ethernet_interfaces": [
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Managers/1/EthernetInterfaces/1/",
+				"mac": "...",
+				"ip": "172.16.0.104",
+				"name": "Manager Dedicated Network Interface",
+				"description": "Configuration of this Manager Network Interface",
+				"enabled": true
+				},
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Managers/1/EthernetInterfaces/2/",
+				"mac": "...",
+				"ip": "0.0.0.0",
+				"name": "Manager Shared Network Interface",
+				"description": "Configuration of this Manager Network Interface"
+				}
+			]
+			}
+		],
+		"Name": "",
+		"RediscoverOnUpdate": false,
+		"SchemaVersion": 1,
+		"Systems": [
+			{
+			"uri": "https://172.16.0.104:443/redfish/v1/Systems/1",
+			"uuid": "...",
+			"manufacturer": "HPE",
+			"system_type": "Physical",
+			"name": "Computer System",
+			"model": "ProLiant DL325 Gen10 Plus v2",
+			"serial": "...",
+			"bios_version": "A43 v2.90 (10/27/2023)",
+			"ethernet_interfaces": [
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Systems/1/EthernetInterfaces/DE07A001/",
+				"mac": "..."
+				},
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Systems/1/EthernetInterfaces/DE07A000/",
+				"mac": "..."
+				}
+			],
+			"network_interfaces": [
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Systems/1/NetworkInterfaces/DE07A000",
+				"name": "NetworkInterface",
+				"adapter": {
+					"uri": "https://172.16.0.104:443/redfish/v1/Chassis/1/NetworkAdapters/DE07A000",
+					"name": "Marvell FastLinQ 41000 Series - 2P 25GbE SFP28 QL41232HQCU-HC OCP3 Adapter",
+					"serial": "..."
+				}
+				}
+			],
+			"actions": [
+				"On",
+				"ForceOff",
+				"GracefulShutdown",
+				"ForceRestart",
+				"Nmi",
+				"PushPowerButton",
+				"GracefulRestart"
+			],
+			"power": {
+				"state": "On",
+				"restore_policy": ""
+			},
+			"processor_count": 1,
+			"processor_type": "AMD EPYC 7713P 64-Core Processor               ",
+			"memory_total": 256,
+			"trusted_modules": [
+				"TPM2_0 73.64"
+			],
+			"chassis_sku": "R9K56A",
+			"chassis_serial": "...",
+			"chassis_manufacturer": "HPE",
+			"chassis_model": "ProLiant DL325 Gen10 Plus v2",
+			"links": {
+				"chassis": [
+				"/redfish/v1/Chassis/1/"
+				],
+				"managers": [
+				"/redfish/v1/Managers/1/"
+				]
+			}
+			},
+			{
+			"uri": "https://172.16.0.104:443/redfish/v1/Systems/1",
+			"uuid": "...",
+			"manufacturer": "HPE",
+			"system_type": "Physical",
+			"name": "Computer System",
+			"model": "ProLiant DL325 Gen10 Plus v2",
+			"serial": "...",
+			"bios_version": "A43 v2.90 (10/27/2023)",
+			"ethernet_interfaces": [
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Systems/1/EthernetInterfaces/DE07A001/",
+				"mac": "..."
+				},
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Systems/1/EthernetInterfaces/DE07A000/",
+				"mac": "..."
+				}
+			],
+			"network_interfaces": [
+				{
+				"uri": "https://172.16.0.104:443/redfish/v1/Systems/1/NetworkInterfaces/DE07A000",
+				"name": "NetworkInterface",
+				"adapter": {
+					"uri": "https://172.16.0.104:443/redfish/v1/Chassis/1/NetworkAdapters/DE07A000",
+					"name": "Marvell FastLinQ 41000 Series - 2P 25GbE SFP28 QL41232HQCU-HC OCP3 Adapter",
+					"serial": "..."
+				}
+				}
+			],
+			"actions": [
+				"On",
+				"ForceOff",
+				"GracefulShutdown",
+				"ForceRestart",
+				"Nmi",
+				"PushPowerButton",
+				"GracefulRestart"
+			],
+			"power": {
+				"state": "On",
+				"restore_policy": ""
+			},
+			"processor_count": 1,
+			"processor_type": "AMD EPYC 7713P 64-Core Processor               ",
+			"memory_total": 256,
+			"trusted_modules": [
+				"TPM2_0 73.64"
+			],
+			"links": {
+				"managers": [
+				"/redfish/v1/Managers/1/"
+				]
+			}
+			}
+		],
+		"Type": "",
+		"User": "Administrator"
+	}
 	```
 
 *-f, --force-update*

@@ -26,7 +26,7 @@ var updateCmd = &cobra.Command{
 	Use: "update hosts...",
 	Example: `  // perform an firmware update
   magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password \
-    --firmware-uri http://172.16.0.200:8005/firmware/bios/image.RBU \
+    --firmware-uri http://172.16.0.200:8005/firmware/bios/image.RBU
 
   // check update status
   magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status`,

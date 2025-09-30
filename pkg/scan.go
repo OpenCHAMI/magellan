@@ -70,6 +70,8 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 		chanHosts = make(chan []string, params.Concurrency+1)
 	)
 
+	log.Debug().Any("args", params).Msg("starting scan...")
+
 	probesToRun := []struct {
 		Type, Path string
 	}{}
