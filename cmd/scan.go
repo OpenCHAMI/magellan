@@ -108,7 +108,7 @@ var ScanCmd = &cobra.Command{
 			hostMsg = combinedTargetHosts
 		}
 		log.Debug().Any("flags", map[string]any{
-			"hosts":           hostMsg,
+			"hosts":           "set '--log-level' to 'trace' to show",
 			"cache":           cachePath,
 			"concurrency":     concurrency,
 			"protocol":        protocol,
