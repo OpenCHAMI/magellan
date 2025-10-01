@@ -82,10 +82,9 @@ The *magellan* CLI is a frontend tool for collecting inventory data from board
 management controllers (BMCs) through a running Redfish service. The tool may be 
 used in the following workflows:
 
-
-1. Simple Workflow: 	scan -> collect -> send
-2. Complex Workflow: 	scan -> list -> secrets -> collect -> send
-3. Collect Workflow:	scan -> collect -> send -> collect -> send -> *
+1. Simple Workflow: 	scan -> collect -> send++
+2. Complex Workflow: 	scan -> list -> secrets -> collect -> send++
+3. Collect Workflow:	scan -> collect -> send -> collect -> send -> *++
 4. Crawl Workflow:		crawl -> send -> crawl -> send -> *
 
 ## Simple Workflow
@@ -162,7 +161,7 @@ magellan send -d @node.json https://smd.example.com
 
 Note that this only uses a single go routine instead of multiple like with *collect*.
 
-# References
+# REFERENCES
 
 For more information about Redfish, visit https://https://redfish.dmtf.org/.
 For Redfish specifications and other documents, visit https://www.dmtf.org/standards/redfish.
