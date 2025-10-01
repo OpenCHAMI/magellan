@@ -55,14 +55,6 @@ var rootCmd = &cobra.Command{
 	Use:   "magellan",
 	Short: "Redfish-based BMC discovery tool",
 	Long:  "Redfish-based BMC discovery tool with dynamic discovery features.",
-	// PersistentPreRun: func(cmd *cobra.Command, args []string) {
-	// 	// initialize the logger
-	// 	err := logger.InitWithLogLevel(logLevel, logFile)
-	// 	if err != nil {
-	// 		log.Error().Err(err).Msg("failed to initialize logger")
-	// 		os.Exit(1)
-	// 	}
-	// },
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			err := cmd.Help()
@@ -146,7 +138,8 @@ func InitializeConfig() {
 		if config_dir == "" {
 			config_dir = "$HOME/.config"
 		}
-		viper.AddConfigPath(config_dir + "/magellan")
+		viper.AddConfigPath(config_dir + "/magellan.yaml")
+		viper.SetConfigType("yaml")
 		viper.SetConfigName("config")
 		// File type left unspecified; Viper will auto-parse based on extension
 		// e.g. ~/.config/magellan/config.yaml will parse as YAML

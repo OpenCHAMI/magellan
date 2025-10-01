@@ -61,12 +61,11 @@ var pduCmd = &cobra.Command{
 	Use:   "pdu [hosts...]",
 	Short: "Collect inventory from JAWS-based PDUs",
 	Long:  `Connects to one or more PDUs with a JAWS interface to collect hardware inventory.`,
-	Example: `
-  // Collect inventory from a single PDU using credentials
-  magellan collect pdu x3000m0 --username admin --password inital0
+	Example: `  // Collect inventory from a single PDU using credentials
+  magellan collect pdu x3000m0 --username admin --password initial0
 
   // Collect from multiple PDUs and send to SMD
-  magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | ./magellan send <smd-endpoint>`,
+  magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send <smd-endpoint>`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			log.Error().Msg("no PDU hosts provided")
@@ -81,7 +80,7 @@ var pduCmd = &cobra.Command{
 		allSmdRecords := make([]map[string]any, 0)
 
 		for _, host := range args {
-			log.Info().Msgf("Collecting from PDU: %s", host)
+			log.Debug().Str("host", host).Msg("collecting from PDU")
 			config := jaws.CrawlerConfig{
 				URI:      host,
 				Username: username,
@@ -91,7 +90,7 @@ var pduCmd = &cobra.Command{
 
 			inventory, err := jaws.CrawlPDU(config)
 			if err != nil {
-				log.Error().Err(err).Msgf("failed to crawl PDU %s", host)
+				log.Error().Err(err).Str("host", host).Msgf("failed to crawl PDU")
 				continue
 			}
 

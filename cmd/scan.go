@@ -9,7 +9,6 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/internal/format"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
@@ -57,7 +56,7 @@ var ScanCmd = &cobra.Command{
   magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
 
   // assumes subnet without CIDR has a subnet-mask of 255.255.0.0
-  magellan scan --subnet 10.0.0.0/24 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db`,
+  magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db`,
 	Short: "Scan to discover BMC nodes on a network",
 	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response.\n" +
 		"Each host is passed *with a full URL* including the protocol and port. Additional subnets can be added\n" +
@@ -103,12 +102,8 @@ var ScanCmd = &cobra.Command{
 		for _, targetHost := range targetHosts {
 			combinedTargetHosts = append(combinedTargetHosts, targetHost...)
 		}
-		var hostMsg any = "set '--log-level' to 'trace' to show"
-		if log.Logger.GetLevel() == zerolog.TraceLevel {
-			hostMsg = combinedTargetHosts
-		}
 		log.Debug().Any("flags", map[string]any{
-			"hosts":           hostMsg,
+			"hosts":           "set '--log-level' to 'trace' to show",
 			"cache":           cachePath,
 			"concurrency":     concurrency,
 			"protocol":        protocol,
@@ -175,30 +170,30 @@ var ScanCmd = &cobra.Command{
 			default:
 				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanFormat)
 			}
-			if !disableCache && cachePath != "" {
-				err := os.MkdirAll(path.Dir(cachePath), 0755)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to make cache directory")
-				}
-				err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to write scanned assets to cache")
-				}
-				log.Debug().Msgf("Saved assets to cache: %s", cachePath)
+		}
+		if !disableCache && cachePath != "" {
+			err := os.MkdirAll(path.Dir(cachePath), 0755)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to make cache directory")
 			}
+			err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to write scanned assets to cache")
+			}
+			log.Debug().Str("path", cachePath).Msg("saved assets to cache")
 		}
 	},
 }
 
 func init() {
 	ScanCmd.Flags().IntSliceVar(&ports, "port", nil, "Adds additional ports to scan for each host with unspecified ports.")
-	ScanCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme to use if not specified in host URI. (default is 'https')")
-	ScanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan. (default is 'tcp')")
+	ScanCmd.Flags().StringVar(&scheme, "scheme", "https", "Set the default scheme to use if not specified in host URI.")
+	ScanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan.")
 	ScanCmd.Flags().StringSliceVar(&subnets, "subnet", nil, "Add additional hosts from specified subnets to scan.")
 	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
-	ScanCmd.Flags().BoolVar(&insecure, "insecure", true, "Skip TLS certificate verification during probe")
+	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
 	ScanCmd.Flags().VarP(&scanFormat, "format", "F", "Output format (json, yaml)")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
 	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")

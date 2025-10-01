@@ -1,44 +1,122 @@
-# Config files like this can be provided to Magellan in two ways:
-# - Explicitly, via the `-c` flag
-# - Implicitly, by placing the file in $XDG_CONFIG_HOME/magellan/config.yaml
-#   - If $XDG_CONFIG_HOME is not defined, it is assumed to be ~/.config
-# Also, while this example uses YAML, other formats are also supported via the Go Viper package.
-# File type will be auto-detected based on extension, e.g. ~/.config/magellan/config.json will be parsed as JSON.
-scan:
-  hosts:
-    - "172.16.1.15"
-    - "10.0.0.1"
-  subnets:
-    - "172.16.0.0"
-    - "172.16.0.0/24"
-  subnet-masks:
-    - "255.255.255.0"
-  ports:
-    - 443
-  disable-probing: false
-  disable-caching: false
-  protocol: "tcp"
-  scheme: "https"
-collect:
-  protocol: "tcp"
-  output: "/tmp/magellan/data/"
-  threads: 1
-  force-update: false
-  cacert: "cacert.pem"
-update:
-  host:
-  port: 443
-  transfer-protocol: "https"
-  firmware:
-    url:
-    version:
-  component:
-  secure-tls: false
-  status: false
-power:
-  cacert: "cacert.pem"
+# Example config file for 'magellan'. Config files like this can be provided to 
+# 'magellan' in two ways:
+#   - Explicitly, via the `--config` flag
+#   - Implicitly, by placing the file in `$XDG_CONFIG_HOME/.config/magellan.yaml`
+#     - If $XDG_CONFIG_HOME is not defined, it is assumed to be ~/.config
+# 
+# All values set in the config file have a corresponding command and/or flag. For
+# example, the 'subnet' property can also be set using the `--subnet` flag.
+
+#
+# Global flags for all commands
+#
+
+# Set number of concurrent jobs (used for scan and collect).
 concurrency: 1
+
+# Set the timeout for requests.
 timeout: 30
-verbose: true
-cache:
-  path: "/tmp/magellan/magellan.db"
+
+# Set the log level.
+log-level: debug
+
+# Set path to read and write cache data.
+cache: /tmp/magellan/assets.db
+
+#
+# Flags for the 'scan' command
+#
+scan:
+
+  # Subnets to include in scan.
+  subnet:
+    - "172.16.0.0"
+    - "172.21.0.0/24"
+  
+  # Subnet-mask to use with subnets only with IP addresses.
+  subnet-mask: 255.255.255.0
+  
+  # Ports to include in the scan.
+  port:
+    - 443
+    - 5000
+  
+  # Disables making additional request after scan to probe for Redfish services.
+  # This is set using `--disable-probing` flag.
+  disable-probing: false
+  
+  # Disables writing the results of a scan to a cache database. This is set using
+  # the `--disable-caching` flag.
+  disable-caching: false
+  
+  # Sets the protocol to use when making requests to BMCs.
+  protocol: tcp
+  
+  # Sets the scheme to prepend to request URI when making request to BMCs.
+  scheme: https
+
+  # Sets the format to output the results of a scan.
+  format: json
+
+  # Sets the path to write the output of a scan. The output will be written in
+  # the format set by the 'format' property.
+  output: /tmp/magellan/assets.json
+
+  # Sets whether to scan for BMCs or PDUs.
+  include: bmcs
+
+# Flags for the 'collect' command
+collect:
+
+  # Sets the path for a secrets file.
+  secrets-file: secrets.json
+
+  # Sets the protocol to use when making requests to BMCs.
+  protocol: tcp
+
+  # Sets the path to write the collection output.
+  output-file: /tmp/magellan/nodes/nodes.json
+
+  # Sets the directory to collection output using HIVE partitioning strategy.
+  output-dir: /tmp/magellan/nodes
+
+  # Sets whether to write output to standard output/error.
+  show-output: false
+
+  # Sets whether to force update objects sent to SMD by deleting and re-creating.
+  force-update: false
+
+  # Sets path to CA certificate to include with requests.
+  cacert: cacert.pem
+
+  # Sets collection output format.
+  format: json
+  
+  # Sets the path to a BMC mappings file.
+  bmc-id-map: "@mappings.json"
+
+#
+# Flags for the 'update' command
+#
+update:
+
+  # Sets the scheme to use in the request URI.
+  scheme: https
+
+  # Sets request URI to download the firmware file.
+  firmware-url:
+
+  # Sets whether to allow insecure connections to the server.
+  insecure: false
+
+  # Sets whether to view the update job's status and exit.
+  status: false
+
+#
+# Flags for the 'power' command
+#
+power:
+
+  # Sets the path to the CA certificate.
+  cacert: "cacert.pem"
+

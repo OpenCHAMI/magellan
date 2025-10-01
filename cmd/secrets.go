@@ -21,8 +21,7 @@ var (
 
 var secretsCmd = &cobra.Command{
 	Use: "secrets",
-	Example: `
-  // generate new key and set environment variable
+	Example: `  // generate new key and set environment variable
   export MASTER_KEY=$(magellan secrets generatekey)
 
   // store specific BMC node creds for collect and crawl in default secrets store (--file/-f flag not set)
@@ -85,14 +84,14 @@ var secretsStoreCmd = &cobra.Command{
 			values = strings.Split(secretValue, ":")
 			if len(values) != 2 {
 				log.Error().Msgf("expected 2 arguments in [username:password] format but got %d", len(values))
-				os.Exit(1)
+				return
 			}
 
 			// open secret store to save credentials
 			store, err = secrets.OpenStore(secretsFile)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to open secrets store")
-				os.Exit(1)
+				return
 			}
 
 			// extract username/password from input (for clarity)
@@ -106,13 +105,13 @@ var secretsStoreCmd = &cobra.Command{
 			decoded, err := base64.StdEncoding.DecodeString(secretValue)
 			if err != nil {
 				log.Error().Err(err).Msg("error decoding base64 data")
-				os.Exit(1)
+				return
 			}
 
 			// check the decoded string if it's a valid JSON and has creds
 			if !isValidCredsJSON(string(decoded)) {
 				log.Error().Err(err).Msg("value is not a valid JSON or is missing credentials")
-				os.Exit(1)
+				return
 			}
 
 			store, err = secrets.OpenStore(secretsFile)
@@ -126,24 +125,25 @@ var secretsStoreCmd = &cobra.Command{
 			if secretsStoreInputFile != "" {
 				if secretValue != "" {
 					log.Error().Msg("cannot use -i/--input-file with positional argument")
-					os.Exit(1)
+					return
 				}
 				inputFileBytes, err = os.ReadFile(secretsStoreInputFile)
 				if err != nil {
 					log.Error().Err(err).Msg("failed to read input file")
-					os.Exit(1)
+					return
 				}
 				secretValue = string(inputFileBytes)
 			}
 
 			// make sure we have valid JSON with "username" and "password" properties
-			if !isValidCredsJSON(string(secretValue)) {
+			if !isValidCredsJSON(secretValue) {
 				log.Error().Err(err).Msg("not a valid JSON or creds")
 				os.Exit(1)
 			}
 			store, err = secrets.OpenStore(secretsFile)
 			if err != nil {
 				fmt.Println(err)
+				log.Error().Err(err).Msg("failed to open secret store")
 				os.Exit(1)
 			}
 		default:
@@ -152,7 +152,7 @@ var secretsStoreCmd = &cobra.Command{
 		}
 
 		if err := store.StoreSecretByID(secretID, secretValue); err != nil {
-			fmt.Printf("Error storing secret: %v\n", err)
+			log.Error().Err(err).Msg("failed to store secret by ID")
 			os.Exit(1)
 		}
 	},
