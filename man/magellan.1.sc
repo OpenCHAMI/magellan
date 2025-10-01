@@ -106,7 +106,7 @@ using the secret store, and allowing for editting the inventory collection befor
 sending it to our state manager.
 
 ```
-# scan for assets on multiple networks
+// scan for assets on multiple networks
 magellan scan 10.0.0.101 \
 	--subnet 172.16.0.0/24 \
 	--subnet 172.21.0.0 \
