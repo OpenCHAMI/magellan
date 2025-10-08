@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"dario.cat/mergo"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -201,15 +200,16 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	rf_systems = append(rf_systems, rf_root_systems...)
 	newSystems, err := walkSystems(rf_systems, nil, config.URI)
 	if err != nil {
-		return extract_ptr_map_values(systems), fmt.Errorf("failed to get systems: %v", err)
+		return extractPtrMapValues(systems), fmt.Errorf("failed to get systems: %v", err)
 	}
 	// If nodes are found under both Chassis and Systems, Systems is assumed to be "more definitive"
 	// and will override corresponding fields from the Chassis version.
-	err = mergo.Merge(&systems, newSystems, mergo.WithOverride)
+	// err = mergo.Merge(&systems, newSystems, mergo.WithOverride)
+	systems, err = merge(systems, newSystems)
 	if err != nil {
-		return extract_ptr_map_values(systems), fmt.Errorf("failed to merge systems from Chassis and Systems endpoints: %v", err)
+		return extractPtrMapValues(systems), fmt.Errorf("failed to merge systems from Chassis and Systems endpoints: %v", err)
 	}
-	return extract_ptr_map_values(systems), nil
+	return extractPtrMapValues(systems), nil
 }
 
 // CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -515,10 +515,18 @@ func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
 	}
 }
 
-func extract_ptr_map_values[T any](m map[string]*T) []T {
+func extractPtrMapValues[T any](m map[string]*T) []T {
 	slice := make([]T, 0, len(m))
 	for i := range m {
 		slice = append(slice, *m[i])
 	}
 	return slice
+}
+
+func merge(systems map[string]*InventoryDetail, newSystems []InventoryDetail) (map[string]*InventoryDetail, error) {
+	// add and replace values in systems with values from newSystems
+	for _, system := range newSystems {
+		systems[system.URI] = &system
+	}
+	return systems, nil
 }
