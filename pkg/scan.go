@@ -106,9 +106,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 					foundAssets, err := rawConnect(host, params.Protocol, params.Timeout, true)
 					// if we failed to connect, exit from the function
 					if err != nil {
-						if params.Verbose {
-							log.Debug().Err(err).Msgf("failed to connect to host")
-						}
+						log.Trace().Err(err).Msgf("failed to connect to host")
 						continue
 					}
 					if !params.DisableProbing {
@@ -140,6 +138,11 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 										Msg("adding found asset to results after probing")
 
 									break // Found a valid service, no need to probe other types
+								} else if err != nil {
+									log.Error().
+										Err(err).
+										Str("url", probeURL).
+										Msg("failed to perform request")
 								}
 								if res != nil {
 									if err := res.Body.Close(); err != nil {
