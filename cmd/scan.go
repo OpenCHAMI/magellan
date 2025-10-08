@@ -140,7 +140,6 @@ var ScanCmd = &cobra.Command{
 			log.Trace().Any("assets", foundAssets).Msgf("found assets from scan")
 		} else {
 			log.Warn().Msg("no responsive assets found")
-			// return instead of exit to close log file
 			return
 		}
 

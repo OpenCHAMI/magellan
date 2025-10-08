@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/rs/zerolog/log"
 
@@ -57,7 +56,7 @@ var CrawlCmd = &cobra.Command{
 			log.Debug().Str("uri", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
 			if store, err = secrets.OpenStore(secretsFile); err != nil {
 				log.Error().Str("uri", uri).Err(err).Msg("failed to open local secrets store")
-				os.Exit(1)
+				return
 			}
 
 			// Either none of the flags were passed or only one of them were; get
@@ -137,7 +136,7 @@ var CrawlCmd = &cobra.Command{
 		}, crawlOutputFormat)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to marshal output JSON")
-			os.Exit(1)
+			return
 		}
 		if showOutput {
 			fmt.Println(string(output))

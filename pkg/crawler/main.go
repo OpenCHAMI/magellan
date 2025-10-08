@@ -147,7 +147,8 @@ func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
 	return client, nil
 }
 
-// CrawlBMCForSystems pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
+// CrawlBMCForSystems pulls all pertinent information from a BMC.
+// It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
 func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	var (
 		systems    = make(map[string]*InventoryDetail)

@@ -65,7 +65,7 @@ type ScanParams struct {
 // Returns a list of scanned results to be stored in cache (but isn't doing here).
 func ScanForAssets(params *ScanParams) []RemoteAsset {
 	var (
-		results   = make([]RemoteAsset, 0, len(params.TargetHosts))
+		results   []RemoteAsset
 		done      = make(chan struct{}, params.Concurrency+1)
 		chanHosts = make(chan []string, params.Concurrency+1)
 	)
@@ -116,29 +116,45 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 						for _, foundAsset := range foundAssets {
 							for _, probe := range probesToRun {
 								probeURL := fmt.Sprintf("%s:%d%s", foundAsset.Host, foundAsset.Port, probe.Path)
-								req, err := http.NewRequest("GET", probeURL, nil)
+								req, err := http.NewRequest(http.MethodGet, probeURL, nil)
 								if err != nil {
+									log.Warn().
+										Err(err).
+										Str("uri", probeURL).
+										Msg("could not make probing request")
 									continue
 								}
 
 								res, err := probeClient.Do(req)
 								if err == nil && res != nil && res.StatusCode == http.StatusOK {
 									if err := res.Body.Close(); err != nil {
-										log.Warn().Err(err).Msg("could not close response resource")
+										log.Warn().
+											Err(err).
+											Str("url", probeURL).
+											Msg("could not close response resource")
 									}
 									foundAsset.ServiceType = probe.Type
 									assetsToAdd = append(assetsToAdd, foundAsset)
+									log.Debug().
+										Str("host", foundAsset.Host).
+										Msg("adding found asset to results after probing")
+
 									break // Found a valid service, no need to probe other types
 								}
 								if res != nil {
 									if err := res.Body.Close(); err != nil {
-										log.Warn().Err(err).Msg("could not close response resource")
+										log.Warn().
+											Err(err).
+											Msg("could not close response resource")
 									}
 								}
 							}
 						}
 						results = append(results, assetsToAdd...)
 					} else {
+						log.Debug().
+							Int("count", len(foundAssets)).
+							Msg("adding found assets to results without probing")
 						results = append(results, foundAssets...)
 					}
 				}
@@ -162,7 +178,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 	wg.Wait()
 	close(done)
 
-	log.Trace().Msg("scan complete")
+	log.Debug().Int("asset_count", len(results)).Msg("scan complete")
 	return results
 }
 
