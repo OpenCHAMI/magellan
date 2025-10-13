@@ -35,9 +35,11 @@ func NewLocalSecretStore(masterKeyHex, filename string, create bool) (*LocalSecr
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file %s: %v", filename, err)
 		}
-		if err = file.Close(); err != nil {
-			log.Warn().Err(err).Msg("could not close file")
-		}
+		defer func() {
+			if err = file.Close(); err != nil {
+				log.Warn().Err(err).Msg("could not close file")
+			}
+		}()
 
 		secrets = make(map[string]string)
 	}
@@ -144,15 +146,16 @@ func SaveSecrets(jsonFile string, store map[string]string) error {
 	if err != nil {
 		return err
 	}
-
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Warn().
+				Err(err).
+				Str("path", jsonFile).
+				Msg("could not close file")
+		}
+	}()
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	if err := file.Close(); err != nil {
-		log.Warn().
-			Err(err).
-			Str("path", jsonFile).
-			Msg("could not close file")
-	}
 	return encoder.Encode(store)
 }
 
@@ -162,7 +165,6 @@ func loadSecrets(jsonFile string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open secret file %s:%v", jsonFile, err)
 	}
-
 	defer func() {
 		if err := file.Close(); err != nil {
 			log.Warn().
