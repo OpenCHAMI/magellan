@@ -117,12 +117,10 @@ var CollectCmd = &cobra.Command{
 		params := &magellan.CollectParams{
 			Timeout:     timeout,
 			Concurrency: concurrency,
-			CaCertPath:  cacertPath,
 			OutputPath:  outputPath,
 			OutputDir:   outputDir,
+			Insecure:    insecure,
 			Format:      collectOutputFormat,
-			ForceUpdate: forceUpdate,
-			AccessToken: accessToken,
 			SecretStore: store,
 			BMCIDMap:    idMap,
 		}
@@ -153,9 +151,8 @@ func init() {
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
 	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file")
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
+	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
 	CollectCmd.Flags().BoolVar(&showOutput, "show", false, "Show the output of a collect run")
-	CollectCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
-	CollectCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 	CollectCmd.Flags().VarP(&collectOutputFormat, "format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions)")
 	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
 

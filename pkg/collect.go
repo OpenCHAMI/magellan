@@ -14,7 +14,6 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/idmap"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -32,12 +31,10 @@ import (
 type CollectParams struct {
 	Concurrency int                 // set the of concurrent jobs with the 'concurrency' flag
 	Timeout     int                 // set the timeout with the 'timeout' flag
-	CaCertPath  string              // set the cert path with the 'cacert' flag
+	Insecure    bool                // set whether to ignore TLS verification
 	OutputPath  string              // set the path to save output with 'output' flag
 	OutputDir   string              // set the directory path to save output with `output-dir` flag
 	Format      format.DataFormat   // set the output format
-	ForceUpdate bool                // set whether to force updating SMD with 'force-update' flag
-	AccessToken string              // set the access token to include in request with 'access-token' flag
 	BMCIDMap    string              // Set the path to the BMC ID mapping YAML or JSON data or file name (if any)
 	SecretStore secrets.SecretStore // set BMC credentials
 }
@@ -103,7 +100,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					config   = crawler.CrawlerConfig{
 						URI:             uri,
 						CredentialStore: params.SecretStore,
-						Insecure:        true,
+						Insecure:        params.Insecure,
 						UseDefault:      true,
 					}
 				)
@@ -158,11 +155,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				if mac != "" {
 					data["MACAddr"] = mac
 				}
-
-				// create and set headers for request
-				headers := client.HTTPHeader{}
-				headers.Authorization(params.AccessToken)
-				headers.ContentType("application/json")
 
 				// add data output to collections
 				collection = append(collection, data)
