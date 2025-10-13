@@ -25,6 +25,13 @@ type RemoteAsset struct {
 	ServiceType string    `json:"service_type,omitempty"`
 }
 
+type ScanType int
+
+const (
+	BMC ScanType = iota
+	PDU
+)
+
 func (ra *RemoteAsset) String() string {
 	return fmt.Sprintf("%v %s %s %s",
 		ra.Timestamp,
@@ -42,8 +49,6 @@ type ScanParams struct {
 	Concurrency    int
 	Timeout        int
 	DisableProbing bool
-	Verbose        bool
-	Debug          bool
 	Insecure       bool
 	Include        []string
 }
@@ -69,6 +74,10 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 		done      = make(chan struct{}, params.Concurrency+1)
 		chanHosts = make(chan []string, params.Concurrency+1)
 	)
+
+	if len(params.TargetHosts) == 0 {
+		return []RemoteAsset{}
+	}
 
 	log.Trace().Any("hosts", params.TargetHosts).Msg("starting scan...")
 
