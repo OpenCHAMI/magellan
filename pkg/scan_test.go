@@ -9,61 +9,14 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/OpenCHAMI/magellan/pkg/test"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	defaultBaseURI      = "https://bmc.openchami.cluster"
-	scheme              = "https"
-	protocol            = "tcp"
-	timeout             = 10
-	serviceRootResponse = `{
-    "@odata.etag": "W/\"1646860561\"",
-    "@odata.id": "/redfish/v1/",
-    "@odata.type": "#ServiceRoot.v1_2_0.ServiceRoot",
-    "AccountService": {
-        "@odata.id": "/redfish/v1/AccountService"
-    },
-    "CertificateService": {
-        "@odata.id": "/redfish/v1/CertificateService"
-    },
-    "Chassis": {
-        "@odata.id": "/redfish/v1/Chassis"
-    },
-    "Description": "The service root for all Redfish requests on this host",
-    "EventService": {
-        "@odata.id": "/redfish/v1/EventService"
-    },
-    "Id": "RootService",
-    "JsonSchemas": {
-        "@odata.id": "/redfish/v1/JsonSchemas"
-    },
-    "Links": {
-        "Sessions": {
-            "@odata.id": "/redfish/v1/SessionService/Sessions"
-        }
-    },
-    "Managers": {
-        "@odata.id": "/redfish/v1/Managers"
-    },
-    "Name": "Root Service",
-    "RedfishVersion": "1.2.0",
-    "Registries": {
-        "@odata.id": "/redfish/v1/Registries"
-    },
-    "SessionService": {
-        "@odata.id": "/redfish/v1/SessionService"
-    },
-    "Systems": {
-        "@odata.id": "/redfish/v1/Systems"
-    },
-    "Tasks": {
-        "@odata.id": "/redfish/v1/TaskService"
-    },
-    "UpdateService": {
-        "@odata.id": "/redfish/v1/UpdateService"
-    }
-}`
+	scheme   = "https"
+	protocol = "tcp"
+	timeout  = 10
 )
 
 type ScanTestClient struct {
@@ -153,6 +106,7 @@ func TestScan(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+
 			// Create a mock server
 			var servers []*httptest.Server
 			for range tc.wantFound {
@@ -164,7 +118,7 @@ func TestScan(t *testing.T) {
 						t.Fatalf("Expected GET request, got: %s", r.Method)
 					}
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(serviceRootResponse))
+					w.Write([]byte(test.RESPONSE_ServiceRoot))
 				}))
 				defer mockServer.Close() // Close the server when the test finishes
 				servers = append(servers, mockServer)
@@ -185,9 +139,7 @@ func TestScan(t *testing.T) {
 
 			assert.Len(t, found, tc.wantFound)
 		})
-
 	}
-
 }
 
 func TestGenerateHostsFromSubnet(t *testing.T) {
@@ -217,60 +169,53 @@ func TestGenerateHostsFromSubnet(t *testing.T) {
 
 	cases := []TestCase{
 		{
-			name:           "basic",
-			subnet:         "172.21.0.0",
-			subnetMask:     &defaultSubnetMask,
-			ports:          defaultPorts,
-			scheme:         scheme,
-			wantTotalHosts: 0,
+			name:       "basic",
+			subnet:     "172.21.0.0",
+			subnetMask: &defaultSubnetMask,
+			ports:      defaultPorts,
+			scheme:     scheme,
 		},
 		{
-			name:           "none",
-			subnet:         "10.0.0.0",
-			subnetMask:     &defaultSubnetMask,
-			ports:          defaultPorts,
-			scheme:         scheme,
-			wantTotalHosts: 0,
+			name:       "none",
+			subnet:     "10.0.0.0",
+			subnetMask: &defaultSubnetMask,
+			ports:      defaultPorts,
+			scheme:     scheme,
 		},
 		{
-			name:           "invalid subnet",
-			subnet:         "invalid",
-			subnetMask:     &defaultSubnetMask,
-			ports:          defaultPorts,
-			scheme:         scheme,
-			wantTotalHosts: 0,
+			name:       "invalid subnet",
+			subnet:     "invalid",
+			subnetMask: &defaultSubnetMask,
+			ports:      defaultPorts,
+			scheme:     scheme,
 		},
 		{
-			name:           "no subnet",
-			subnet:         "",
-			subnetMask:     &defaultSubnetMask,
-			ports:          defaultPorts,
-			scheme:         scheme,
-			wantTotalHosts: 0,
+			name:       "no subnet",
+			subnet:     "",
+			subnetMask: &defaultSubnetMask,
+			ports:      defaultPorts,
+			scheme:     scheme,
 		},
 		{
-			name:           "cidr",
-			subnet:         "172.21.0.0/24",
-			subnetMask:     &defaultSubnetMask,
-			ports:          defaultPorts,
-			scheme:         scheme,
-			wantTotalHosts: 0,
+			name:       "cidr",
+			subnet:     "172.21.0.0/24",
+			subnetMask: &defaultSubnetMask,
+			ports:      defaultPorts,
+			scheme:     scheme,
 		},
 		{
-			name:           "additional ports",
-			subnet:         "172.21.0.0/24",
-			subnetMask:     &defaultSubnetMask,
-			ports:          []int{443, 5000},
-			scheme:         scheme,
-			wantTotalHosts: 0,
+			name:       "additional ports",
+			subnet:     "172.21.0.0/24",
+			subnetMask: &defaultSubnetMask,
+			ports:      []int{443, 5000},
+			scheme:     scheme,
 		},
 		{
-			name:           "different scheme",
-			subnet:         "172.21.0.0/24",
-			subnetMask:     &defaultSubnetMask,
-			ports:          defaultPorts,
-			scheme:         "http",
-			wantTotalHosts: 0,
+			name:       "different scheme",
+			subnet:     "172.21.0.0/24",
+			subnetMask: &defaultSubnetMask,
+			ports:      defaultPorts,
+			scheme:     "http",
 		},
 	}
 

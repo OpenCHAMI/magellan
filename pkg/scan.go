@@ -22,15 +22,19 @@ type RemoteAsset struct {
 	Protocol    string    `json:"protocol"`
 	State       bool      `json:"state"`
 	Timestamp   time.Time `json:"timestamp"`
-	ServiceType string    `json:"service_type,omitempty"`
+	ServiceType Scanner   `json:"service_type,omitempty"`
 }
 
-type ScanType int
+type Scanner string
 
 const (
-	BMC ScanType = iota
-	PDU
+	BMC Scanner = "bmcs"
+	PDU Scanner = "pdus"
 )
+
+func (st Scanner) String() string {
+	return string(st)
+}
 
 func (ra *RemoteAsset) String() string {
 	return fmt.Sprintf("%v %s %s %s",
@@ -140,7 +144,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 											Str("url", probeURL).
 											Msg("could not close response resource")
 									}
-									foundAsset.ServiceType = probe.Type
+									foundAsset.ServiceType = Scanner(probe.Type)
 									assetsToAdd = append(assetsToAdd, foundAsset)
 									log.Debug().
 										Str("host", foundAsset.Host).

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,22 +33,41 @@ func TestCollect(t *testing.T) {
 		{
 			name: "basic",
 			assets: []RemoteAsset{
-				RemoteAsset{
-					Host: "",
-					Port: 443,
+				{
+					Host:        "",
+					Port:        443,
+					State:       true,
+					Protocol:    "tcp",
+					ServiceType: BMC,
 				},
 			},
 			params: &CollectParams{
 				Concurrency: 1,
 				Timeout:     timeout,
+				Insecure:    true,
+				Format:      format.FORMAT_JSON,
+				SecretStore: nil,
 			},
 			want: 0,
 		},
 		{
 			name: "",
+			assets: []RemoteAsset{
+				{
+					Host:        "",
+					Port:        443,
+					State:       true,
+					Protocol:    "tcp",
+					ServiceType: BMC,
+				},
+			},
+			params: &CollectParams{},
 		},
 		{
 			name: "",
+			assets: []RemoteAsset{
+				{},
+			},
 		},
 	}
 
