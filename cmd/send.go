@@ -110,10 +110,14 @@ var sendCmd = &cobra.Command{
 						smdClient.Xname = dataObject["ID"].(string)
 						err = smdClient.Update(body, headers)
 						if err != nil {
-							log.Error().Err(err).Msgf("failed to forcibly update Redfish endpoint with ID %s", smdClient.Xname)
+							log.Error().
+								Err(err).
+								Msgf("failed to forcibly update Redfish endpoint with ID %s", smdClient.Xname)
 						}
 					} else {
-						log.Error().Err(err).Msgf("failed to add Redfish endpoint with ID %s", smdClient.Xname)
+						log.Error().
+							Err(err).
+							Msgf("failed to add Redfish endpoint with ID %s", smdClient.Xname)
 					}
 				}
 			}

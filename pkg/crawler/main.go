@@ -238,11 +238,14 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 
 	// Obtain the ServiceRoot
 	rf_service := client.GetService()
-	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+	log.Debug().
+		Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
 	rf_managers, err := rf_service.Managers()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get managers from ServiceRoot")
+		log.Error().
+			Err(err).
+			Msg("failed to get managers from ServiceRoot")
 	}
 	return walkManagers(rf_managers, config.URI)
 }
@@ -281,7 +284,9 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 		// get all of the links to managers
 		rf_managers, err := rf_computersystem.ManagedBy()
 		if err != nil {
-			log.Warn().Err(err).Msg("failed to get system managers")
+			log.Warn().
+				Err(err).
+				Msg("failed to get system managers")
 			log.Error().
 				Err(err).
 				Str("id", rf_computersystem.ID).
