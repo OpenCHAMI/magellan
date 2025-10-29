@@ -71,7 +71,8 @@ var sendCmd = &cobra.Command{
 		}
 
 		// show the data that was just loaded as input
-		log.Debug().Any("input", inputData).Send()
+		// inputRaw, _ := json.MarshalIndent(inputData, "", "  ")
+		log.Debug().Int("endpoint_count", len(inputData)).Send()
 
 		for _, host := range args {
 			var (
@@ -83,6 +84,7 @@ var sendCmd = &cobra.Command{
 			for _, dataObject := range inputData {
 				// skip on to the next thing if it's does not exist
 				if dataObject == nil {
+					log.Warn().Str("host", host).Msg("skipping request to host")
 					continue
 				}
 
@@ -93,16 +95,23 @@ var sendCmd = &cobra.Command{
 
 				host, err = urlx.Sanitize(host)
 				if err != nil {
-					log.Warn().Err(err).Str("host", host).Msg("could not sanitize host")
+					log.Warn().
+						Err(err).
+						Str("host", host).
+						Msg("could not sanitize host")
 				}
 
 				// convert to JSON to send data
 				body, err = json.MarshalIndent(dataObject, "", "  ")
 				if err != nil {
-					log.Error().Err(err).Msg("failed to marshal request data")
+					log.Error().
+						Err(err).
+						Msg("failed to marshal request data")
 					continue
 				}
+				log.Debug().Str("host", host).RawJSON("data", body).Send()
 
+				// make request to remote host
 				err = smdClient.Add(body, headers)
 				if err != nil {
 					// try updating instead
@@ -112,12 +121,16 @@ var sendCmd = &cobra.Command{
 						if err != nil {
 							log.Error().
 								Err(err).
-								Msgf("failed to forcibly update Redfish endpoint with ID %s", smdClient.Xname)
+								Str("host", host).
+								Str("ID", smdClient.Xname).
+								Msgf("failed to forcibly update Redfish endpoint")
 						}
 					} else {
 						log.Error().
 							Err(err).
-							Msgf("failed to add Redfish endpoint with ID %s", smdClient.Xname)
+							Str("host", host).
+							Str("ID", smdClient.Xname).
+							Msgf("failed to add Redfish endpoint")
 					}
 				}
 			}
