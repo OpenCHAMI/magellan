@@ -62,7 +62,7 @@ func (c *SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 		log.Debug().
 			Str("url", url).
 			Str("status", res.Status).
-			Int("status", res.StatusCode).
+			Int("status_code", res.StatusCode).
 			RawJSON("body", body).
 			Send()
 	}
