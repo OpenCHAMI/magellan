@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"dario.cat/mergo"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
@@ -50,14 +49,16 @@ type NetworkInterface struct {
 }
 
 type Manager struct {
-	URI                string              `json:"uri,omitempty"`
-	UUID               string              `json:"uuid,omitempty"`
-	Name               string              `json:"name,omitempty"`
-	Description        string              `json:"description,omitempty"`
-	Model              string              `json:"model,omitempty"`
-	Type               string              `json:"type,omitempty"`
-	FirmwareVersion    string              `json:"firmware_version,omitempty"`
-	EthernetInterfaces []EthernetInterface `json:"ethernet_interfaces,omitempty"`
+	URI                    string              `json:"uri,omitempty"`
+	UUID                   string              `json:"uuid,omitempty"`
+	Name                   string              `json:"name,omitempty"`
+	Description            string              `json:"description,omitempty"`
+	Model                  string              `json:"model,omitempty"`
+	Type                   string              `json:"type,omitempty"`
+	FirmwareVersion        string              `json:"firmware_version,omitempty"`
+	EthernetInterfaces     []EthernetInterface `json:"ethernet_interfaces,omitempty"`
+	SerialConsoleSupported []string            `json:"serial_console"`
+	CommandShellSupported  []string            `json:"command_shell"`
 }
 
 type Links struct {
@@ -72,14 +73,26 @@ type Power struct {
 	PowerControlIDs []string `json:"power_control_ids,omitempty"`
 }
 
+type SerialConsoleConfig struct {
+	Port    int  `json:"port,omitempty"`
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+type SerialConsole struct {
+	IPMI   SerialConsoleConfig `json:"impi,omitempty"`
+	Telnet SerialConsoleConfig `json:"telnet,omitempty"`
+	SSH    SerialConsoleConfig `json:"ssh,omitempty"`
+}
+
 type InventoryDetail struct {
 	URI                  string              `json:"uri,omitempty"`                  // URI of the BMC
 	UUID                 string              `json:"uuid,omitempty"`                 // UUID of Node
 	Manufacturer         string              `json:"manufacturer,omitempty"`         // Manufacturer of the Node
 	SystemType           string              `json:"system_type,omitempty"`          // System type of the Node
 	Name                 string              `json:"name,omitempty"`                 // Name of the Node
-	Model                string              `json:"model,omitempty"`                // Model of the Node
-	Serial               string              `json:"serial,omitempty"`               // Serial number of the Node
+	ModelNumber          string              `json:"model,omitempty"`                // Model of the Node
+	SerialNumber         string              `json:"serial,omitempty"`               // Serial number of the Node
+	SerialConsole        SerialConsole       `json:"serial_console,omitempty"`       // Supported serial console types of the Node
 	BiosVersion          string              `json:"bios_version,omitempty"`         // Version of the BIOS
 	EthernetInterfaces   []EthernetInterface `json:"ethernet_interfaces,omitempty"`  // Ethernet interfaces of the Node
 	NetworkInterfaces    []NetworkInterface  `json:"network_interfaces,omitempty"`   // Network interfaces of the Node
@@ -147,7 +160,8 @@ func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
 	return client, nil
 }
 
-// CrawlBMCForSystems pulls all pertinent information from a BMC.  It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
+// CrawlBMCForSystems pulls all pertinent information from a BMC.
+// It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
 func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	var (
 		systems    = make(map[string]*InventoryDetail)
@@ -200,15 +214,12 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	rf_systems = append(rf_systems, rf_root_systems...)
 	newSystems, err := walkSystems(rf_systems, nil, config.URI)
 	if err != nil {
-		return extract_ptr_map_values(systems), fmt.Errorf("failed to get systems: %v", err)
+		return extractPtrMapValues(systems), fmt.Errorf("failed to get systems: %v", err)
 	}
 	// If nodes are found under both Chassis and Systems, Systems is assumed to be "more definitive"
 	// and will override corresponding fields from the Chassis version.
-	err = mergo.Merge(&systems, newSystems, mergo.WithOverride)
-	if err != nil {
-		return extract_ptr_map_values(systems), fmt.Errorf("failed to merge systems from Chassis and Systems endpoints: %v", err)
-	}
-	return extract_ptr_map_values(systems), nil
+	systems = merge(systems, newSystems)
+	return extractPtrMapValues(systems), nil
 }
 
 // CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -237,11 +248,14 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 
 	// Obtain the ServiceRoot
 	rf_service := client.GetService()
-	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+	log.Debug().
+		Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
 	rf_managers, err := rf_service.Managers()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get managers from ServiceRoot")
+		log.Error().
+			Err(err).
+			Msg("failed to get managers from ServiceRoot")
 	}
 	return walkManagers(rf_managers, config.URI)
 }
@@ -280,7 +294,9 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 		// get all of the links to managers
 		rf_managers, err := rf_computersystem.ManagedBy()
 		if err != nil {
-			log.Warn().Err(err).Msg("failed to get system managers")
+			log.Warn().
+				Err(err).
+				Msg("failed to get system managers")
 			log.Error().
 				Err(err).
 				Str("id", rf_computersystem.ID).
@@ -323,9 +339,23 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			Name:         rf_computersystem.Name,
 			Manufacturer: rf_computersystem.Manufacturer,
 			SystemType:   string(rf_computersystem.SystemType),
-			Model:        rf_computersystem.Model,
-			Serial:       rf_computersystem.SerialNumber,
-			BiosVersion:  rf_computersystem.BIOSVersion,
+			ModelNumber:  rf_computersystem.Model,
+			SerialNumber: rf_computersystem.SerialNumber,
+			SerialConsole: SerialConsole{
+				IPMI: SerialConsoleConfig{
+					Port:    rf_computersystem.SerialConsole.IPMI.Port,
+					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
+				},
+				SSH: SerialConsoleConfig{
+					Port:    rf_computersystem.SerialConsole.SSH.Port,
+					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
+				},
+				Telnet: SerialConsoleConfig{
+					Port:    rf_computersystem.SerialConsole.Telnet.Port,
+					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
+				},
+			},
+			BiosVersion: rf_computersystem.BIOSVersion,
 			Links: Links{
 				Managers: managerLinks,
 				Chassis:  chassisLinks,
@@ -350,6 +380,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			system.Chassis_Model = rf_chassis.Model
 		}
 
+		// add ethernet interfaces
 		rf_ethernetinterfaces, err := rf_computersystem.EthernetInterfaces()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to get ethernet interfaces from computer system")
@@ -375,6 +406,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			return systems, err
 		}
 
+		// add network interfaces
 		for _, rf_networkInterface := range rf_networkInterfaces {
 			rf_networkAdapter, err := rf_networkInterface.NetworkAdapter()
 			if err != nil {
@@ -451,15 +483,26 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 				IP:          rf_ethernetinterface.IPv4Addresses[0].Address,
 			})
 		}
+
+		var supported_serial_console []string
+		for _, console_type := range rf_manager.SerialConsole.ConnectTypesSupported {
+			supported_serial_console = append(supported_serial_console, string(console_type))
+		}
+		var supported_command_shell []string
+		for _, shell_type := range rf_manager.CommandShell.ConnectTypesSupported {
+			supported_command_shell = append(supported_command_shell, string(shell_type))
+		}
 		managers = append(managers, Manager{
-			URI:                baseURI + "/redfish/v1/Managers/" + rf_manager.ID,
-			UUID:               rf_manager.UUID,
-			Name:               rf_manager.Name,
-			Description:        rf_manager.Description,
-			Model:              rf_manager.Model,
-			Type:               string(rf_manager.ManagerType),
-			FirmwareVersion:    rf_manager.FirmwareVersion,
-			EthernetInterfaces: ethernet_interfaces,
+			URI:                    baseURI + "/redfish/v1/Managers/" + rf_manager.ID,
+			UUID:                   rf_manager.UUID,
+			Name:                   rf_manager.Name,
+			Description:            rf_manager.Description,
+			Model:                  rf_manager.Model,
+			Type:                   string(rf_manager.ManagerType),
+			FirmwareVersion:        rf_manager.FirmwareVersion,
+			EthernetInterfaces:     ethernet_interfaces,
+			SerialConsoleSupported: supported_serial_console,
+			CommandShellSupported:  supported_command_shell,
 		})
 	}
 	return managers, nil
@@ -514,10 +557,18 @@ func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
 	}
 }
 
-func extract_ptr_map_values[T any](m map[string]*T) []T {
+func extractPtrMapValues[T any](m map[string]*T) []T {
 	slice := make([]T, 0, len(m))
 	for i := range m {
 		slice = append(slice, *m[i])
 	}
 	return slice
+}
+
+func merge(systems map[string]*InventoryDetail, newSystems []InventoryDetail) map[string]*InventoryDetail {
+	// add and replace values in systems with values from newSystems
+	for _, system := range newSystems {
+		systems[system.URI] = &system
+	}
+	return systems
 }

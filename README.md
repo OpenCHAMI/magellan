@@ -8,25 +8,26 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [OpenCHAMI Magellan](#openchami-magellan)
-  - [Main Features](#main-features)
-  - [Getting Started](#getting-started)
-  - [Building the Executable](#building-the-executable)
-    - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
-    - [Docker](#docker)
-    - [Arch Linux (AUR)](#arch-linux-aur)
-  - [Usage](#usage)
-    - [Checking for Redfish](#checking-for-redfish)
-    - [BMC ID Mapping](#bmc-id-mapping)
-    - [Running the Tool](#running-the-tool)
-    - [Managing Secrets](#managing-secrets)
-    - [Starting the Emulator](#starting-the-emulator)
-    - [Updating Firmware](#updating-firmware)
-    - [Managing Power](#managing-power)
-    - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
-    - [Running with Docker](#running-with-docker)
-  - [How It Works](#how-it-works)
-  - [TODO](#todo)
-  - [Copyright](#copyright)
+	- [Main Features](#main-features)
+	- [Getting Started](#getting-started)
+	- [Documentation](#documentation)
+	- [Building the Executable](#building-the-executable)
+		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+		- [Docker](#docker)
+		- [Arch Linux (AUR)](#arch-linux-aur)
+	- [Usage](#usage)
+		- [Checking for Redfish](#checking-for-redfish)
+		- [BMC ID Mapping](#bmc-id-mapping)
+		- [Running the Tool](#running-the-tool)
+		- [PDU Inventory Collection](#pdu-inventory-collection)
+		- [Starting the Emulator](#starting-the-emulator)
+		- [Updating Firmware](#updating-firmware)
+		- [Managing Power](#managing-power)
+		- [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+		- [Running with Docker](#running-with-docker)
+	- [How It Works](#how-it-works)
+	- [TODO](#todo)
+	- [Copyright](#copyright)
 
 <!-- TOC end -->
 
@@ -49,6 +50,20 @@ See the [TODO](#todo) section for a list of soon-ish goals planned.
 ## Getting Started
 
 [Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be run by executing the `emulator/setup.sh` script or running `make emulator`.
+
+## Documentation
+
+There is detailed documentation included with the project's repository that can be built using `scdoc` and `go doc`.
+
+To build the documentation, invoke the following commands.
+
+```bash
+# man page documentation
+make man
+
+# API reference documentation
+make docs
+```
 
 ## Building the Executable
 
@@ -158,7 +173,6 @@ Where the `map_key` is the name of the attribute known to `magellan` that identi
 x<cabinet>c<chassis>s<shelf>b<blade>
 ```
 
-
 where `<cabinet>` is a cabinet number in the cluster, `<chassis>` is a chassis within the cabinet, `<shelf>` is the shelf within the chassis and `<blade>` is the blade within a shelf where the BMC is located. The above mapping file (minus the elipsis) will work with the example described in the [Starting the Emulator](#starting-the-emulator) section.
 
 If you are using `magellan` within a system deployed using RIE in the [Quickstart Deployment Recipe](https://github.com/OpenCHAMI/deployment-recipes/blob/main/quickstart/README.md) you can generate a BMC ID Map with XNAMEs that match the RIE configured XNAMEs from the RIE instances running under `docker-compose`. You can do this outside of the docker containers by running this script:
@@ -239,6 +253,9 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
     --format json \
     --cache data/assets.db
 ```
+
+> [!NOTE]
+> Make sure to include the `--insecure` flag if the BMC does not require TLS verification when using HTTPS.
 
 This will scan the `172.16.0.0` subnet returning the host and port that return a response and store the results in a local cache with at the `data/assets.db` path. Additional flags can be set such as `--host` to add more hosts to scan that are not included on the subnet, `--timeout` to set how long to wait for a response from the BMC node, or `--concurrency` to set the number of requests to make concurrently with goroutines. Try using `./magellan help scan` for a complete set of options this subcommand. Alternatively, the same scan can be started using CIDR notation and with additional hosts:
 

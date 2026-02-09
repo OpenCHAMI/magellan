@@ -24,7 +24,7 @@ func NewLocalSecretStore(masterKeyHex, filename string, create bool) (*LocalSecr
 
 	masterKey, err := hex.DecodeString(masterKeyHex)
 	if err != nil {
-		return nil, fmt.Errorf("unable to generate masterkey from hex representation: %v", err)
+		return nil, fmt.Errorf("failed to generate masterkey from hex representation: %v", err)
 	}
 
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
@@ -33,11 +33,13 @@ func NewLocalSecretStore(masterKeyHex, filename string, create bool) (*LocalSecr
 		}
 		file, err := os.Create(filename)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create file %s: %v", filename, err)
+			return nil, fmt.Errorf("failed to create file %s: %v", filename, err)
 		}
-		if err = file.Close(); err != nil {
-			log.Warn().Err(err).Msg("could not close file")
-		}
+		defer func() {
+			if err = file.Close(); err != nil {
+				log.Warn().Err(err).Msg("could not close file")
+			}
+		}()
 
 		secrets = make(map[string]string)
 	}
@@ -45,7 +47,7 @@ func NewLocalSecretStore(masterKeyHex, filename string, create bool) (*LocalSecr
 	if secrets == nil {
 		secrets, err = loadSecrets(filename)
 		if err != nil {
-			return nil, fmt.Errorf("unable to load secrets from file: %v", err)
+			return nil, fmt.Errorf("failed to load secrets from file: %v", err)
 		}
 	}
 
@@ -144,12 +146,16 @@ func SaveSecrets(jsonFile string, store map[string]string) error {
 	if err != nil {
 		return err
 	}
-
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Warn().
+				Err(err).
+				Str("path", jsonFile).
+				Msg("could not close file")
+		}
+	}()
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	if err := file.Close(); err != nil {
-		log.Warn().Err(err).Msg("could not close file")
-	}
 	return encoder.Encode(store)
 }
 
@@ -157,14 +163,22 @@ func SaveSecrets(jsonFile string, store map[string]string) error {
 func loadSecrets(jsonFile string) (map[string]string, error) {
 	file, err := os.Open(jsonFile)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open secret file %s:%v", jsonFile, err)
+		return nil, fmt.Errorf("failed to open secret file %s:%v", jsonFile, err)
 	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Warn().
+				Err(err).
+				Str("path", jsonFile).
+				Msg("could not close file")
+		}
+	}()
 
 	store := make(map[string]string)
 	decoder := json.NewDecoder(file)
-	if err = file.Close(); err != nil {
-		log.Warn().Err(err).Msg("could not close file")
-	}
 	err = decoder.Decode(&store)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode file: %v", err)
+	}
 	return store, err
 }

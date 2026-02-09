@@ -65,7 +65,7 @@ var rootCmd = &cobra.Command{
 		}
 	},
 	PostRun: func(cmd *cobra.Command, args []string) {
-		log.Debug().Msg("closing log file")
+		log.Debug().Str("path", logFile).Msg("closing log file")
 		err := logger.LogFile.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to close log file")
@@ -147,12 +147,7 @@ func InitializeConfig() {
 		viper.SetConfigFile(configPath)
 	}
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			err = fmt.Errorf("config file not found: %w", err)
-		} else {
-			err = fmt.Errorf("failed to load config file: %w", err)
-		}
-		log.Warn().Err(err).Msg("failed to load config")
+		log.Debug().Err(err).Msg("failed to load config")
 	}
 }
 

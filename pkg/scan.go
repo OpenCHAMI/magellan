@@ -22,7 +22,18 @@ type RemoteAsset struct {
 	Protocol    string    `json:"protocol"`
 	State       bool      `json:"state"`
 	Timestamp   time.Time `json:"timestamp"`
-	ServiceType string    `json:"service_type,omitempty"`
+	ServiceType Scanner   `json:"service_type,omitempty"`
+}
+
+type Scanner string
+
+const (
+	BMC Scanner = "bmcs"
+	PDU Scanner = "pdus"
+)
+
+func (st Scanner) String() string {
+	return string(st)
 }
 
 func (ra *RemoteAsset) String() string {
@@ -42,8 +53,6 @@ type ScanParams struct {
 	Concurrency    int
 	Timeout        int
 	DisableProbing bool
-	Verbose        bool
-	Debug          bool
 	Insecure       bool
 	Include        []string
 }
@@ -65,10 +74,14 @@ type ScanParams struct {
 // Returns a list of scanned results to be stored in cache (but isn't doing here).
 func ScanForAssets(params *ScanParams) []RemoteAsset {
 	var (
-		results   = make([]RemoteAsset, 0, len(params.TargetHosts))
+		results   []RemoteAsset
 		done      = make(chan struct{}, params.Concurrency+1)
 		chanHosts = make(chan []string, params.Concurrency+1)
 	)
+
+	if len(params.TargetHosts) == 0 {
+		return []RemoteAsset{}
+	}
 
 	log.Trace().Any("hosts", params.TargetHosts).Msg("starting scan...")
 
@@ -106,9 +119,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 					foundAssets, err := rawConnect(host, params.Protocol, params.Timeout, true)
 					// if we failed to connect, exit from the function
 					if err != nil {
-						if params.Verbose {
-							log.Debug().Err(err).Msgf("failed to connect to host")
-						}
+						log.Trace().Err(err).Msgf("failed to connect to host")
 						continue
 					}
 					if !params.DisableProbing {
@@ -116,29 +127,50 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 						for _, foundAsset := range foundAssets {
 							for _, probe := range probesToRun {
 								probeURL := fmt.Sprintf("%s:%d%s", foundAsset.Host, foundAsset.Port, probe.Path)
-								req, err := http.NewRequest("GET", probeURL, nil)
+								req, err := http.NewRequest(http.MethodGet, probeURL, nil)
 								if err != nil {
+									log.Warn().
+										Err(err).
+										Str("uri", probeURL).
+										Msg("could not make probing request")
 									continue
 								}
 
 								res, err := probeClient.Do(req)
 								if err == nil && res != nil && res.StatusCode == http.StatusOK {
 									if err := res.Body.Close(); err != nil {
-										log.Warn().Err(err).Msg("could not close response resource")
+										log.Warn().
+											Err(err).
+											Str("url", probeURL).
+											Msg("could not close response resource")
 									}
-									foundAsset.ServiceType = probe.Type
+									foundAsset.ServiceType = Scanner(probe.Type)
 									assetsToAdd = append(assetsToAdd, foundAsset)
+									log.Debug().
+										Str("host", foundAsset.Host).
+										Msg("adding found asset to results after probing")
+
 									break // Found a valid service, no need to probe other types
+								} else if err != nil {
+									log.Error().
+										Err(err).
+										Str("url", probeURL).
+										Msg("failed to perform request")
 								}
 								if res != nil {
 									if err := res.Body.Close(); err != nil {
-										log.Warn().Err(err).Msg("could not close response resource")
+										log.Warn().
+											Err(err).
+											Msg("could not close response resource")
 									}
 								}
 							}
 						}
 						results = append(results, assetsToAdd...)
 					} else {
+						log.Debug().
+							Int("count", len(foundAssets)).
+							Msg("adding found assets to results without probing")
 						results = append(results, foundAssets...)
 					}
 				}
@@ -162,7 +194,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 	wg.Wait()
 	close(done)
 
-	log.Trace().Msg("scan complete")
+	log.Debug().Int("asset_count", len(results)).Msg("scan complete")
 	return results
 }
 

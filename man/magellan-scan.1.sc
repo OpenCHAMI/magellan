@@ -11,7 +11,7 @@ magellan scan [OPTIONS] _host_...
 # EXAMPLES
 
 // assumes host https://10.0.0.101:443++
-magellan scan 10.0.0.101
+magellan scan 10.0.0.101 --insecure
 
 // assumes subnet using HTTPS and port 443 except for specified host++
 magellan scan http://10.0.0.101:80 https://$user:$password@10.0.0.102:443 http://172.16.0.105:8080 --subnet 172.16.0.0/24
@@ -20,10 +20,10 @@ magellan scan http://10.0.0.101:80 https://$user:$password@10.0.0.102:443 http:/
 magellan scan 10.0.0.101 10.0.0.102 https://172.16.0.10:443 --port 8080 --protocol tcp
 
 // assumes subnet using default unspecified subnet-masks++
-magellan scan --subnet 10.0.0.0
+magellan scan --subnet 10.0.0.0 -i
 
 // assumes subnet using HTTPS and port 443 with specified CIDR++
-magellan scan --subnet 10.0.0.0/16
+magellan scan --subnet 10.0.0.0/16 -i
 
 // assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16++
 magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
@@ -83,7 +83,6 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 	It is recommended that the *--insecure* flag be set to *true* in when the BMC
 	does not require TLS verification for HTTPS requests.
 	
-
 *-o, --output* _path_
 	Output file path (for json/yaml formats)
 

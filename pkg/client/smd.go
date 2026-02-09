@@ -59,7 +59,12 @@ func (c *SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 				return fmt.Errorf("returned status code %d when adding endpoint", res.StatusCode)
 			}
 		}
-		log.Debug().Msgf("%v (%v)\n%s\n", url, res.Status, string(body))
+		log.Debug().
+			Str("url", url).
+			Str("status", res.Status).
+			Int("status_code", res.StatusCode).
+			RawJSON("body", body).
+			Send()
 	}
 	return err
 }

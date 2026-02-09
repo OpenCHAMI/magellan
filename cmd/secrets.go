@@ -28,7 +28,7 @@ var secretsCmd = &cobra.Command{
   magellan secrets store $bmc_host $bmc_creds
 
   // retrieve creds from secrets store
-  magellan secrets retrieve $bmc_host -f nodes.json
+  magellan secrets retrieve $bmc_host -f secrets.json
 
   // list creds from specific secrets
   magellan secrets list -f nodes.json`,
@@ -43,8 +43,8 @@ var secretsGenerateKeyCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := secrets.GenerateMasterKey()
 		if err != nil {
-			fmt.Printf("Error generating master key: %v\n", err)
-			os.Exit(1)
+			log.Error().Err(err).Msg("failed to generate master key")
+			return
 		}
 		fmt.Printf("%s\n", key)
 	},
@@ -65,8 +65,8 @@ var secretsStoreCmd = &cobra.Command{
 
 		// require either the args or input file
 		if len(args) < 1 && secretsStoreInputFile == "" {
-			log.Error().Msg("no input data or file")
-			os.Exit(1)
+			log.Error().Msg("requires input data or file")
+			return
 		} else if len(args) > 1 && secretsStoreInputFile == "" {
 			// use args[1] here because args[0] is the secretID
 			secretValue = args[1]
@@ -80,6 +80,7 @@ var secretsStoreCmd = &cobra.Command{
 				username string
 				password string
 			)
+
 			// seperate username and password provided
 			values = strings.Split(secretValue, ":")
 			if len(values) != 2 {
@@ -104,19 +105,28 @@ var secretsStoreCmd = &cobra.Command{
 		case "base64": // format: ($encoded_base64_string)
 			decoded, err := base64.StdEncoding.DecodeString(secretValue)
 			if err != nil {
-				log.Error().Err(err).Msg("error decoding base64 data")
+				log.Error().
+					Err(err).
+					Str("path", secretsFile).
+					Msg("failed to decode base64 data")
 				return
 			}
 
 			// check the decoded string if it's a valid JSON and has creds
 			if !isValidCredsJSON(string(decoded)) {
-				log.Error().Err(err).Msg("value is not a valid JSON or is missing credentials")
+				log.Error().
+					Err(err).
+					Str("path", secretsFile).
+					Msg("invalid JSON value or is missing credentials")
 				return
 			}
 
 			store, err = secrets.OpenStore(secretsFile)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to open secrets store")
+				log.Error().
+					Err(err).
+					Str("path", secretsFile).
+					Msg("failed to open secrets store")
 				os.Exit(1)
 			}
 			secretValue = string(decoded)
@@ -124,12 +134,16 @@ var secretsStoreCmd = &cobra.Command{
 			// read input from file if set and override
 			if secretsStoreInputFile != "" {
 				if secretValue != "" {
-					log.Error().Msg("cannot use -i/--input-file with positional argument")
+					log.Error().
+						Str("input-file", secretsStoreInputFile).
+						Msg("cannot use -i/--input-file with positional argument")
 					return
 				}
 				inputFileBytes, err = os.ReadFile(secretsStoreInputFile)
 				if err != nil {
-					log.Error().Err(err).Msg("failed to read input file")
+					log.Error().
+						Err(err).
+						Msg("failed to read input file")
 					return
 				}
 				secretValue = string(inputFileBytes)
@@ -137,22 +151,30 @@ var secretsStoreCmd = &cobra.Command{
 
 			// make sure we have valid JSON with "username" and "password" properties
 			if !isValidCredsJSON(secretValue) {
-				log.Error().Err(err).Msg("not a valid JSON or creds")
+				log.Error().
+					Err(err).
+					Msg("invalid JSON value or creds")
 				os.Exit(1)
 			}
 			store, err = secrets.OpenStore(secretsFile)
 			if err != nil {
-				fmt.Println(err)
-				log.Error().Err(err).Msg("failed to open secret store")
+				log.Error().
+					Err(err).
+					Str("path", secretsFile).
+					Msg("failed to open secret store")
 				os.Exit(1)
 			}
 		default:
-			log.Error().Msg("no input format set")
+			log.Error().Msg("invalid format (see --format flag for options)")
 			os.Exit(1)
 		}
 
 		if err := store.StoreSecretByID(secretID, secretValue); err != nil {
-			log.Error().Err(err).Msg("failed to store secret by ID")
+			log.Error().
+				Err(err).
+				Str("id", secretID).
+				Str("path", secretsFile).
+				Msg("failed to store secret by ID")
 			os.Exit(1)
 		}
 	},
@@ -224,7 +246,7 @@ var secretsListCmd = &cobra.Command{
 }
 
 var secretsRemoveCmd = &cobra.Command{
-	Use:   "remove secretIDs...",
+	Use:   "remove secret_ids...",
 	Args:  cobra.MinimumNArgs(1),
 	Short: "Remove secrets by IDs from secret store.",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -232,21 +254,32 @@ var secretsRemoveCmd = &cobra.Command{
 			// open secret store from file
 			store, err := secrets.OpenStore(secretsFile)
 			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				log.Error().
+					Err(err).
+					Str("path", secretsFile).
+					Msg("failed to open secret store")
+				return
 			}
 
 			// remove secret from store by it's ID
 			err = store.RemoveSecretByID(secretID)
 			if err != nil {
-				fmt.Println("failed to remove secret: ", err)
-				os.Exit(1)
+				log.Error().
+					Err(err).
+					Str("id", secretID).
+					Str("path", secretsFile).
+					Msg("failed to remove secret")
+				return
 			}
 
 			// update store by saving to original file
 			err = secrets.SaveSecrets(secretsFile, store.(*secrets.LocalSecretStore).Secrets)
 			if err != nil {
-				log.Error().Err(err).Str("path", secretsFile).Msg("failed to save secrets to file")
+				log.Error().
+					Err(err).
+					Str("path", secretsFile).
+					Msg("failed to save secrets to file")
+				return
 			}
 		}
 	},
