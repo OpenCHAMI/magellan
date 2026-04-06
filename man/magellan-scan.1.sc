@@ -25,8 +25,8 @@ magellan scan --subnet 10.0.0.0 -i
 // assumes subnet using HTTPS and port 443 with specified CIDR++
 magellan scan --subnet 10.0.0.0/16 -i
 
-// same as above example but output is in JSON
-magellan scan --subnet 10.0.0.0/16 -i -f json
+// same as above example but output is in JSON without caching
+magellan scan --subnet 10.0.0.0/16 -i -f json --disable-cache
 
 // assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16++
 magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
@@ -38,7 +38,7 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 
 *--disable-cache*
 	Disable saving found remote assets that respond to a Redfish request to a
-	cache database specified with *--cache* flag. By default, the cache is saved
+	cache database specifiead with *--cache* flag. By default, the cache is saved
 	at */tmp/$USER/magellan/assets.db* as a SQLite3 file with a table named
 	*magellan_scanned_assets*. It is set to _false_ by default.
 
