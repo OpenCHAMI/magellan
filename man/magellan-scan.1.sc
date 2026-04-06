@@ -25,10 +25,13 @@ magellan scan --subnet 10.0.0.0 -i
 // assumes subnet using HTTPS and port 443 with specified CIDR++
 magellan scan --subnet 10.0.0.0/16 -i
 
+// same as above example but output is in JSON
+magellan scan --subnet 10.0.0.0/16 -i -f json
+
 // assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16++
 magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
 
-// assumes subnet without CIDR has a subnet-mask of 255.255.0.0++
+// assumes subnet without CIDR has a subnet-mask of 255.255.0.0
 magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db
 
 # FLAGS
