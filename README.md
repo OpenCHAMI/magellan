@@ -19,6 +19,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 		- [Checking for Redfish](#checking-for-redfish)
 		- [BMC ID Mapping](#bmc-id-mapping)
 		- [Running the Tool](#running-the-tool)
+			- [Modular Workflows](#modular-workflows)
 		- [PDU Inventory Collection](#pdu-inventory-collection)
 		- [Starting the Emulator](#starting-the-emulator)
 		- [Updating Firmware](#updating-firmware)
@@ -213,8 +214,9 @@ If you are using `magellan` in an application that is not OpenCHAMI and have a n
 
 There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand which will print this output:
 
-```
-Redfish-based BMC discovery tool
+```bash
+magellan help     
+Redfish-based BMC discovery tool with dynamic discovery features.
 
 Usage:
   magellan [flags]
@@ -227,21 +229,25 @@ Available Commands:
   help        Help about any command
   list        List information stored in cache from a scan
   login       Log in with identity provider for access token
+  power       Get and set node power states
   scan        Scan to discover BMC nodes on a network
+  secrets     Manage credentials for BMC nodes
+  send        Send collected node information to specified host.
   update      Update BMC node firmware
   version     Print version info and exit
 
 Flags:
       --access-token string   Set the access token
       --cache string          Set the scanning result cache path (default "/tmp/allend/magellan/assets.db")
-      --concurrency int       Set the number of concurrent processes (default -1)
+  -j, --concurrency int       Set the number of concurrent processes (default -1)
   -c, --config string         Set the config file path
-  -d, --debug                 Set to enable/disable debug messages
   -h, --help                  help for magellan
-      --timeout int           Set the timeout for requests (default 5)
-  -v, --verbose               Set to enable/disable verbose output
+      --log-file string       Set the path to store a log file
+  -l, --log-level LogLevel    Set the logger log-level (debug|info|warn|error|trace|disabled) (default info)
+  -t, --timeout int           Set the timeout for requests in seconds (default 5)
 
 Use "magellan [command] --help" for more information about a command.
+
 ```
 
 To start a network scan for BMC nodes, use the `scan` command. If the port is not specified, `magellan` will probe the common Redfish port 443 by default:
@@ -294,7 +300,7 @@ magellan send -F yaml -d @nodes.yaml https://example.openchami.cluster:8443
 
 This allows for modification of the data before making the request. However, be cautious as there is no data validation done before the request is made.
 
-Alternatively, we can pass the output of `collect` into `send` using pipes. The `--verbose` flag is currently required to do this.
+Alternatively, we can pass the output of `collect` into `send` using pipes. See the ["Modular Workflows"](#modular-workflows) section for more details.
 
 ```bash
 # collect and send data in YAML format
@@ -303,14 +309,13 @@ magellan collect -u $USERNAME -p $PASSWORD -v -F yaml | magellan send -F yaml ht
 # collect and send data using default JSON format and secret store (see below)
 export MASTER_KEY=mysecret
 magellan secrets store default $USERNAME:$PASSWORD
-magellan collect -v | magellan send https://example.openchami.cluster:8443
+magellan collect | magellan send https://example.openchami.cluster:8443
 ```
 
 This maintains the original behavior of passing the `--host` flag to `collect` with the added flexibility of having the intermediate step.
 
 > [!TIP]
 > If the `cache` flag is not set, `magellan` will use `/tmp/$USER/magellan.db` by default.
-
 
 > [!TIP]
 > The output of `collect` can be saved in separate directories using the `-O/--output-dir` flag. The output will be organized similar to below for the following command in YAML format:
@@ -323,6 +328,29 @@ This maintains the original behavior of passing the `--host` flag to `collect` w
 > └── x1000c1s7b1
 >     └── 1747550498.yaml
 > ```
+
+#### Modular Workflows
+
+The `magellan` CLI commands can be ran in a single command or broken up to run different parts of the workflow without needing to write to the filesystem. 
+
+For example, the `scan`, `collect`, and `send` can be done in a single command.
+
+```bash
+# scan -> collect -> send
+magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | magellan collect -f json --show-output -i | magellan send https://smd.example.com
+```
+
+Alternatively, we can run `scan -> collect` and `collect -> send` parts separately if we're only interested in performing one part of the process.
+
+```bash
+# scan -> collect
+magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | magellan collect -f json --show-output -i
+
+# collect -> send
+magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https://smd.example.com
+```
+
+> [!NOTE] See `magellan-send(1)` and `magellan-collect(1)` documentation for more info and examples.
 
 ### PDU Inventory Collection
 
