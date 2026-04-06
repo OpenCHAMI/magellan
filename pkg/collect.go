@@ -20,7 +20,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 	"golang.org/x/exp/slices"
