@@ -36,8 +36,7 @@ var (
 // related to the implementation.
 var ScanCmd = &cobra.Command{
 	Use: "scan urls...",
-	Example: `
-  // assumes host https://10.0.0.101:443
+	Example: `  // assumes host https://10.0.0.101:443
   magellan scan 10.0.0.101 --insecure
 
   // assumes subnet using HTTPS and port 443 except for specified host
