@@ -51,6 +51,9 @@ var ScanCmd = &cobra.Command{
   // assumes subnet using HTTPS and port 443 with specified CIDR
   magellan scan --subnet 10.0.0.0/16 -i
 
+  // same as above example but output is in JSON without caching
+  magellan scan --subnet 10.0.0.0/16 -i -f json --disable-cache
+
   // assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16
   magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
 

@@ -39,7 +39,14 @@ var CollectCmd = &cobra.Command{
   // run a collect using secrets from the secrets manager
   export MASTER_KEY=$(magellan secrets generatekey)
   magellan secrets store $node_creds_json -f nodes.json
-  magellan collect -o nodes.yaml`,
+  magellan collect -o nodes.yaml
+
+  // Take the output of 'scan' and input directly into 'collect'
+  magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan collect -f json --show-output -i
+  
+  // Complete flow combined as a single line
+  magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan collect -f json --show-output -i | magellan send https://smd.example.com
+  `,
 	Short: "Collect system information by interrogating BMC node",
 	Long:  "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.",
 	Run: func(cmd *cobra.Command, args []string) {
