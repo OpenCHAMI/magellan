@@ -166,10 +166,14 @@ var ScanCmd = &cobra.Command{
 				} else {
 					fmt.Println(string(output))
 				}
+				// stop here so we don't write to cache if using JSON or YAML
+				return
 			default:
 				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanFormat)
 			}
 		}
+
+		// write to a cache file if not disabled at specified path
 		if !disableCache && cachePath != "" {
 			err := os.MkdirAll(path.Dir(cachePath), 0755)
 			if err != nil {
