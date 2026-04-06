@@ -151,7 +151,7 @@ func init() {
 	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
 	CrawlCmd.Flags().BoolVar(&showOutput, "show", false, "Show the output of a crawl")
 	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
-	CrawlCmd.Flags().VarP(&crawlOutputFormat, "format", "F", "Set the output format (json|yaml)")
+	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml)")
 
 	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("format", completionFormatData))
 
