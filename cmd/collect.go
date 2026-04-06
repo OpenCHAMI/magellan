@@ -9,16 +9,20 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
 	"github.com/OpenCHAMI/magellan/internal/format"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
-	"github.com/OpenCHAMI/magellan/pkg/auth"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	_ "modernc.org/sqlite"
 )
 
-var collectOutputFormat format.DataFormat = format.FORMAT_JSON
+var (
+	collectInputFormat  format.DataFormat = format.FORMAT_JSON
+	collectOutputFormat format.DataFormat = format.FORMAT_JSON
+	collectDataArgs     []string
+)
 
 // The `collect` command fetches data from a collection of BMC nodes.
 // This command should be ran after the `scan` to find available hosts
@@ -40,16 +44,50 @@ var CollectCmd = &cobra.Command{
 	Long:  "Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan
-		scannedResults, err := sqlite.GetScannedAssets(cachePath)
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to get scanned results from cache")
-		}
+		var (
+			scannedResults []magellan.RemoteAsset
+			err            error
+		)
+		if cachePath != "" {
+			scannedResults, err = sqlite.GetScannedAssets(cachePath)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to get scanned results from cache")
+			}
+		} else {
+			// try to get the data from standard input or the -d/--data flag
+			for _, arg := range args {
+				var asset magellan.RemoteAsset
+				err = format.UnmarshalData([]byte(arg), &asset, collectInputFormat)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to unmarshal data from standard input")
+					continue
+				}
+			}
 
-		// try to load access token either from env var, file, or config if var not set
-		if accessToken == "" {
-			var err error
-			accessToken, err = auth.LoadAccessToken(tokenPath)
-			log.Warn().Err(err).Msgf("could not load access token")
+			var inputData []map[string]any
+			temp := append(handleArgs(args), processDataArgs(sendDataArgs)...)
+			for _, data := range temp {
+				if data != nil {
+					inputData = append(inputData, data)
+				}
+			}
+			if len(inputData) == 0 {
+				log.Error().Msg("data required with standard input or -d/--data flag")
+				os.Exit(1)
+			}
+
+			// show the data that was just loaded as input
+			// inputRaw, _ := json.MarshalIndent(inputData, "", "  ")
+			log.Debug().Int("endpoint_count", len(inputData)).Send()
+
+			// build and append target hosts from input data
+			// for _, dataObject := range inputData {
+			// 	// assert that we have certain values in data object
+			// 	var asset magellan.RemoteAsset
+			// 	format.UnmarshalData()
+			// 	host := dataObject["host"].(string)
+
+			// }
 		}
 
 		// set the minimum/maximum number of concurrent processes
@@ -153,13 +191,18 @@ func init() {
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
 	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
 	CollectCmd.Flags().BoolVar(&showOutput, "show", false, "Show the output of a collect run")
-	CollectCmd.Flags().VarP(&collectOutputFormat, "format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions)")
+	CollectCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
+	CollectCmd.Flags().VarP(&collectInputFormat, "input-format", "f", "Set the default input data format (json|yaml)")
+	CollectCmd.Flags().VarP(&collectOutputFormat, "output-format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions)")
 	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
+	CollectCmd.Flags().StringArrayVarP(&collectDataArgs, "data", "d", []string{}, "Set the data as input for collect (prepend @ for files)")
 
+	// set mutually exclusive flags
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
 
 	// register completion flag functions
-	checkRegisterFlagCompletionError(CollectCmd.RegisterFlagCompletionFunc("format", completionFormatData))
+	checkRegisterFlagCompletionError(CollectCmd.RegisterFlagCompletionFunc("input-format", completionFormatData))
+	checkRegisterFlagCompletionError(CollectCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 
 	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
