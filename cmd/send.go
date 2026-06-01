@@ -145,7 +145,7 @@ func init() {
 	sendCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 
-	checkRegisterFlagCompletionError(sendCmd.RegisterFlagCompletionFunc("format", completionFormatData))
+	checkRegisterFlagCompletionError(sendCmd.RegisterFlagCompletionFunc("input-format", completionFormatData))
 	rootCmd.AddCommand(sendCmd)
 }
 
