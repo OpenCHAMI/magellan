@@ -61,7 +61,7 @@ var CollectCmd = &cobra.Command{
 				log.Error().Err(err).Msgf("failed to get scanned results from cache")
 			}
 		} else {
-			// try to get the data from standard input or the -d/--data flag
+			// unmarshal directly from standard input
 			for _, arg := range args {
 				var asset magellan.RemoteAsset
 				err = format.UnmarshalData([]byte(arg), &asset, collectInputFormat)
@@ -72,6 +72,7 @@ var CollectCmd = &cobra.Command{
 				scannedResults = append(scannedResults, asset)
 			}
 
+			// process input provided from the -d/--data flag
 			var inputData []map[string]any
 			temp := append(handleArgs(args), processDataArgs(sendDataArgs)...)
 			for _, data := range temp {
@@ -85,17 +86,25 @@ var CollectCmd = &cobra.Command{
 			}
 
 			// show the data that was just loaded as input
-			// inputRaw, _ := json.MarshalIndent(inputData, "", "  ")
 			log.Debug().Int("endpoint_count", len(inputData)).Send()
 
 			// build and append target hosts from input data
-			// for _, dataObject := range inputData {
-			// 	// assert that we have certain values in data object
-			// 	var asset magellan.RemoteAsset
-			// 	format.UnmarshalData(inputData, asset, collectInputFormat)
-			// 	host := dataObject["host"].(string)
-
-			// }
+			for _, dataObject := range inputData {
+				// assert that we have certain values in data object
+				var (
+					asset    magellan.RemoteAsset
+					inputRaw []byte
+				)
+				inputRaw, err = format.MarshalData(dataObject, collectInputFormat)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to marshal input data")
+				}
+				err = format.UnmarshalData(inputRaw, asset, collectInputFormat)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to unmarshal input data")
+				}
+				scannedResults = append(scannedResults, asset)
+			}
 		}
 
 		// set the minimum/maximum number of concurrent processes
