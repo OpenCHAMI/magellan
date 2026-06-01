@@ -99,7 +99,7 @@ var CollectCmd = &cobra.Command{
 				if err != nil {
 					log.Error().Err(err).Msg("failed to marshal input data")
 				}
-				err = format.UnmarshalData(inputRaw, asset, collectInputFormat)
+				err = format.UnmarshalData(inputRaw, &asset, collectInputFormat)
 				if err != nil {
 					log.Error().Err(err).Msg("failed to unmarshal input data")
 				}
