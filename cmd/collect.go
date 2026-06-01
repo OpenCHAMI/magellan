@@ -69,6 +69,7 @@ var CollectCmd = &cobra.Command{
 					log.Warn().Err(err).Msg("failed to unmarshal data from standard input")
 					continue
 				}
+				scannedResults = append(scannedResults, asset)
 			}
 
 			var inputData []map[string]any
@@ -91,7 +92,7 @@ var CollectCmd = &cobra.Command{
 			// for _, dataObject := range inputData {
 			// 	// assert that we have certain values in data object
 			// 	var asset magellan.RemoteAsset
-			// 	format.UnmarshalData()
+			// 	format.UnmarshalData(inputData, asset, collectInputFormat)
 			// 	host := dataObject["host"].(string)
 
 			// }
