@@ -199,10 +199,14 @@ func init() {
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
-	ScanCmd.Flags().VarP(&scanFormat, "format", "F", "Output format (json, yaml)")
+	ScanCmd.Flags().VarP(&scanFormat, "output-format", "F", "Output format (json, yaml)")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
 	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
 
+	// register completion flag functions
+	checkRegisterFlagCompletionError(ScanCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
+
+	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
 	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("scan.protocol", ScanCmd.Flags().Lookup("protocol")))

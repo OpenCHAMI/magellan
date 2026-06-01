@@ -141,8 +141,8 @@ var sendCmd = &cobra.Command{
 
 func init() {
 	sendCmd.Flags().StringArrayVarP(&sendDataArgs, "data", "d", []string{}, "Set the data to send to specified host (prepend @ for files)")
-	sendCmd.Flags().VarP(&sendInputFormat, "format", "F", "Set the default data input format (json|yaml) can be overridden by file extension")
-	sendCmd.Flags().BoolVarP(&forceUpdate, "force-update", "f", false, "Set flag to force update data sent to SMD")
+	sendCmd.Flags().VarP(&sendInputFormat, "input-format", "f", "Set the default data input format (json|yaml) can be overridden by file extension")
+	sendCmd.Flags().BoolVar(&forceUpdate, "force-update", false, "Set flag to force update data sent to SMD")
 	sendCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
 
 	checkRegisterFlagCompletionError(sendCmd.RegisterFlagCompletionFunc("format", completionFormatData))

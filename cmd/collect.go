@@ -160,14 +160,15 @@ var CollectCmd = &cobra.Command{
 
 		// set the collect parameters from CLI params
 		params := &magellan.CollectParams{
-			Timeout:     timeout,
-			Concurrency: concurrency,
-			OutputPath:  outputPath,
-			OutputDir:   outputDir,
-			Insecure:    insecure,
-			Format:      collectOutputFormat,
-			SecretStore: store,
-			BMCIDMap:    idMap,
+			Timeout:      timeout,
+			Concurrency:  concurrency,
+			OutputPath:   outputPath,
+			OutputDir:    outputDir,
+			Insecure:     insecure,
+			OutputFormat: collectOutputFormat,
+			InputFormat:  collectInputFormat,
+			SecretStore:  store,
+			BMCIDMap:     idMap,
 		}
 
 		// show all of the 'collect' parameters being set from CLI if verbose
