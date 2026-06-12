@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/stmcginnis/gofish"
@@ -31,6 +32,14 @@ const (
 // Gofish exposes the underlying gofish client for operations that have not yet
 // been hoisted behind the abstraction (e.g. inventory crawling). As the
 // abstraction grows, callers should prefer the typed methods over Gofish.
+//
+// Context handling: gofish scopes its request context at connection time (see
+// Manager.ConnectContext), so the ctx passed to these methods is honored as an
+// entry guard — a cancelled or expired context aborts before any BMC I/O is
+// issued — and is the seam the forthcoming async confirmation loop (bugs.md
+// power-parity #4) will poll against. It governs the connection's request
+// context for freshly opened sessions but does not retroactively re-scope an
+// already-cached gofish session.
 type Client interface {
 	// Gofish returns the underlying gofish API client.
 	Gofish() *gofish.APIClient
@@ -41,13 +50,20 @@ type Client interface {
 
 	// GetPowerState returns the power state of the ComputerSystem with the
 	// given Redfish ID.
-	GetPowerState(systemID string) (schemas.PowerState, error)
+	GetPowerState(ctx context.Context, systemID string) (schemas.PowerState, error)
 	// GetResetTypes returns the reset types supported by the ComputerSystem
 	// with the given Redfish ID.
-	GetResetTypes(systemID string) ([]schemas.ResetType, error)
+	GetResetTypes(ctx context.Context, systemID string) ([]schemas.ResetType, error)
 	// Reset issues a reset of the given type to the ComputerSystem with the
-	// given Redfish ID.
-	Reset(systemID string, resetType schemas.ResetType) error
+	// given Redfish ID. It returns the gofish task-monitor handle for the
+	// operation when the BMC models the reset as an async Redfish Task (it may
+	// be nil when the BMC completes synchronously).
+	Reset(ctx context.Context, systemID string, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error)
+	// ResetOperation resolves a vendor-neutral Operation to a concrete reset
+	// type the target advertises (applying the graceful→forced fallback chain)
+	// and issues it. It returns ErrUnsupportedOperation when no advertised reset
+	// type satisfies the operation, distinct from a BMC call failure.
+	ResetOperation(ctx context.Context, systemID string, op Operation) (*schemas.TaskMonitorInfo, error)
 }
 
 // GenericClient is the default, vendor-agnostic implementation of Client backed
@@ -78,7 +94,11 @@ func (g *GenericClient) Logout() {
 }
 
 // systemByID looks up a ComputerSystem under the ServiceRoot by its Redfish ID.
-func (g *GenericClient) systemByID(systemID string) (*schemas.ComputerSystem, error) {
+// It honors ctx as an entry guard before issuing the Redfish collection fetch.
+func (g *GenericClient) systemByID(ctx context.Context, systemID string) (*schemas.ComputerSystem, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	systems, err := g.api.GetService().Systems()
 	if err != nil {
 		return nil, err
@@ -91,32 +111,54 @@ func (g *GenericClient) systemByID(systemID string) (*schemas.ComputerSystem, er
 	return nil, fmt.Errorf("computer system %q not found", systemID)
 }
 
-func (g *GenericClient) GetPowerState(systemID string) (schemas.PowerState, error) {
-	system, err := g.systemByID(systemID)
+func (g *GenericClient) GetPowerState(ctx context.Context, systemID string) (schemas.PowerState, error) {
+	system, err := g.systemByID(ctx, systemID)
 	if err != nil {
 		return "", err
 	}
 	return system.PowerState, nil
 }
 
-func (g *GenericClient) GetResetTypes(systemID string) ([]schemas.ResetType, error) {
-	system, err := g.systemByID(systemID)
+func (g *GenericClient) GetResetTypes(ctx context.Context, systemID string) ([]schemas.ResetType, error) {
+	system, err := g.systemByID(ctx, systemID)
 	if err != nil {
 		return nil, err
 	}
 	return system.GetSupportedResetTypes()
 }
 
-func (g *GenericClient) Reset(systemID string, resetType schemas.ResetType) error {
-	system, err := g.systemByID(systemID)
+func (g *GenericClient) Reset(ctx context.Context, systemID string, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
+	system, err := g.systemByID(ctx, systemID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// gofish v0.22's Reset returns a *schemas.TaskMonitorInfo for async tracking;
-	// the generic client preserves error-only semantics for now. The task handle
-	// is where confirmation/polling (bugs.md power parity #4) will hook in later.
-	_, err = system.Reset(resetType)
-	return err
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	// gofish v0.22's Reset returns a *schemas.TaskMonitorInfo carrying the
+	// Redfish task-monitor URI for the in-flight operation; we surface it so the
+	// async confirmation loop (bugs.md power parity #4) can track completion
+	// natively instead of re-deriving it by polling PowerState.
+	return system.Reset(resetType)
+}
+
+func (g *GenericClient) ResetOperation(ctx context.Context, systemID string, op Operation) (*schemas.TaskMonitorInfo, error) {
+	system, err := g.systemByID(ctx, systemID)
+	if err != nil {
+		return nil, err
+	}
+	supported, err := system.GetSupportedResetTypes()
+	if err != nil {
+		return nil, err
+	}
+	resetType, err := ResolveResetType(op, supported)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return system.Reset(resetType)
 }
 
 // ErrUnsupportedQuirk is the canonical "fail loudly" error a vendor plugin (or

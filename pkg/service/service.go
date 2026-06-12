@@ -7,6 +7,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/OpenCHAMI/magellan/internal/format"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -82,18 +84,27 @@ func (s *Service) crawlableNode(uri, systemID string) power.CrawlableNode {
 }
 
 // PowerState returns the current power state of a ComputerSystem.
-func (s *Service) PowerState(uri, systemID string) (schemas.PowerState, error) {
-	return power.GetPowerState(s.crawlableNode(uri, systemID))
+func (s *Service) PowerState(ctx context.Context, uri, systemID string) (schemas.PowerState, error) {
+	return power.GetPowerState(ctx, s.crawlableNode(uri, systemID))
 }
 
 // ResetTypes returns the reset types supported by a ComputerSystem.
-func (s *Service) ResetTypes(uri, systemID string) ([]schemas.ResetType, error) {
-	return power.GetResetTypes(s.crawlableNode(uri, systemID))
+func (s *Service) ResetTypes(ctx context.Context, uri, systemID string) ([]schemas.ResetType, error) {
+	return power.GetResetTypes(ctx, s.crawlableNode(uri, systemID))
 }
 
-// Reset issues a reset of the given type to a ComputerSystem.
-func (s *Service) Reset(uri, systemID string, resetType schemas.ResetType) error {
-	return power.ResetComputerSystem(s.crawlableNode(uri, systemID), resetType)
+// Reset issues a reset of the given raw Redfish type to a ComputerSystem,
+// returning the gofish task-monitor handle when the BMC models it asynchronously.
+func (s *Service) Reset(ctx context.Context, uri, systemID string, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
+	return power.ResetComputerSystem(ctx, s.crawlableNode(uri, systemID), resetType)
+}
+
+// ResetOperation performs a vendor-neutral power Operation (e.g. bmc.OpOff) on a
+// ComputerSystem, resolving it to a supported reset type with the
+// graceful→forced fallback chain. It returns bmc.ErrUnsupportedOperation when the
+// operation cannot be satisfied by the target's advertised reset types.
+func (s *Service) ResetOperation(ctx context.Context, uri, systemID string, op bmc.Operation) (*schemas.TaskMonitorInfo, error) {
+	return power.ResetOperation(ctx, s.crawlableNode(uri, systemID), op)
 }
 
 // Close releases any cached BMC sessions held by the manager.
