@@ -127,4 +127,44 @@ const (
     "Members@odata.count": 1,
     "Name": "Systems Collection"
 }`
+	// RESPONSE_System_Node0 is a single ComputerSystem detail document for the
+	// Node0 member of RESPONSE_Systems. Unlike RESPONSE_EthernetInterface it
+	// advertises a concrete set of allowable reset types, so tests that exercise
+	// GetResetTypes/GetPowerState/Reset have a deterministic system to assert on.
+	RESPONSE_System_Node0 = `{
+    "@odata.id": "/redfish/v1/Systems/Node0",
+    "@odata.type": "#ComputerSystem.v1_5_0.ComputerSystem",
+    "Id": "Node0",
+    "Name": "Node0",
+    "PowerState": "On",
+    "Actions": {
+        "#ComputerSystem.Reset": {
+            "ResetType@Redfish.AllowableValues": [
+                "On",
+                "ForceOff",
+                "GracefulShutdown",
+                "ForceRestart"
+            ],
+            "target": "/redfish/v1/Systems/Node0/Actions/ComputerSystem.Reset"
+        }
+    }
+}`
+	// RESPONSE_ServiceRoot_HPE is a minimal ServiceRoot that identifies its
+	// manufacturer via the Redfish "Vendor" property. It lets tests drive the
+	// vendor-detection/dispatch path (e.g. asserting the HPE plugin is selected)
+	// without a full emulator.
+	RESPONSE_ServiceRoot_HPE = `{
+    "@odata.id": "/redfish/v1/",
+    "@odata.type": "#ServiceRoot.v1_2_0.ServiceRoot",
+    "Id": "RootService",
+    "Name": "Root Service",
+    "RedfishVersion": "1.2.0",
+    "Vendor": "HPE",
+    "Managers": {
+        "@odata.id": "/redfish/v1/Managers"
+    },
+    "Systems": {
+        "@odata.id": "/redfish/v1/Systems"
+    }
+}`
 )
