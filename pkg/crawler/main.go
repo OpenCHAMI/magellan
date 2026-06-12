@@ -6,7 +6,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 // CrawlerConfig is an alias for bmc.ConnConfig, the canonical BMC connection
@@ -130,7 +130,7 @@ func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
 func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	var (
 		systems    = make(map[string]*InventoryDetail)
-		rf_systems []*redfish.ComputerSystem
+		rf_systems []*schemas.ComputerSystem
 	)
 
 	client, err := GetBMCClient(config)
@@ -229,8 +229,8 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 // and returns a list of inventory details for each system.
 //
 // Parameters:
-//   - rf_systems: A slice of pointers to redfish.ComputerSystem objects representing the computer systems to be processed.
-//   - rf_chassis: A pointer to a redfish.Chassis object representing the chassis associated with the computer systems.
+//   - rf_systems: A slice of pointers to schemas.ComputerSystem objects representing the computer systems to be processed.
+//   - rf_chassis: A pointer to a schemas.Chassis object representing the chassis associated with the computer systems.
 //   - baseURI: A string representing the base URI for constructing resource URIs.
 //
 // Returns:
@@ -246,13 +246,13 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 //  6. Processes trusted modules for each computer system, adding them to the TrustedModules field of the InventoryDetail object.
 //  7. Appends the populated InventoryDetail object to the systems slice.
 //  8. Returns the systems slice and any error encountered during processing.
-func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chassis, baseURI string) ([]InventoryDetail, error) {
+func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chassis, baseURI string) ([]InventoryDetail, error) {
 	systems := []InventoryDetail{}
 	for _, rf_computersystem := range rf_systems {
 		var (
 			managerLinks    []string
 			chassisLinks    []string
-			power           *redfish.Power
+			power           *schemas.Power
 			powercontrolIDs []string
 		)
 
@@ -293,7 +293,8 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 
 		// convert supported reset types to []string
 		actions := []string{}
-		for _, action := range rf_computersystem.SupportedResetTypes {
+		supportedResetTypes, _ := rf_computersystem.GetSupportedResetTypes()
+		for _, action := range supportedResetTypes {
 			actions = append(actions, string(action))
 		}
 
@@ -308,19 +309,19 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 			SerialNumber: rf_computersystem.SerialNumber,
 			SerialConsole: SerialConsole{
 				IPMI: SerialConsoleConfig{
-					Port:    rf_computersystem.SerialConsole.IPMI.Port,
+					Port:    derefUint(rf_computersystem.SerialConsole.IPMI.Port),
 					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
 				},
 				SSH: SerialConsoleConfig{
-					Port:    rf_computersystem.SerialConsole.SSH.Port,
+					Port:    derefUint(rf_computersystem.SerialConsole.SSH.Port),
 					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
 				},
 				Telnet: SerialConsoleConfig{
-					Port:    rf_computersystem.SerialConsole.Telnet.Port,
+					Port:    derefUint(rf_computersystem.SerialConsole.Telnet.Port),
 					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
 				},
 			},
-			BiosVersion: rf_computersystem.BIOSVersion,
+			BiosVersion: rf_computersystem.BiosVersion,
 			Links: Links{
 				Managers: managerLinks,
 				Chassis:  chassisLinks,
@@ -332,9 +333,9 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 				PowerControlIDs: powercontrolIDs,
 			},
 			Actions:        actions,
-			ProcessorCount: rf_computersystem.ProcessorSummary.Count,
+			ProcessorCount: derefUint(rf_computersystem.ProcessorSummary.Count),
 			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
-			MemoryTotal:    rf_computersystem.MemorySummary.TotalSystemMemoryGiB,
+			MemoryTotal:    derefFloat(rf_computersystem.MemorySummary.TotalSystemMemoryGiB),
 			NodeID:         rf_computersystem.ID,
 		}
 		if rf_chassis != nil {
@@ -414,7 +415,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 //
 // Parameters:
 //
-//	rf_managers - A slice of pointers to redfish.Manager objects representing the Redfish managers to be processed.
+//	rf_managers - A slice of pointers to schemas.Manager objects representing the Redfish managers to be processed.
 //	baseURI - A string representing the base URI to be used for constructing URIs for the managers and their Ethernet interfaces.
 //
 // Returns:
@@ -426,7 +427,7 @@ func walkSystems(rf_systems []*redfish.ComputerSystem, rf_chassis *redfish.Chass
 // and constructs a Manager object with the relevant details, including Ethernet interface information.
 // If an error occurs while retrieving Ethernet interfaces, the function logs the error and returns the managers
 // collected so far along with the error.
-func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, error) {
+func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, error) {
 	var managers []Manager
 	for _, rf_manager := range rf_managers {
 		rf_ethernetinterfaces, err := rf_manager.EthernetInterfaces()
@@ -524,4 +525,23 @@ func merge(systems map[string]*InventoryDetail, newSystems []InventoryDetail) ma
 		systems[system.URI] = &system
 	}
 	return systems
+}
+
+// derefUint dereferences an optional *uint Redfish field to an int, yielding 0
+// when the BMC omitted the value. gofish v0.22 pointer-ized these optional
+// numeric fields; treating nil as 0 preserves the pre-upgrade output.
+func derefUint(p *uint) int {
+	if p == nil {
+		return 0
+	}
+	return int(*p)
+}
+
+// derefFloat dereferences an optional *float64 Redfish field to a float32,
+// yielding 0 when the BMC omitted the value (see derefUint).
+func derefFloat(p *float64) float32 {
+	if p == nil {
+		return 0
+	}
+	return float32(*p)
 }

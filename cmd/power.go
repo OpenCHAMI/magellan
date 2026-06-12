@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -14,12 +15,15 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 var (
 	list_reset_types bool
 	reset_type       string
+	operation        string
+	waitForConfirm   bool
+	waitTimeout      time.Duration
 	powerFormat      format.DataFormat = format.FORMAT_JSON
 )
 
@@ -29,11 +33,14 @@ var PowerCmd = &cobra.Command{
 	Use: "power <node-id>...",
 	Example: `  // get power state
   magellan power x1000c0s0b3n0
-  // perform a particular type of reset
+  // perform a vendor-neutral power operation (resolved to a supported reset type)
+  magellan power x1000c0s0b3n0 -o off
+  magellan power x1000c0s0b3n0 -o hard-restart
+  // perform a raw Redfish reset type (no validation/fallback)
   magellan power x1000c0s0b3n0 -r On
   magellan power x1000c0s0b3n0 -r PowerCycle
   // list supported reset types
-  magellan power x1000c0s0b3n0 -l
+  magellan power x1000c0s0b3n0 --list-reset-types
   // more realistic usage
   magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2
   // inventory from stdin
@@ -41,6 +48,18 @@ var PowerCmd = &cobra.Command{
 	Short: "Get and set node power states",
 	Long:  "Determine and control the power states of nodes found by a previous inventory crawl.\nSee the 'scan' and 'crawl' commands for further details.",
 	Run: func(cmd *cobra.Command, args []string) {
+		// Context for cancellation/deadlines, propagated into the BMC layer.
+		ctx := cmd.Context()
+
+		// Validate the requested operation up front so a bad value fails once,
+		// clearly, rather than once per target node.
+		if operation != "" && !bmc.KnownOperation(bmc.Operation(operation)) {
+			log.Fatal().Msgf("unknown power operation %q (known: %v)", operation, bmc.Operations())
+		}
+		if waitForConfirm && operation == "" {
+			log.Fatal().Msg("--wait requires --operation (raw --reset-type has no confirmable target)")
+		}
+
 		// Read node inventory from CLI flag, or default `collect` YAML output
 		var datafile string
 		if viper.IsSet("inventory-file") {
@@ -145,18 +164,51 @@ var PowerCmd = &cobra.Command{
 		var action_func func(power.CrawlableNode) string
 		if list_reset_types {
 			action_func = func(target power.CrawlableNode) string {
-				types, err := power.GetResetTypes(target)
+				types, err := power.GetResetTypes(ctx, target)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to get reset types for node %s", target.ClusterID)
 					return ""
 				}
 				return fmt.Sprintf("%s", types)
 			}
+		} else if operation != "" && waitForConfirm {
+			// Vendor-neutral operation, confirmed: issue, then poll to the target
+			// power state (escalating a timed-out graceful op to its forced
+			// equivalent) within the deadline.
+			op := bmc.Operation(operation)
+			opts := bmc.DefaultTransitionOptions()
+			opts.Timeout = waitTimeout
+			action_func = func(target power.CrawlableNode) string {
+				res, err := power.PowerTransition(ctx, target, op, opts)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to perform %q on node %s", operation, target.ClusterID)
+					return "failure"
+				}
+				msg := string(res.Status)
+				if res.FinalState != "" {
+					msg += fmt.Sprintf(" (%s)", res.FinalState)
+				}
+				if res.Escalated {
+					msg += fmt.Sprintf(" [escalated to %s]", res.EscalatedTo)
+				}
+				return msg
+			}
+		} else if operation != "" {
+			// Vendor-neutral operation: resolved to a supported reset type with
+			// the graceful→forced fallback chain in the BMC layer.
+			action_func = func(target power.CrawlableNode) string {
+				_, err := power.ResetOperation(ctx, target, bmc.Operation(operation))
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to perform %q on node %s", operation, target.ClusterID)
+					return "failure"
+				}
+				return "success"
+			}
 		} else if reset_type != "" {
 			action_func = func(target power.CrawlableNode) string {
-				// TODO: Some kind of validation might be nice here, but ResetType
-				// is a custom string type, so a direct typecast works fine for now.
-				err := power.ResetComputerSystem(target, redfish.ResetType(reset_type))
+				// Raw Redfish reset type, passed through unresolved. Prefer
+				// --operation for vendor-neutral semantics with fallbacks.
+				_, err := power.ResetComputerSystem(ctx, target, schemas.ResetType(reset_type))
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to reset node %s", target.ClusterID)
 					return "failure"
@@ -165,7 +217,7 @@ var PowerCmd = &cobra.Command{
 			}
 		} else {
 			action_func = func(target power.CrawlableNode) string {
-				state, err := power.GetPowerState(target)
+				state, err := power.GetPowerState(ctx, target)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to get power state of node %s", target.ClusterID)
 					state = "unknown"
@@ -236,10 +288,16 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 }
 
 func init() {
-	// Alternative actions from the default power-state query
-	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "l", false, "List supported Redfish reset types")
-	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Redfish reset type to perform")
-	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
+	// Alternative actions from the default power-state query.
+	// NOTE: no "-l" shorthand here — it is reserved globally for --log-level on
+	// the root command (cmd/root.go). Defining it again panics pflag at execution
+	// time when the persistent flags are merged into this subcommand's flagset.
+	PowerCmd.Flags().BoolVar(&list_reset_types, "list-reset-types", false, "List supported Redfish reset types")
+	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Raw Redfish reset type to perform (no validation/fallback; prefer --operation)")
+	PowerCmd.Flags().StringVarP(&operation, "operation", "o", "", "Vendor-neutral power operation (on|off|soft-off|force-off|soft-restart|hard-restart|init)")
+	PowerCmd.Flags().BoolVar(&waitForConfirm, "wait", false, "With --operation, wait until the target reaches its expected power state (escalating a timed-out graceful op)")
+	PowerCmd.Flags().DurationVar(&waitTimeout, "wait-timeout", bmc.DefaultTimeout, "Maximum time to wait for --wait confirmation")
+	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types", "operation")
 
 	// Normal config options
 	PowerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory")

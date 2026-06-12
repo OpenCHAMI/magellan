@@ -6,15 +6,15 @@ import (
 
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 type UpdateParams struct {
 	CollectParams
-	URI              string   // Set from the positional paramters to update
-	FirmwareURI      string   // set from the --firmware-url flag
-	TransferProtocol string   // set from the --scheme flag
-	Insecure         bool     // set from the --insecure flag
+	URI              string // Set from the positional paramters to update
+	FirmwareURI      string // set from the --firmware-url flag
+	TransferProtocol string // set from the --scheme flag
+	Insecure         bool   // set from the --insecure flag
 }
 
 // UpdateFirmwareRemote() uses 'gofish' to update the firmware of a BMC node.
@@ -56,13 +56,15 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 	}
 
 	// Build the update request payload
-	req := redfish.SimpleUpdateParameters{
+	req := schemas.UpdateServiceSimpleUpdateParameters{
 		ImageURI:         q.FirmwareURI,
-		TransferProtocol: redfish.TransferProtocolType(q.TransferProtocol),
+		TransferProtocol: schemas.TransferProtocolType(q.TransferProtocol),
 	}
 
-	// Execute the SimpleUpdate action
-	err = updateService.SimpleUpdate(&req)
+	// Execute the SimpleUpdate action. gofish v0.22 returns a *TaskMonitorInfo
+	// for async tracking; firmware status is tracked separately via
+	// GetUpdateStatus, so the task handle is not retained here yet.
+	_, err = updateService.SimpleUpdate(&req)
 	if err != nil {
 		return fmt.Errorf("firmware update failed: %w", err)
 	}

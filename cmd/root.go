@@ -196,4 +196,9 @@ func SetDefaults() {
 	viper.SetDefault("update.component", "")
 	viper.SetDefault("update.status", false)
 	viper.SetDefault("power.cacert", "")
+	viper.SetDefault("server.host", "")
+	viper.SetDefault("server.port", 8443)
+	viper.SetDefault("server.tls-cert", "")
+	viper.SetDefault("server.tls-key", "")
+	viper.SetDefault("server.auth-token", "")
 }
