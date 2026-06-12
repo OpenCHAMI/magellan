@@ -1,6 +1,7 @@
 package bmc_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -38,11 +39,11 @@ func TestManagerCachedClientReusesSession(t *testing.T) {
 	cfg := mockServer(t, test.RESPONSE_ServiceRoot)
 	m := bmc.NewManager()
 
-	c1, err := m.CachedClient(cfg)
+	c1, err := m.CachedClient(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("CachedClient: %v", err)
 	}
-	c2, err := m.CachedClient(cfg)
+	c2, err := m.CachedClient(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("CachedClient (2nd): %v", err)
 	}
@@ -52,7 +53,7 @@ func TestManagerCachedClientReusesSession(t *testing.T) {
 
 	// LogoutAll must evict, so the next CachedClient builds a fresh session.
 	m.LogoutAll()
-	c3, err := m.CachedClient(cfg)
+	c3, err := m.CachedClient(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("CachedClient after LogoutAll: %v", err)
 	}
@@ -65,11 +66,11 @@ func TestManagerClientIsUncached(t *testing.T) {
 	cfg := mockServer(t, test.RESPONSE_ServiceRoot)
 	m := bmc.NewManager()
 
-	c1, err := m.Client(cfg)
+	c1, err := m.Client(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Client: %v", err)
 	}
-	c2, err := m.Client(cfg)
+	c2, err := m.Client(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Client (2nd): %v", err)
 	}
@@ -83,7 +84,7 @@ func TestManagerClientIsUncached(t *testing.T) {
 // HPE plugin, not the generic fallback.
 func TestManagerDispatchesToVendorPlugin(t *testing.T) {
 	cfg := mockServer(t, test.RESPONSE_ServiceRoot_HPE)
-	c, err := bmc.NewManager().Client(cfg)
+	c, err := bmc.NewManager().Client(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Client: %v", err)
 	}

@@ -1,6 +1,13 @@
 package bmc
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -24,16 +31,71 @@ func NewManager() *Manager {
 // daemon may construct its own Manager instead.
 var DefaultManager = NewManager()
 
-// Connect opens a new, uncached gofish session to the BMC described by cfg using
-// the shared credential and TLS configuration helper.
+// ConnectContext opens a new, uncached gofish session to the BMC described by
+// cfg, scoping the session's request context to ctx. This is the single point in
+// the codebase where gofish.Connect(Context) is invoked; all 404 and 401 errors
+// are decorated here for consistent messaging. Because gofish binds the context
+// at connection time, ctx governs the request deadline/cancellation for every
+// call made through the returned client.
+func (m *Manager) ConnectContext(ctx context.Context, cfg ConnConfig) (*gofish.APIClient, error) {
+	creds, err := cfg.GetUserPass()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to load BMC credentials")
+		return nil, err
+	}
+
+	clientConfig := gofish.ClientConfig{
+		Endpoint:  cfg.URI,
+		Username:  creds.Username,
+		Password:  creds.Password,
+		Insecure:  cfg.Insecure,
+		BasicAuth: true,
+	}
+	if cfg.CACertPath != "" {
+		caCert, readErr := os.ReadFile(cfg.CACertPath)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read CA certificate %q: %w", cfg.CACertPath, readErr)
+		}
+		certPool, poolErr := x509.SystemCertPool()
+		if poolErr != nil {
+			certPool = x509.NewCertPool()
+		}
+		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
+			return nil, fmt.Errorf("failed to parse CA certificate %q", cfg.CACertPath)
+		}
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    certPool,
+		}
+		clientConfig.HTTPClient = &http.Client{Transport: transport}
+	}
+
+	api, err := gofish.ConnectContext(ctx, clientConfig)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "404:") {
+			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", cfg.URI)
+		}
+		if strings.HasPrefix(err.Error(), "401:") {
+			err = fmt.Errorf("authentication failed.  Check your username and password: %s", cfg.URI)
+		}
+		log.Error().Err(err).Msg("failed to connect to BMC")
+		return nil, err
+	}
+	return api, nil
+}
+
+// Connect opens a new, uncached gofish session using a background context. It is
+// retained for the raw-gofish call sites (crawler, collect) that do not yet
+// thread a context; prefer ConnectContext where a context is available.
 func (m *Manager) Connect(cfg ConnConfig) (*gofish.APIClient, error) {
-	return ConnectWithCredentials(cfg.URI, cfg.CredentialStore, cfg.Insecure, cfg.CACertPath)
+	return m.ConnectContext(context.Background(), cfg)
 }
 
 // Client opens a new, uncached session and wraps it in a vendor-aware Client.
 // The caller is responsible for calling Logout on the returned Client.
-func (m *Manager) Client(cfg ConnConfig) (Client, error) {
-	api, err := m.Connect(cfg)
+func (m *Manager) Client(ctx context.Context, cfg ConnConfig) (Client, error) {
+	api, err := m.ConnectContext(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -43,14 +105,19 @@ func (m *Manager) Client(cfg ConnConfig) (Client, error) {
 // CachedClient returns a vendor-aware Client for the BMC, creating and caching a
 // new session keyed by URI if one does not already exist. Cached sessions are
 // kept open for efficiency and released together by LogoutAll.
-func (m *Manager) CachedClient(cfg ConnConfig) (Client, error) {
+//
+// Note: ctx scopes the session only when a new one is opened; a cache hit
+// returns a session bound to the context it was originally connected with. For
+// per-request cancellation across many callers (e.g. the daemon), prefer Client
+// to obtain an uncached, request-scoped session.
+func (m *Manager) CachedClient(ctx context.Context, cfg ConnConfig) (Client, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if c, ok := m.cache[cfg.URI]; ok {
 		log.Debug().Msgf("found existing client for %s", cfg.URI)
 		return c, nil
 	}
-	api, err := m.Connect(cfg)
+	api, err := m.ConnectContext(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}

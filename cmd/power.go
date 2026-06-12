@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cznic/mathutil"
@@ -20,31 +21,44 @@ import (
 var (
 	list_reset_types bool
 	reset_type       string
+	operation        string
 	powerFormat      format.DataFormat = format.FORMAT_JSON
 )
 
 func powerCrawlerConfig(node bmc.Node, store secrets.SecretStore, insecure bool, cacertPath string) crawler.CrawlerConfig {
 	return crawler.CrawlerConfig{
-		URI:             "https://" + node.BmcIP,
+		URI:             normalizeBMCURI(node.BmcIP),
 		CredentialStore: store,
 		Insecure:        insecure,
 		CACertPath:      cacertPath,
 	}
 }
 
+func normalizeBMCURI(address string) string {
+	if strings.HasPrefix(address, "https://") || strings.HasPrefix(address, "http://") {
+		return address
+	}
+	return "https://" + address
+}
+
 // The `power` command gets and sets power states for a collection of BMC nodes.
 // This command should be run after `collect`, as it requires an existing node inventory.
 var PowerCmd = &cobra.Command{
-	Use: "power <node-{serial|ipaddr|serial|mac}> -o <{on|off}>",
-	Example: `  # show all actions given the node's serial number
-  magellan power N0D3S3R14L --list-reset-types -i --inventory-file nodes.json
-  
-  # turn off node using its IP address (no inventory file required)
-  magellan power 172.16.0.105 -o off -i
-  
-  # turn on/off a node with it's UUID (will error if attempting to turn on/off if already in state)
-  magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o on --inventory-file nodes.json -i
-  magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o off --inventory-file nodes.json -i`,
+	Use: "power <node-id>...",
+	Example: `  // get power state
+  magellan power x1000c0s0b3n0
+  // perform a vendor-neutral power operation (resolved to a supported reset type)
+  magellan power x1000c0s0b3n0 -o off
+  magellan power x1000c0s0b3n0 -o hard-restart
+  // perform a raw Redfish reset type (no validation/fallback)
+  magellan power x1000c0s0b3n0 -r On
+  magellan power x1000c0s0b3n0 -r PowerCycle
+  // list supported reset types
+  magellan power x1000c0s0b3n0 --list-reset-types
+  // more realistic usage
+  magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2
+  // inventory from stdin
+  magellan collect -v ... | magellan power -f - x1000c0s0b3n0`,
 	Short: "Get and set node power states",
 	Long: `Determine and control the power states of nodes found by a previous 
 inventory crawl.
@@ -56,6 +70,15 @@ See 'magellan-power(1)' for more details. See 'magellan(1)' for a list of
 available environment variables.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Context for cancellation/deadlines, propagated into the BMC layer.
+		ctx := cmd.Context()
+
+		// Validate the requested operation up front so a bad value fails once,
+		// clearly, rather than once per target node.
+		if operation != "" && !bmc.KnownOperation(bmc.Operation(operation)) {
+			log.Fatal().Msgf("unknown power operation %q (known: %v)", operation, bmc.Operations())
+		}
+
 		// Read node inventory from CLI flag, or default `collect` YAML output
 		var datafile string
 		if viper.IsSet("inventory-file") {
@@ -156,18 +179,29 @@ available environment variables.
 		var action_func func(power.CrawlableNode) string
 		if list_reset_types {
 			action_func = func(target power.CrawlableNode) string {
-				types, err := power.GetResetTypes(target)
+				types, err := power.GetResetTypes(ctx, target)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to get reset types for node %s", target.ClusterID)
 					return ""
 				}
 				return fmt.Sprintf("%s", types)
 			}
+		} else if operation != "" {
+			// Vendor-neutral operation: resolved to a supported reset type with
+			// the graceful→forced fallback chain in the BMC layer.
+			action_func = func(target power.CrawlableNode) string {
+				_, err := power.ResetOperation(ctx, target, bmc.Operation(operation))
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to perform %q on node %s", operation, target.ClusterID)
+					return "failure"
+				}
+				return "success"
+			}
 		} else if reset_type != "" {
 			action_func = func(target power.CrawlableNode) string {
-				// TODO: Some kind of validation might be nice here, but ResetType
-				// is a custom string type, so a direct typecast works fine for now.
-				err := power.ResetComputerSystem(target, schemas.ResetType(reset_type))
+				// Raw Redfish reset type, passed through unresolved. Prefer
+				// --operation for vendor-neutral semantics with fallbacks.
+				_, err := power.ResetComputerSystem(ctx, target, schemas.ResetType(reset_type))
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to reset node %s", target.ClusterID)
 					return "failure"
@@ -176,7 +210,7 @@ available environment variables.
 			}
 		} else {
 			action_func = func(target power.CrawlableNode) string {
-				state, err := power.GetPowerState(target)
+				state, err := power.GetPowerState(ctx, target)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to get power state of node %s", target.ClusterID)
 					state = "unknown"
@@ -249,8 +283,9 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 func init() {
 	// Alternative actions from the default power-state query
 	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "L", false, "List supported Redfish reset types.")
-	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Set the Redfish reset type to perform.")
-	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
+	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Raw Redfish reset type to perform (no validation/fallback; prefer --operation)")
+	PowerCmd.Flags().StringVarP(&operation, "operation", "o", "", "Vendor-neutral power operation (on|off|soft-off|force-off|soft-restart|hard-restart|init)")
+	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types", "operation")
 
 	// Normal config options
 	PowerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory.")
