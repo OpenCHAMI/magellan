@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -21,6 +22,8 @@ var (
 	list_reset_types bool
 	reset_type       string
 	operation        string
+	waitForConfirm   bool
+	waitTimeout      time.Duration
 	powerFormat      format.DataFormat = format.FORMAT_JSON
 )
 
@@ -52,6 +55,9 @@ var PowerCmd = &cobra.Command{
 		// clearly, rather than once per target node.
 		if operation != "" && !bmc.KnownOperation(bmc.Operation(operation)) {
 			log.Fatal().Msgf("unknown power operation %q (known: %v)", operation, bmc.Operations())
+		}
+		if waitForConfirm && operation == "" {
+			log.Fatal().Msg("--wait requires --operation (raw --reset-type has no confirmable target)")
 		}
 
 		// Read node inventory from CLI flag, or default `collect` YAML output
@@ -165,6 +171,28 @@ var PowerCmd = &cobra.Command{
 				}
 				return fmt.Sprintf("%s", types)
 			}
+		} else if operation != "" && waitForConfirm {
+			// Vendor-neutral operation, confirmed: issue, then poll to the target
+			// power state (escalating a timed-out graceful op to its forced
+			// equivalent) within the deadline.
+			op := bmc.Operation(operation)
+			opts := bmc.DefaultTransitionOptions()
+			opts.Timeout = waitTimeout
+			action_func = func(target power.CrawlableNode) string {
+				res, err := power.PowerTransition(ctx, target, op, opts)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to perform %q on node %s", operation, target.ClusterID)
+					return "failure"
+				}
+				msg := string(res.Status)
+				if res.FinalState != "" {
+					msg += fmt.Sprintf(" (%s)", res.FinalState)
+				}
+				if res.Escalated {
+					msg += fmt.Sprintf(" [escalated to %s]", res.EscalatedTo)
+				}
+				return msg
+			}
 		} else if operation != "" {
 			// Vendor-neutral operation: resolved to a supported reset type with
 			// the graceful→forced fallback chain in the BMC layer.
@@ -267,6 +295,8 @@ func init() {
 	PowerCmd.Flags().BoolVar(&list_reset_types, "list-reset-types", false, "List supported Redfish reset types")
 	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Raw Redfish reset type to perform (no validation/fallback; prefer --operation)")
 	PowerCmd.Flags().StringVarP(&operation, "operation", "o", "", "Vendor-neutral power operation (on|off|soft-off|force-off|soft-restart|hard-restart|init)")
+	PowerCmd.Flags().BoolVar(&waitForConfirm, "wait", false, "With --operation, wait until the target reaches its expected power state (escalating a timed-out graceful op)")
+	PowerCmd.Flags().DurationVar(&waitTimeout, "wait-timeout", bmc.DefaultTimeout, "Maximum time to wait for --wait confirmation")
 	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types", "operation")
 
 	// Normal config options
