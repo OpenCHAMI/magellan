@@ -176,6 +176,28 @@ func ResetOperation(ctx context.Context, node CrawlableNode, op bmc.Operation) (
 	return client.ResetOperation(ctx, node.NodeID, op)
 }
 
+// PowerTransition performs a vendor-neutral power Operation on a node and
+// confirms it took effect: it polls the node's power state to its target (or
+// follows the BMC's async task) within a deadline, retrying transient reads and
+// escalating a timed-out graceful operation to its forced equivalent per opts.
+//
+// Returns:
+//   - *bmc.TransitionResult: the outcome (confirmed / timed-out / unconfirmable),
+//     last observed power state, and whether a forced escalation occurred.
+//   - error: only when the operation could not be issued at all.
+func PowerTransition(ctx context.Context, node CrawlableNode, op bmc.Operation, opts bmc.TransitionOptions) (*bmc.TransitionResult, error) {
+	log.Debug().Msgf("performing confirmed power operation %q on computer system %s", op, node.ClusterID)
+
+	// Use a fresh (uncached) vendor-aware client and log out when done.
+	client, err := bmc.DefaultManager.Client(ctx, node.ConnConfig)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Logout()
+
+	return bmc.ResetAndConfirm(ctx, client, node.NodeID, op, opts)
+}
+
 // GetBMCSession returns an already-active gofish BMC client, creating a new one if necessary.
 // This facilitates keeping the clients open for efficiency.
 //
