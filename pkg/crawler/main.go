@@ -2,26 +2,17 @@ package crawler
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 )
 
-type CrawlerConfig struct {
-	URI             string // URI of the BMC
-	Insecure        bool   // Whether to ignore SSL errors
-	CredentialStore secrets.SecretStore
-	UseDefault      bool
-}
-
-func (cc *CrawlerConfig) GetUserPass() (bmc.BMCCredentials, error) {
-	return loadBMCCreds(*cc)
-}
+// CrawlerConfig is an alias for bmc.ConnConfig, the canonical BMC connection
+// configuration. It is retained for backwards compatibility with existing
+// callers and tests; its GetUserPass method is defined on bmc.ConnConfig.
+type CrawlerConfig = bmc.ConnConfig
 
 type EthernetInterface struct {
 	URI         string `json:"uri,omitempty"`         // URI of the interface
@@ -128,36 +119,10 @@ type InventoryDetail struct {
 //  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
 //  4. Returns the active gofish client.
 func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
-	// get username and password from secret store
-	bmc_creds, err := loadBMCCreds(config)
-	if err != nil {
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to load BMC credentials")
-		return nil, err
-	}
-
-	// initialize gofish client
-	client, err := gofish.Connect(gofish.ClientConfig{
-		Endpoint:  config.URI,
-		Username:  bmc_creds.Username,
-		Password:  bmc_creds.Password,
-		Insecure:  config.Insecure,
-		BasicAuth: true,
-	})
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "404:") {
-			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
-		}
-		if strings.HasPrefix(err.Error(), "401:") {
-			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
-		}
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to connect to BMC")
-		return nil, err
-	}
-	return client, nil
+	// Delegate to the shared BMC manager, which is the single point where
+	// gofish.Connect is called and where credential loading and error
+	// decoration happen.
+	return bmc.DefaultManager.Connect(config)
 }
 
 // CrawlBMCForSystems pulls all pertinent information from a BMC.
@@ -544,18 +509,6 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 // 	}
 
 // }
-
-func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
-	// NOTE: it is possible for the SecretStore to be nil, so we need a check
-	if config.CredentialStore == nil {
-		return bmc.BMCCredentials{}, fmt.Errorf("credential store is invalid")
-	}
-	if creds := util.GetBMCCredentials(config.CredentialStore, config.URI); creds == (bmc.BMCCredentials{}) {
-		return creds, fmt.Errorf("%s: credentials blank for BMC", config.URI)
-	} else {
-		return creds, nil
-	}
-}
 
 func extractPtrMapValues[T any](m map[string]*T) []T {
 	slice := make([]T, 0, len(m))
