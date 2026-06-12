@@ -13,7 +13,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/power"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 // Service is the shared BMC interaction core. A single instance is intended to
@@ -82,17 +82,17 @@ func (s *Service) crawlableNode(uri, systemID string) power.CrawlableNode {
 }
 
 // PowerState returns the current power state of a ComputerSystem.
-func (s *Service) PowerState(uri, systemID string) (redfish.PowerState, error) {
+func (s *Service) PowerState(uri, systemID string) (schemas.PowerState, error) {
 	return power.GetPowerState(s.crawlableNode(uri, systemID))
 }
 
 // ResetTypes returns the reset types supported by a ComputerSystem.
-func (s *Service) ResetTypes(uri, systemID string) ([]redfish.ResetType, error) {
+func (s *Service) ResetTypes(uri, systemID string) ([]schemas.ResetType, error) {
 	return power.GetResetTypes(s.crawlableNode(uri, systemID))
 }
 
 // Reset issues a reset of the given type to a ComputerSystem.
-func (s *Service) Reset(uri, systemID string, resetType redfish.ResetType) error {
+func (s *Service) Reset(uri, systemID string, resetType schemas.ResetType) error {
 	return power.ResetComputerSystem(s.crawlableNode(uri, systemID), resetType)
 }
 

@@ -8,7 +8,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/test"
 	"github.com/go-chi/chi/v5"
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 // newMockGenericClient stands up an in-memory Redfish service exposing a single
@@ -47,8 +47,8 @@ func TestGenericClientPowerStateFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPowerState(Node0) unexpected error: %v", err)
 	}
-	if state != redfish.OnPowerState {
-		t.Fatalf("GetPowerState(Node0) = %q, want %q", state, redfish.OnPowerState)
+	if state != schemas.OnPowerState {
+		t.Fatalf("GetPowerState(Node0) = %q, want %q", state, schemas.OnPowerState)
 	}
 }
 
@@ -58,11 +58,11 @@ func TestGenericClientResetTypesFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetResetTypes(Node0) unexpected error: %v", err)
 	}
-	want := map[redfish.ResetType]bool{
-		redfish.OnResetType:               true,
-		redfish.ForceOffResetType:         true,
-		redfish.GracefulShutdownResetType: true,
-		redfish.ForceRestartResetType:     true,
+	want := map[schemas.ResetType]bool{
+		schemas.OnResetType:               true,
+		schemas.ForceOffResetType:         true,
+		schemas.GracefulShutdownResetType: true,
+		schemas.ForceRestartResetType:     true,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("GetResetTypes(Node0) = %v, want %d types", got, len(want))
@@ -86,7 +86,7 @@ func TestGenericClientSystemNotFound(t *testing.T) {
 	if _, err := c.GetResetTypes("bogus"); err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("GetResetTypes(bogus) err = %v, want a 'not found' error", err)
 	}
-	if err := c.Reset("bogus", redfish.OnResetType); err == nil || !strings.Contains(err.Error(), "not found") {
+	if err := c.Reset("bogus", schemas.OnResetType); err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("Reset(bogus) err = %v, want a 'not found' error", err)
 	}
 }
