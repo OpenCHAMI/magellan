@@ -1,6 +1,7 @@
 package power
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -98,15 +99,15 @@ func ParseInventory(filename string, dataFormat format.DataFormat) ([]bmc.Node, 
 // Returns:
 //   - []schemas.ResetType: a slice of Redfish reset types supported on the node.
 //   - error: An error object if any error occurs during the connection or reset process.
-func GetResetTypes(node CrawlableNode) ([]schemas.ResetType, error) {
+func GetResetTypes(ctx context.Context, node CrawlableNode) ([]schemas.ResetType, error) {
 	log.Debug().Msgf("polling %s for reset types", node.ConnConfig.URI)
 
 	// Obtain an active (cached) vendor-aware client
-	client, err := bmc.DefaultManager.CachedClient(node.ConnConfig)
+	client, err := bmc.DefaultManager.CachedClient(ctx, node.ConnConfig)
 	if err != nil {
 		return nil, err
 	}
-	return client.GetResetTypes(node.NodeID)
+	return client.GetResetTypes(ctx, node.NodeID)
 }
 
 // PollBMCPowerStates connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -118,15 +119,15 @@ func GetResetTypes(node CrawlableNode) ([]schemas.ResetType, error) {
 // Returns:
 //   - schemas.PowerState: The current power state of the node. (Custom string subtype)
 //   - error: An error object if any error occurs during the connection or retrieval process.
-func GetPowerState(node CrawlableNode) (schemas.PowerState, error) {
+func GetPowerState(ctx context.Context, node CrawlableNode) (schemas.PowerState, error) {
 	log.Debug().Msgf("polling %s for power states", node.ConnConfig.URI)
 
 	// Obtain an active (cached) vendor-aware client
-	client, err := bmc.DefaultManager.CachedClient(node.ConnConfig)
+	client, err := bmc.DefaultManager.CachedClient(ctx, node.ConnConfig)
 	if err != nil {
 		return "", err
 	}
-	return client.GetPowerState(node.NodeID)
+	return client.GetPowerState(ctx, node.NodeID)
 }
 
 // ResetComputerSystem connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -137,18 +138,42 @@ func GetPowerState(node CrawlableNode) (schemas.PowerState, error) {
 //   - resetType: A schemas.ResetType parameter, specifying the manner in which the target ComputerSystem should be reset.
 //
 // Returns:
+//   - *schemas.TaskMonitorInfo: the Redfish task-monitor handle for the reset
+//     when the BMC models it asynchronously (may be nil for synchronous BMCs).
 //   - error: An error object if any error occurs during the connection or reset process.
-func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) error {
+func ResetComputerSystem(ctx context.Context, node CrawlableNode, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
 	log.Debug().Msgf("resetting computer system %s: %s", node.ClusterID, resetType)
 
 	// Use a fresh (uncached) vendor-aware client and log out when done.
-	client, err := bmc.DefaultManager.Client(node.ConnConfig)
+	client, err := bmc.DefaultManager.Client(ctx, node.ConnConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer client.Logout()
 
-	return client.Reset(node.NodeID, resetType)
+	return client.Reset(ctx, node.NodeID, resetType)
+}
+
+// ResetOperation connects to a node's BMC and performs a vendor-neutral power
+// Operation (e.g. bmc.OpOff), resolving it to a reset type the target advertises
+// with the graceful→forced fallback chain. It returns bmc.ErrUnsupportedOperation
+// when the operation cannot be satisfied, distinct from a BMC call failure.
+//
+// Returns:
+//   - *schemas.TaskMonitorInfo: the Redfish task-monitor handle for the reset
+//     when the BMC models it asynchronously (may be nil for synchronous BMCs).
+//   - error: An error object if any error occurs during the connection or reset process.
+func ResetOperation(ctx context.Context, node CrawlableNode, op bmc.Operation) (*schemas.TaskMonitorInfo, error) {
+	log.Debug().Msgf("performing power operation %q on computer system %s", op, node.ClusterID)
+
+	// Use a fresh (uncached) vendor-aware client and log out when done.
+	client, err := bmc.DefaultManager.Client(ctx, node.ConnConfig)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Logout()
+
+	return client.ResetOperation(ctx, node.NodeID, op)
 }
 
 // GetBMCSession returns an already-active gofish BMC client, creating a new one if necessary.
@@ -158,8 +183,8 @@ func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) error 
 //   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
 //
 // Returns: none.
-func GetBMCSession(config crawler.CrawlerConfig) (*gofish.APIClient, error) {
-	client, err := bmc.DefaultManager.CachedClient(config)
+func GetBMCSession(ctx context.Context, config crawler.CrawlerConfig) (*gofish.APIClient, error) {
+	client, err := bmc.DefaultManager.CachedClient(ctx, config)
 	if err != nil {
 		return nil, err
 	}
