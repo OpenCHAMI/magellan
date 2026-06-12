@@ -14,8 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	// "github.com/stmcginnis/gofish/redfish"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -158,8 +156,7 @@ var PowerCmd = &cobra.Command{
 			action_func = func(target power.CrawlableNode) string {
 				// TODO: Some kind of validation might be nice here, but ResetType
 				// is a custom string type, so a direct typecast works fine for now.
-				// TODO: Update this function here to report the TaskMonitorInfo
-				_, err := power.ResetComputerSystem(target, schemas.ResetType(reset_type))
+				err := power.ResetComputerSystem(target, schemas.ResetType(reset_type))
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to reset node %s", target.ClusterID)
 					return "failure"

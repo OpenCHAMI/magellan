@@ -144,11 +144,54 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	log.Debug().
 		Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
+	// Nodes are sometimes only found under Chassis, but they should be found under Systems.
+	rf_chassis, err := rf_service.Chassis()
+	if err == nil {
+		log.Debug().Msgf("found %d chassis in ServiceRoot", len(rf_chassis))
+		for _, chassis := range rf_chassis {
+			rf_chassis_systems, err := chassis.ComputerSystems()
+			if err == nil {
+				log.Debug().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
+			}
+
+			newSystems, err := walkSystems(rf_chassis_systems, chassis, config.URI)
+			if err != nil {
+				log.Error().Err(err).Str("chassis_id", chassis.ID).Str("uri", config.URI).Msg("failed to get systems in chassis...continuing...")
+				continue
+			}
+			for i := range newSystems {
+				systems[newSystems[i].URI] = &newSystems[i]
+			}
+		}
+	}
+	rf_root_systems, err := rf_service.Systems()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get systems from ServiceRoot")
+	}
+	log.Debug().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
+	rf_systems = append(rf_systems, rf_root_systems...)
+	newSystems, err := walkSystems(rf_systems, nil, config.URI)
+	if err != nil {
+		return extractPtrMapValues(systems), fmt.Errorf("failed to get systems: %v", err)
+	}
+	systems = merge(systems, newSystems)
+	return extractPtrMapValues(systems), nil
+}
+
+// CrawlBMCForManagers retrieves the managers from a BMC's ServiceRoot.
+func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
+	var managers []Manager
+	client, err := GetBMCClient(config)
+	if err != nil {
+		return managers, err
+	}
+	defer client.Logout()
+
+	rf_service := client.GetService()
+	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 	rf_managers, err := rf_service.Managers()
 	if err != nil {
-		log.Error().
-			Err(err).
-			Msg("failed to get managers from ServiceRoot")
+		log.Error().Err(err).Msg("failed to get managers from ServiceRoot")
 	}
 	return walkManagers(rf_managers, config.URI)
 }
@@ -439,4 +482,23 @@ func merge(systems map[string]*InventoryDetail, newSystems []InventoryDetail) ma
 		systems[system.URI] = &system
 	}
 	return systems
+}
+
+// derefUint dereferences an optional *uint Redfish field to an int, yielding 0
+// when the BMC omitted the value. gofish v0.22 pointer-ized these optional
+// numeric fields; treating nil as 0 preserves the pre-upgrade output.
+func derefUint(p *uint) int {
+	if p == nil {
+		return 0
+	}
+	return int(*p)
+}
+
+// derefFloat dereferences an optional *float64 Redfish field to a float32,
+// yielding 0 when the BMC omitted the value (see derefUint).
+func derefFloat(p *float64) float32 {
+	if p == nil {
+		return 0
+	}
+	return float32(*p)
 }

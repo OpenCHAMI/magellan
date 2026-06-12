@@ -138,13 +138,13 @@ func GetPowerState(node CrawlableNode) (schemas.PowerState, error) {
 //
 // Returns:
 //   - error: An error object if any error occurs during the connection or reset process.
-func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
+func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) error {
 	log.Debug().Msgf("resetting computer system %s: %s", node.ClusterID, resetType)
 
 	// Use a fresh (uncached) vendor-aware client and log out when done.
 	client, err := bmc.DefaultManager.Client(node.ConnConfig)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer client.Logout()
 

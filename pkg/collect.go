@@ -19,9 +19,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 
 	"github.com/rs/zerolog/log"
-	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
-	"golang.org/x/exp/slices"
 )
 
 // CollectParams is a collection of common parameters passed to the CLI
