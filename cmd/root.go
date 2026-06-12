@@ -23,6 +23,9 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/format"
 	logger "github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/OpenCHAMI/magellan/internal/util"
+	// Register the in-tree BMC vendor plugins for their init() side effects so
+	// vendor detection can dispatch to them at runtime.
+	_ "github.com/OpenCHAMI/magellan/pkg/bmc/vendors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

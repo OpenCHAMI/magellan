@@ -2,26 +2,17 @@ package crawler
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
-type CrawlerConfig struct {
-	URI             string // URI of the BMC
-	Insecure        bool   // Whether to ignore SSL errors
-	CredentialStore secrets.SecretStore
-	UseDefault      bool
-}
-
-func (cc *CrawlerConfig) GetUserPass() (bmc.BMCCredentials, error) {
-	return loadBMCCreds(*cc)
-}
+// CrawlerConfig is an alias for bmc.ConnConfig, the canonical BMC connection
+// configuration. It is retained for backwards compatibility with existing
+// callers and tests; its GetUserPass method is defined on bmc.ConnConfig.
+type CrawlerConfig = bmc.ConnConfig
 
 type EthernetInterface struct {
 	URI         string `json:"uri,omitempty"`         // URI of the interface
@@ -128,36 +119,10 @@ type InventoryDetail struct {
 //  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
 //  4. Returns the active gofish client.
 func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
-	// get username and password from secret store
-	bmc_creds, err := loadBMCCreds(config)
-	if err != nil {
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to load BMC credentials")
-		return nil, err
-	}
-
-	// initialize gofish client
-	client, err := gofish.Connect(gofish.ClientConfig{
-		Endpoint:  config.URI,
-		Username:  bmc_creds.Username,
-		Password:  bmc_creds.Password,
-		Insecure:  config.Insecure,
-		BasicAuth: true,
-	})
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "404:") {
-			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
-		}
-		if strings.HasPrefix(err.Error(), "401:") {
-			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
-		}
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to connect to BMC")
-		return nil, err
-	}
-	return client, nil
+	// Delegate to the shared BMC manager, which is the single point where
+	// gofish.Connect is called and where credential loading and error
+	// decoration happen.
+	return bmc.DefaultManager.Connect(config)
 }
 
 // CrawlBMCForSystems pulls all pertinent information from a BMC.
@@ -171,78 +136,6 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	client, err := GetBMCClient(config)
 	if err != nil {
 		return []InventoryDetail{}, err
-	}
-	defer client.Logout()
-
-	// Obtain the ServiceRoot
-	rf_service := client.GetService()
-	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
-
-	// Nodes are sometimes only found under Chassis, but they should be found under Systems.
-	rf_chassis, err := rf_service.Chassis()
-	if err == nil {
-		log.Debug().Msgf("found %d chassis in ServiceRoot", len(rf_chassis))
-		for _, chassis := range rf_chassis {
-			rf_chassis_systems, err := chassis.ComputerSystems()
-			if err == nil {
-				// rf_systems = append(rf_systems, rf_chassis_systems...)
-				log.Debug().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
-			}
-
-			// Walk the systems found under Chassis with reference
-			newSystems, err := walkSystems(rf_chassis_systems, chassis, config.URI)
-			if err != nil {
-				log.Error().
-					Err(err).
-					Str("chassis_id", chassis.ID).
-					Str("uri", config.URI).
-					Msg("failed to get systems in chassis...continuing...")
-				continue
-			}
-
-			// add systems found from chassis to total collection
-			for i := range newSystems {
-				systems[newSystems[i].URI] = &newSystems[i]
-			}
-		}
-	}
-	rf_root_systems, err := rf_service.Systems()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get systems from ServiceRoot")
-	}
-	log.Debug().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
-	rf_systems = append(rf_systems, rf_root_systems...)
-	newSystems, err := walkSystems(rf_systems, nil, config.URI)
-	if err != nil {
-		return extractPtrMapValues(systems), fmt.Errorf("failed to get systems: %v", err)
-	}
-	// If nodes are found under both Chassis and Systems, Systems is assumed to be "more definitive"
-	// and will override corresponding fields from the Chassis version.
-	systems = merge(systems, newSystems)
-	return extractPtrMapValues(systems), nil
-}
-
-// CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
-// retrieves the ServiceRoot, and then fetches the list of managers from the ServiceRoot.
-//
-// Parameters:
-//   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
-//
-// Returns:
-//   - []Manager: A slice of Manager structs representing the managers retrieved from the BMC.
-//   - error: An error object if any error occurs during the connection or retrieval process.
-//
-// The function performs the following steps:
-//  1. Creates a logged-in gofish client for the BMC with the provided configuration.
-//  2. Logs out from the client after the operations are completed.
-//  3. Retrieves the ServiceRoot from the connected BMC.
-//  4. Fetches the list of managers from the ServiceRoot.
-//  5. Returns the list of managers and any error encountered during the process.
-func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
-	var managers []Manager
-	client, err := GetBMCClient(config)
-	if err != nil {
-		return managers, err
 	}
 	defer client.Logout()
 
@@ -532,19 +425,6 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 	}
 	return managers, nil
 }
-
-func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
-	// NOTE: it is possible for the SecretStore to be nil, so we need a check
-	if config.CredentialStore == nil {
-		return bmc.BMCCredentials{}, fmt.Errorf("credential store is invalid")
-	}
-	if creds := util.GetBMCCredentials(config.CredentialStore, config.URI); creds == (bmc.BMCCredentials{}) {
-		return creds, fmt.Errorf("%s: credentials blank for BMC", config.URI)
-	} else {
-		return creds, nil
-	}
-}
-
 func extractPtrMapValues[T any](m map[string]*T) []T {
 	slice := make([]T, 0, len(m))
 	for i := range m {
