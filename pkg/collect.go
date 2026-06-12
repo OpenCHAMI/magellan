@@ -20,7 +20,6 @@ import (
 	"github.com/openchami/magellan/pkg/secrets"
 
 	"github.com/rs/zerolog/log"
-
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -258,7 +257,7 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 	// gofish (at least for now). If there's a need for grabbing more
 	// manager information in the future, we can move the logic into
 	// the crawler.
-	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
+	client, err := bmc.DefaultManager.Connect(config)
 	if err != nil {
 		event := log.Error()
 		event.Err(err)

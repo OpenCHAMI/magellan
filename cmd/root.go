@@ -23,6 +23,7 @@ import (
 	"github.com/openchami/magellan/internal/format"
 	logger "github.com/openchami/magellan/internal/log"
 	"github.com/openchami/magellan/internal/util"
+	_ "github.com/openchami/magellan/pkg/bmc/vendors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

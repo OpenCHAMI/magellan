@@ -5,17 +5,33 @@ import (
 
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/models"
-	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
+	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
-type CrawlerConfig struct {
-	URI             string // URI of the BMC
-	Insecure        bool   // Whether to ignore SSL errors
-	CACertPath      string // Optional path to a trusted CA certificate
-	CredentialStore secrets.SecretStore
-	UseDefault      bool
+// CrawlerConfig is an alias for bmc.ConnConfig, the canonical BMC connection
+// configuration. It is retained for backwards compatibility with existing
+// callers and tests; its GetUserPass method is defined on bmc.ConnConfig.
+type CrawlerConfig = bmc.ConnConfig
+
+// GetBMCClient connects to a BMC (Baseboard Management Controller) using the provided configuration,
+// and returns the active client.
+//
+// Parameters:
+//   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
+//
+// Returns:
+//   - *gofish.APIClient: The active client for the BMC.
+//   - error: An error object if any error occurs during the connection or retrieval process.
+//
+// The function performs the following steps:
+//  1. Initializes a gofish client with the provided configuration.
+//  2. Attempts to connect to the BMC using the gofish client.
+//  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
+//  4. Returns the active gofish client.
+func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
+	return bmc.DefaultManager.Connect(config)
 }
 
 // CrawlBMCForSystems pulls all pertinent information from a BMC.
@@ -26,7 +42,7 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]models.InventoryDetail, error) 
 		rf_systems []*schemas.ComputerSystem
 	)
 
-	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
+	client, err := bmc.DefaultManager.Connect(config)
 	if err != nil {
 		return []models.InventoryDetail{}, err
 	}
@@ -98,7 +114,7 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]models.InventoryDetail, error) 
 //  5. Returns the list of managers and any error encountered during the process.
 func CrawlBMCForManagers(config CrawlerConfig) ([]models.Manager, error) {
 	var managers []models.Manager
-	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
+	client, err := bmc.DefaultManager.Connect(config)
 	if err != nil {
 		return managers, err
 	}
