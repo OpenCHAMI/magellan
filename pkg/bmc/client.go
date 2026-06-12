@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 // Vendor identifies the manufacturer of a BMC. It is used to dispatch to
@@ -41,13 +41,13 @@ type Client interface {
 
 	// GetPowerState returns the power state of the ComputerSystem with the
 	// given Redfish ID.
-	GetPowerState(systemID string) (redfish.PowerState, error)
+	GetPowerState(systemID string) (schemas.PowerState, error)
 	// GetResetTypes returns the reset types supported by the ComputerSystem
 	// with the given Redfish ID.
-	GetResetTypes(systemID string) ([]redfish.ResetType, error)
+	GetResetTypes(systemID string) ([]schemas.ResetType, error)
 	// Reset issues a reset of the given type to the ComputerSystem with the
 	// given Redfish ID.
-	Reset(systemID string, resetType redfish.ResetType) error
+	Reset(systemID string, resetType schemas.ResetType) error
 }
 
 // GenericClient is the default, vendor-agnostic implementation of Client backed
@@ -78,7 +78,7 @@ func (g *GenericClient) Logout() {
 }
 
 // systemByID looks up a ComputerSystem under the ServiceRoot by its Redfish ID.
-func (g *GenericClient) systemByID(systemID string) (*redfish.ComputerSystem, error) {
+func (g *GenericClient) systemByID(systemID string) (*schemas.ComputerSystem, error) {
 	systems, err := g.api.GetService().Systems()
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (g *GenericClient) systemByID(systemID string) (*redfish.ComputerSystem, er
 	return nil, fmt.Errorf("computer system %q not found", systemID)
 }
 
-func (g *GenericClient) GetPowerState(systemID string) (redfish.PowerState, error) {
+func (g *GenericClient) GetPowerState(systemID string) (schemas.PowerState, error) {
 	system, err := g.systemByID(systemID)
 	if err != nil {
 		return "", err
@@ -99,20 +99,24 @@ func (g *GenericClient) GetPowerState(systemID string) (redfish.PowerState, erro
 	return system.PowerState, nil
 }
 
-func (g *GenericClient) GetResetTypes(systemID string) ([]redfish.ResetType, error) {
+func (g *GenericClient) GetResetTypes(systemID string) ([]schemas.ResetType, error) {
 	system, err := g.systemByID(systemID)
 	if err != nil {
 		return nil, err
 	}
-	return system.SupportedResetTypes, nil
+	return system.GetSupportedResetTypes()
 }
 
-func (g *GenericClient) Reset(systemID string, resetType redfish.ResetType) error {
+func (g *GenericClient) Reset(systemID string, resetType schemas.ResetType) error {
 	system, err := g.systemByID(systemID)
 	if err != nil {
 		return err
 	}
-	return system.Reset(resetType)
+	// gofish v0.22's Reset returns a *schemas.TaskMonitorInfo for async tracking;
+	// the generic client preserves error-only semantics for now. The task handle
+	// is where confirmation/polling (bugs.md power parity #4) will hook in later.
+	_, err = system.Reset(resetType)
+	return err
 }
 
 // ErrUnsupportedQuirk is the canonical "fail loudly" error a vendor plugin (or
