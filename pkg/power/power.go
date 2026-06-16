@@ -74,15 +74,26 @@ func ParseInventory(filename string, dataFormat format.DataFormat) ([]bmc.Node, 
 	for i := range inventory {
 		systems := inventory[i].Systems
 		for j := range systems {
+			// Extract MAC addresses from ethernet interfaces
+			macs := make([]string, 0, len(systems[j].EthernetInterfaces))
+			for _, eth := range systems[j].EthernetInterfaces {
+				if eth.MAC != "" {
+					macs = append(macs, eth.MAC)
+				}
+			}
+
 			nodelist = append(nodelist, bmc.Node{
 				// TODO: This assumes indices in the Systems list correspond to nodes' "…nX" xname components.
 				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
 				// FIXME: This assumes strict xname formatting! To become xname-agnostic, this should be
 				// replaced with some other cluster-wide ID (which the BMC/ComputerSystem itself won't know, so
 				// it'll have to be generated/looked up from somewhere else).
-				ClusterID: fmt.Sprintf("%sn%d", inventory[i].ID, j),
-				BmcIP:     inventory[i].FQDN,
-				NodeID:    systems[j].NodeID,
+				ClusterID:    fmt.Sprintf("%sn%d", inventory[i].ID, j),
+				BmcIP:        inventory[i].FQDN,
+				NodeID:       systems[j].NodeID,
+				UUID:         systems[j].UUID,
+				SerialNumber: systems[j].SerialNumber,
+				MACAddresses: macs,
 			})
 		}
 	}

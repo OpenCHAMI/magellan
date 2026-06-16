@@ -1,16 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"strings"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/power"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
-	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -24,239 +24,314 @@ var (
 	powerFormat      format.DataFormat = format.FORMAT_JSON
 )
 
-// The `power` command gets and sets power states for a collection of BMC nodes.
-// This command should be run after `collect`, as it requires an existing node inventory.
+// The `power` command gets and sets power states for a single BMC node using flexible identifiers.
 var PowerCmd = &cobra.Command{
-	Use: "power <node-id>...",
-	Example: `  // get power state
-  magellan power x1000c0s0b3n0
-  // perform a vendor-neutral power operation (resolved to a supported reset type)
-  magellan power x1000c0s0b3n0 -o off
-  magellan power x1000c0s0b3n0 -o hard-restart
-  // perform a raw Redfish reset type (no validation/fallback)
-  magellan power x1000c0s0b3n0 -r On
-  magellan power x1000c0s0b3n0 -r PowerCycle
-  // list supported reset types
-  magellan power x1000c0s0b3n0 --list-reset-types
-  // more realistic usage
-  magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2
-  // inventory from stdin
-  magellan collect -v ... | magellan power -f - x1000c0s0b3n0`,
-	Short: "Get and set node power states",
-	Long:  "Determine and control the power states of nodes found by a previous inventory crawl.\nSee the 'scan' and 'crawl' commands for further details.",
+	Use: "power <identifier>",
+	Example: `  // Power control by IP address (no inventory file needed)
+  magellan power 10.0.0.101 -u admin -p password
+  magellan power 10.0.0.101 -o off
+  magellan power 192.168.1.100 --list-reset-types
+  
+  // Power control by UUID (from inventory file)
+  magellan power 3894755a-8e4c-41d6-a6eb-3c5f4b7d2e10 -o on -f nodes.json
+  
+  // Power control by serial number (from inventory file)
+  magellan power CN75120A3G -o hard-restart -f nodes.json
+  
+  // Power control by MAC address (from inventory file)
+  magellan power aa:bb:cc:dd:ee:ff -o soft-off -f nodes.json
+  magellan power aa-bb-cc-dd-ee-ff -o off -f nodes.json
+  
+  // Power control by xname (from inventory file)
+  magellan power x1000c0s0b3n0 -o off -f nodes.json
+  magellan power x5506c0s172b105n1 --list-reset-types -f nodes.json`,
+	Short: "Get and set node power states using flexible identifiers",
+	Long: `Control power states of individual nodes through their BMC using natural identifiers.
+
+Supported identifier types (auto-detected):
+  - IP address: Connect directly to BMC (no inventory file needed)
+  - UUID: Redfish system UUID from inventory
+  - Serial number: System serial number from inventory  
+  - MAC address: Any NIC MAC address from inventory
+  - XName: Cray-format cluster identifier from inventory
+
+For IP addresses, magellan connects directly without requiring a pre-collected inventory.
+For other identifiers, an inventory file from 'magellan collect' is required.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Context for cancellation/deadlines, propagated into the BMC layer.
 		ctx := cmd.Context()
 
-		// Validate the requested operation up front so a bad value fails once,
-		// clearly, rather than once per target node.
+		// Validate: exactly one node identifier
+		if len(args) == 0 {
+			log.Fatal().Msg("exactly one node identifier required. Usage: magellan power <identifier> [flags]")
+		}
+		if len(args) > 1 {
+			log.Fatal().Msgf("multiple nodes not supported - specify one identifier at a time. Received %d identifiers: %v", len(args), args)
+		}
+
+		identifier := args[0]
+
+		// Validate operation flag value
 		if operation != "" && !bmc.KnownOperation(bmc.Operation(operation)) {
-			log.Fatal().Msgf("unknown power operation %q (known: %v)", operation, bmc.Operations())
+			log.Fatal().Msgf("unknown power operation %q (known operations: %v)", operation, bmc.Operations())
 		}
 
-		// Read node inventory from CLI flag, or default `collect` YAML output
-		var datafile string
-		if viper.IsSet("inventory-file") {
-			datafile = viper.GetString("inventory-file")
-		} else {
-			datafile = viper.GetString("collect.output-file")
-			log.Info().Msgf("parsing default inventory file from 'collect': %s", datafile)
-		}
-		// Parse node inventory
-		nodes, err := power.ParseInventory(datafile, powerFormat)
-		if err != nil {
-			log.Fatal().Err(err).Msgf("failed to parse inventory file %s", datafile)
-			// log.Fatal().Msg() does os.Exit(1) for us
-		}
+		// Setup credentials (from flags or secrets file)
+		store := setupCredentialStore()
 
-		// Set the minimum/maximum number of concurrent processes
-		if concurrency <= 0 {
-			concurrency = mathutil.Clamp(len(args), 1, 10000)
-		}
+		// Detect identifier type
+		identifierType := bmc.DetectIdentifierType(identifier)
+		log.Debug().Msgf("detected identifier type: %s", identifierType)
 
-		// Use secret store for BMC credentials, and/or credential CLI flags
-		var store secrets.SecretStore
-		if username != "" && password != "" {
-			// First, try and load credentials from --username and --password if both are set.
-			log.Debug().Msgf("--username and --password specified, using them for BMC credentials")
-			store = secrets.NewStaticStore(username, password)
-		} else {
-			// Alternatively, locate specific credentials (falling back to default) and override those
-			// with --username or --password if either are passed.
-			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
-			if store, err = secrets.OpenStore(secretsFile); err != nil {
-				log.Error().Err(err).Msg("failed to open local secrets store")
+		// PATH 1: Direct IP connection (no inventory file needed)
+		if identifierType == bmc.IdentifierIP {
+			err := handleDirectIPConnection(ctx, identifier, store)
+			if err != nil {
+				log.Fatal().Err(err).Msg("direct IP connection failed")
 			}
+			return
+		}
 
-			// Temporarily override username/password of each BMC if one of those
-			// flags is passed. The expectation is that if the flag is specified
-			// on the command line, it should be used.
+		// PATH 2: Inventory-based lookup (for UUID, Serial, MAC, XName)
+		log.Info().Msg("non-IP identifier detected, loading inventory for lookup")
+
+		// Load inventory
+		nodes := loadInventory()
+
+		// Find node by identifier
+		node, err := findNodeByIdentifier(nodes, identifier)
+		if err != nil {
+			log.Fatal().Err(err).Msg("node lookup failed")
+		}
+
+		log.Debug().Msgf("found node in inventory: ClusterID=%s, BmcIP=%s, NodeID=%s", node.ClusterID, node.BmcIP, node.NodeID)
+
+		// Connect to the node's BMC
+		config := crawler.CrawlerConfig{
+			URI:             "https://" + node.BmcIP,
+			CredentialStore: store,
+			Insecure:        insecure,
+		}
+
+		client, err := bmc.DefaultManager.Client(ctx, config)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("failed to connect to BMC at %s for node %s", node.BmcIP, identifier)
+		}
+		defer client.Logout()
+
+		// Perform power action
+		err = performPowerAction(ctx, client, node.NodeID, identifier)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("power action failed for node %s", identifier)
+		}
+	},
+}
+
+// setupCredentialStore creates and configures the credential store from CLI flags or secrets file.
+// It handles username/password overrides and returns a configured SecretStore.
+func setupCredentialStore() secrets.SecretStore {
+	var store secrets.SecretStore
+	var err error
+
+	if username != "" && password != "" {
+		log.Debug().Msg("using credentials from --username and --password flags")
+		store = secrets.NewStaticStore(username, password)
+	} else {
+		log.Debug().Msgf("loading credentials from secret store at %s", secretsFile)
+		if store, err = secrets.OpenStore(secretsFile); err != nil {
+			log.Error().Err(err).Msg("failed to open local secrets store")
+		}
+
+		// Override username/password if either flag is set
+		if username != "" {
+			log.Info().Msg("--username passed, overriding all usernames from secret store")
+		}
+		if password != "" {
+			log.Info().Msg("--password passed, overriding all passwords from secret store")
+		}
+		switch s := store.(type) {
+		case *secrets.StaticStore:
 			if username != "" {
-				log.Info().Msg("--username passed, temporarily overriding all usernames from secret store with value")
+				s.Username = username
 			}
 			if password != "" {
-				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
+				s.Password = password
 			}
-			switch s := store.(type) {
-			case *secrets.StaticStore:
-				if username != "" {
-					s.Username = username
-				}
-				if password != "" {
-					s.Password = password
-				}
-			case *secrets.LocalSecretStore:
-				for k := range s.Secrets {
-					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
+		case *secrets.LocalSecretStore:
+			for k := range s.Secrets {
+				if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
+					log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
+				} else {
+					if username != "" {
+						creds.Username = username
+					}
+					if password != "" {
+						creds.Password = password
+					}
+					if newCreds, err := json.Marshal(creds); err != nil {
+						log.Error().Str("id", k).Err(err).Msg("failed to marshal updated credentials")
 					} else {
-						if username != "" {
-							creds.Username = username
-						}
-						if password != "" {
-							creds.Password = password
-						}
-
-						if newCreds, err := json.Marshal(creds); err != nil {
-							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
-						} else {
-							err = s.StoreSecretByID(k, string(newCreds))
-							if err != nil {
-								log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
-							}
+						err = s.StoreSecretByID(k, string(newCreds))
+						if err != nil {
+							log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
 						}
 					}
 				}
 			}
 		}
+	}
 
-		// Index nodes by xname, for faster lookup...
-		nodemap := make(map[string]bmc.Node, len(nodes))
-		for i := range nodes {
-			nodemap[nodes[i].ClusterID] = nodes[i]
-		}
-		// ...and select the ones requested by the user
-		target_nodes := make([]power.CrawlableNode, 0, len(args))
-		for i := range args {
-			node, found := nodemap[args[i]]
-			if !found {
-				log.Error().Msgf("target node '%s' not found in inventory; skipping", args[i])
-				continue
-			}
-			target_nodes = append(target_nodes, power.CrawlableNode{
-				ClusterID: node.ClusterID,
-				NodeID:    node.NodeID,
-				ConnConfig: crawler.CrawlerConfig{
-					URI:             "https://" + node.BmcIP,
-					CredentialStore: store,
-					Insecure:        insecure,
-				},
-			})
-		}
-
-		// Create the appropriate "action function" based on CLI flags (or lack thereof)
-		var action_func func(power.CrawlableNode) string
-		if list_reset_types {
-			action_func = func(target power.CrawlableNode) string {
-				types, err := power.GetResetTypes(ctx, target)
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to get reset types for node %s", target.ClusterID)
-					return ""
-				}
-				return fmt.Sprintf("%s", types)
-			}
-		} else if operation != "" {
-			// Vendor-neutral operation: resolved to a supported reset type with
-			// the graceful→forced fallback chain in the BMC layer.
-			action_func = func(target power.CrawlableNode) string {
-				_, err := power.ResetOperation(ctx, target, bmc.Operation(operation))
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to perform %q on node %s", operation, target.ClusterID)
-					return "failure"
-				}
-				return "success"
-			}
-		} else if reset_type != "" {
-			action_func = func(target power.CrawlableNode) string {
-				// Raw Redfish reset type, passed through unresolved. Prefer
-				// --operation for vendor-neutral semantics with fallbacks.
-				_, err := power.ResetComputerSystem(ctx, target, schemas.ResetType(reset_type))
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to reset node %s", target.ClusterID)
-					return "failure"
-				}
-				return "success"
-			}
-		} else {
-			action_func = func(target power.CrawlableNode) string {
-				state, err := power.GetPowerState(ctx, target)
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to get power state of node %s", target.ClusterID)
-					state = "unknown"
-				}
-				return string(state)
-			}
-		}
-
-		// Actual node operations, in parallel
-		results := concurrent_helper(concurrency, target_nodes, action_func)
-		power.LogoutBMCSessions()
-		for node, status := range results {
-			fmt.Printf("%s:\t%s\n", node, status)
-		}
-	},
+	return store
 }
 
-func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner func(power.CrawlableNode) string) map[string]string {
-	type NodeInfo struct {
-		ClusterID string
-		Result    string
+// loadInventory reads and parses the node inventory from the configured file or default location.
+func loadInventory() []bmc.Node {
+	var datafile string
+	if viper.IsSet("inventory-file") {
+		datafile = viper.GetString("inventory-file")
+	} else {
+		datafile = viper.GetString("collect.output-file")
+		log.Info().Msgf("using default inventory file from 'collect' command: %s", datafile)
 	}
-	dataChannel := make(chan power.CrawlableNode, 1)
-	returnChannel := make(chan NodeInfo, concurrency)
-	results := make(map[string]string, len(targets))
-	var wg sync.WaitGroup
 
-	// Worker threads
-	wg.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
-		go func() {
-			for {
-				// Get next work item, if any
-				target, ok := <-dataChannel
-				if !ok {
-					wg.Done()
-					return
-				}
-				// Perform work and return result
-				returnChannel <- NodeInfo{target.ClusterID, runner(target)}
-			}
-		}()
+	nodes, err := power.ParseInventory(datafile, powerFormat)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("failed to parse inventory file %s. Hint: for IP-based operations, no inventory file is needed; for other identifiers, run 'magellan collect' first", datafile)
 	}
-	// Receive worker results
-	go func() {
-		for {
-			info, ok := <-returnChannel
-			if !ok {
-				break
+
+	return nodes
+}
+
+// findNodeByIdentifier searches the inventory for a node matching the given identifier.
+// It automatically detects the identifier type and searches the appropriate field(s).
+func findNodeByIdentifier(nodes []bmc.Node, identifier string) (*bmc.Node, error) {
+	identifierType := bmc.DetectIdentifierType(identifier)
+
+	switch identifierType {
+	case bmc.IdentifierXName:
+		for i := range nodes {
+			if nodes[i].ClusterID == identifier {
+				return &nodes[i], nil
 			}
-			results[info.ClusterID] = info.Result
 		}
-		wg.Done()
-	}()
 
-	// Dispatch data and wait for processing completion
-	for i := range targets {
-		dataChannel <- targets[i]
+	case bmc.IdentifierIP:
+		for i := range nodes {
+			if nodes[i].BmcIP == identifier {
+				return &nodes[i], nil
+			}
+		}
+
+	case bmc.IdentifierUUID:
+		for i := range nodes {
+			if strings.EqualFold(nodes[i].UUID, identifier) {
+				return &nodes[i], nil
+			}
+		}
+
+	case bmc.IdentifierSerial:
+		for i := range nodes {
+			if strings.EqualFold(nodes[i].SerialNumber, identifier) {
+				return &nodes[i], nil
+			}
+		}
+
+	case bmc.IdentifierMAC:
+		// Normalize both input and stored MACs (lowercase, colon separator)
+		normalizedInput := strings.ToLower(strings.ReplaceAll(identifier, "-", ":"))
+		for i := range nodes {
+			for _, mac := range nodes[i].MACAddresses {
+				normalizedMAC := strings.ToLower(strings.ReplaceAll(mac, "-", ":"))
+				if normalizedMAC == normalizedInput {
+					return &nodes[i], nil
+				}
+			}
+		}
+
+	case bmc.IdentifierUnknown:
+		return nil, fmt.Errorf("unable to determine identifier type for %q", identifier)
 	}
-	close(dataChannel)
-	wg.Wait()
-	// Ensure the receiver thread has also finished
-	wg.Add(1)
-	close(returnChannel)
-	wg.Wait()
 
-	return results
+	return nil, fmt.Errorf("node with %s %q not found in inventory. Try: run 'magellan collect' to refresh inventory, or use the BMC IP address directly", identifierType, identifier)
+}
+
+// handleDirectIPConnection connects directly to a BMC by IP address without requiring an inventory file.
+// This enables quick single-node operations: magellan power 10.0.0.101 -o off
+func handleDirectIPConnection(ctx context.Context, ipAddr string, store secrets.SecretStore) error {
+	log.Info().Msgf("connecting directly to BMC at %s (no inventory file required)", ipAddr)
+
+	// Build connection config
+	config := crawler.CrawlerConfig{
+		URI:             "https://" + ipAddr,
+		CredentialStore: store,
+		Insecure:        insecure,
+	}
+
+	// Connect to BMC
+	client, err := bmc.DefaultManager.Client(ctx, config)
+	if err != nil {
+		return fmt.Errorf("failed to connect to BMC at %s: %w. Check: IP address is correct, credentials are valid, network connectivity is working", ipAddr, err)
+	}
+	defer client.Logout()
+
+	// Get systems from BMC
+	systems, err := client.Gofish().GetService().Systems()
+	if err != nil {
+		return fmt.Errorf("failed to get computer systems from BMC: %w", err)
+	}
+	if len(systems) == 0 {
+		return fmt.Errorf("no computer systems found on BMC at %s", ipAddr)
+	}
+
+	// Use first system (simple approach)
+	systemID := systems[0].ID
+	if len(systems) > 1 {
+		log.Info().Msgf("BMC has %d computer systems, using first system: %s", len(systems), systemID)
+	}
+
+	// Perform the requested power action
+	return performPowerAction(ctx, client, systemID, ipAddr)
+}
+
+// performPowerAction executes the requested power operation (or query) on a computer system.
+// This consolidates the action logic used by both direct IP and inventory-based paths.
+func performPowerAction(ctx context.Context, client bmc.Client, systemID string, displayName string) error {
+	// Action: List supported reset types
+	if list_reset_types {
+		types, err := client.GetResetTypes(ctx, systemID)
+		if err != nil {
+			return fmt.Errorf("failed to get reset types: %w", err)
+		}
+		fmt.Printf("%s: supported reset types: %v\n", displayName, types)
+		return nil
+	}
+
+	// Action: Vendor-neutral operation
+	if operation != "" {
+		_, err := client.ResetOperation(ctx, systemID, bmc.Operation(operation))
+		if err != nil {
+			return fmt.Errorf("failed to perform operation %q: %w", operation, err)
+		}
+		fmt.Printf("%s: operation %q completed successfully\n", displayName, operation)
+		return nil
+	}
+
+	// Action: Raw Redfish reset type
+	if reset_type != "" {
+		_, err := client.Reset(ctx, systemID, schemas.ResetType(reset_type))
+		if err != nil {
+			return fmt.Errorf("failed to perform reset type %q: %w", reset_type, err)
+		}
+		fmt.Printf("%s: reset type %q completed successfully\n", displayName, reset_type)
+		return nil
+	}
+
+	// Default action: Query power state
+	state, err := client.GetPowerState(ctx, systemID)
+	if err != nil {
+		return fmt.Errorf("failed to get power state: %w", err)
+	}
+	fmt.Printf("%s: %s\n", displayName, state)
+	return nil
 }
 
 func init() {
