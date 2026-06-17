@@ -61,8 +61,9 @@ func UpdateFirmwareRemote(q *UpdateParams) error {
 		TransferProtocol: schemas.TransferProtocolType(q.TransferProtocol),
 	}
 
-	// Execute the SimpleUpdate action
-	// TODO: report TaskMonitorInfo instead of just error
+	// Execute the SimpleUpdate action. gofish v0.22 returns a *TaskMonitorInfo
+	// for async tracking; firmware status is tracked separately via
+	// GetUpdateStatus, so the task handle is not retained here yet.
 	_, err = updateService.SimpleUpdate(&req)
 	if err != nil {
 		return fmt.Errorf("firmware update failed: %w", err)

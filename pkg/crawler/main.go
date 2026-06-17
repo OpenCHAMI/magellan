@@ -125,54 +125,11 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]models.Manager, error) {
 	log.Debug().
 		Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
-	// Nodes are sometimes only found under Chassis, but they should be found under Systems.
-	rf_chassis, err := rf_service.Chassis()
-	if err == nil {
-		log.Debug().Msgf("found %d chassis in ServiceRoot", len(rf_chassis))
-		for _, chassis := range rf_chassis {
-			rf_chassis_systems, err := chassis.ComputerSystems()
-			if err == nil {
-				log.Debug().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
-			}
-
-			newSystems, err := walkSystems(rf_chassis_systems, chassis, config.URI)
-			if err != nil {
-				log.Error().Err(err).Str("chassis_id", chassis.ID).Str("uri", config.URI).Msg("failed to get systems in chassis...continuing...")
-				continue
-			}
-			for i := range newSystems {
-				systems[newSystems[i].URI] = &newSystems[i]
-			}
-		}
-	}
-	rf_root_systems, err := rf_service.Systems()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get systems from ServiceRoot")
-	}
-	log.Debug().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
-	rf_systems = append(rf_systems, rf_root_systems...)
-	newSystems, err := walkSystems(rf_systems, nil, config.URI)
-	if err != nil {
-		return extractPtrMapValues(systems), fmt.Errorf("failed to get systems: %v", err)
-	}
-	systems = merge(systems, newSystems)
-	return extractPtrMapValues(systems), nil
-}
-
-// CrawlBMCForManagers retrieves the managers from a BMC's ServiceRoot.
-func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
-	var managers []Manager
-	client, err := GetBMCClient(config)
-	if err != nil {
-		return managers, err
-	}
-	defer client.Logout()
-
-	rf_service := client.GetService()
-	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 	rf_managers, err := rf_service.Managers()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get managers from ServiceRoot")
+		log.Error().
+			Err(err).
+			Msg("failed to get managers from ServiceRoot")
 	}
 	return walkManagers(rf_managers, config.URI)
 }
@@ -244,15 +201,9 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		}
 
 		// convert supported reset types to []string
-		var (
-			resetTypes []schemas.ResetType
-			actions    []string
-		)
-		resetTypes, err = rf_computersystem.GetSupportedResetTypes()
-		if err != nil {
-			log.Warn().Err(err).Str("system", rf_computersystem.Name).Msg("failed to get supported reset types for system")
-		}
-		for _, action := range resetTypes {
+		actions := []string{}
+		supportedResetTypes, _ := rf_computersystem.GetSupportedResetTypes()
+		for _, action := range supportedResetTypes {
 			actions = append(actions, string(action))
 		}
 
@@ -267,12 +218,15 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			SerialNumber: rf_computersystem.SerialNumber,
 			SerialConsole: models.SerialConsole{
 				IPMI: models.SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.IPMI.Port),
 					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
 				},
 				SSH: models.SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.SSH.Port),
 					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
 				},
 				Telnet: models.SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.Telnet.Port),
 					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
 				},
 			},
@@ -287,28 +241,12 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				RestorePolicy:   string(rf_computersystem.PowerRestorePolicy),
 				PowerControlIDs: powercontrolIDs,
 			},
-			Actions:       actions,
-			ProcessorType: rf_computersystem.ProcessorSummary.Model,
-			NodeID:        rf_computersystem.ID,
+			Actions:        actions,
+			ProcessorCount: derefUint(rf_computersystem.ProcessorSummary.Count),
+			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
+			MemoryTotal:    derefFloat(rf_computersystem.MemorySummary.TotalSystemMemoryGiB),
+			NodeID:         rf_computersystem.ID,
 		}
-
-		// check that pointers values are set before de-referencing
-		if rf_computersystem.SerialConsole.IPMI.Port != nil {
-			system.SerialConsole.IPMI.Port = uint(*rf_computersystem.SerialConsole.IPMI.Port)
-		}
-		if rf_computersystem.SerialConsole.SSH.Port != nil {
-			system.SerialConsole.SSH.Port = uint(*rf_computersystem.SerialConsole.SSH.Port)
-		}
-		if rf_computersystem.SerialConsole.Telnet.Port != nil {
-			system.SerialConsole.Telnet.Port = uint(*rf_computersystem.SerialConsole.Telnet.Port)
-		}
-		if rf_computersystem.ProcessorSummary.Count != nil {
-			system.ProcessorCount = uint(*rf_computersystem.ProcessorSummary.Count)
-		}
-		if rf_computersystem.MemorySummary.TotalSystemMemoryGiB != nil {
-			system.MemoryTotal = float64(*rf_computersystem.MemorySummary.TotalSystemMemoryGiB)
-		}
-
 		if rf_chassis != nil {
 			system.Chassis_SKU = rf_chassis.SKU
 			system.Chassis_Serial = rf_chassis.SerialNumber
@@ -362,8 +300,6 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			system.NetworkInterfaces = append(system.NetworkInterfaces, networkInterface)
 		}
 
-		// TrustedModules is retained for compatibility with older Redfish services.
-		//nolint:staticcheck
 		for _, rf_trustedmodule := range rf_computersystem.TrustedModules {
 			system.TrustedModules = append(system.TrustedModules, fmt.Sprintf("%s %s", rf_trustedmodule.InterfaceType, rf_trustedmodule.FirmwareVersion))
 		}
@@ -403,8 +339,6 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]models.Mana
 		ethernet_interfaces := mapEthernetInterfaces(rf_ethernetinterfaces, baseURI)
 
 		var supported_serial_console []string
-		// Manager.SerialConsole is retained for compatibility with older services.
-		//nolint:staticcheck
 		for _, console_type := range rf_manager.SerialConsole.ConnectTypesSupported {
 			supported_serial_console = append(supported_serial_console, string(console_type))
 		}
@@ -445,21 +379,21 @@ func merge(systems map[string]*models.InventoryDetail, newSystems []models.Inven
 	return systems
 }
 
-// derefUint dereferences an optional *uint Redfish field to an int, yielding 0
+// derefUint dereferences an optional *uint Redfish field to a uint, yielding 0
 // when the BMC omitted the value. gofish v0.22 pointer-ized these optional
 // numeric fields; treating nil as 0 preserves the pre-upgrade output.
-func derefUint(p *uint) int {
+func derefUint(p *uint) uint {
 	if p == nil {
 		return 0
 	}
-	return int(*p)
+	return *p
 }
 
-// derefFloat dereferences an optional *float64 Redfish field to a float32,
+// derefFloat dereferences an optional *float64 Redfish field to a float64,
 // yielding 0 when the BMC omitted the value (see derefUint).
-func derefFloat(p *float64) float32 {
+func derefFloat(p *float64) float64 {
 	if p == nil {
 		return 0
 	}
-	return float32(*p)
+	return *p
 }
