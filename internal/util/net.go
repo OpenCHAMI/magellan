@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-func IPAddrStrToInt(ipStr string)(int, error) {
+func IPAddrStrToInt(ipStr string) (int, error) {
 	// Generate an integer from an IP address. This is not
 	// sensitive to byte ordering, so the integer produced on
 	// different systems may be different. It will be consistent

@@ -21,7 +21,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 	"golang.org/x/exp/slices"
 )
 
@@ -264,7 +264,7 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 
 	var (
 		rf_service  = client.GetService()
-		rf_managers []*redfish.Manager
+		rf_managers []*schemas.Manager
 	)
 	rf_managers, err = rf_service.Managers()
 	if err != nil {
