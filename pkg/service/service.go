@@ -107,15 +107,6 @@ func (s *Service) ResetOperation(ctx context.Context, uri, systemID string, op b
 	return power.ResetOperation(ctx, s.crawlableNode(uri, systemID), op)
 }
 
-// PowerTransition performs a vendor-neutral power Operation and confirms it took
-// effect (polling power state to its target or following the BMC's async task),
-// escalating a timed-out graceful operation to its forced equivalent per opts.
-// This is the synchronous primitive the daemon will wrap as a pollable async
-// transition.
-func (s *Service) PowerTransition(ctx context.Context, uri, systemID string, op bmc.Operation, opts bmc.TransitionOptions) (*bmc.TransitionResult, error) {
-	return power.PowerTransition(ctx, s.crawlableNode(uri, systemID), op, opts)
-}
-
 // Close releases any cached BMC sessions held by the manager.
 func (s *Service) Close() {
 	s.Manager.LogoutAll()
