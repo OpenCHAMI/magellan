@@ -65,7 +65,7 @@ type Power struct {
 }
 
 type SerialConsoleConfig struct {
-	Port    uint `json:"port,omitempty"`
+	Port    int  `json:"port,omitempty"`
 	Enabled bool `json:"enabled,omitempty"`
 }
 
@@ -89,9 +89,9 @@ type InventoryDetail struct {
 	NetworkInterfaces    []NetworkInterface  `json:"network_interfaces,omitempty"`   // Network interfaces of the Node
 	Actions              []string            `json:"actions,omitempty"`              // Available actions for Node
 	Power                Power               `json:"power,omitempty"`                // Power related settings of Node
-	ProcessorCount       uint                `json:"processor_count,omitempty"`      // Processors of the Node
+	ProcessorCount       int                 `json:"processor_count,omitempty"`      // Processors of the Node
 	ProcessorType        string              `json:"processor_type,omitempty"`       // Processor type of the Node
-	MemoryTotal          float64             `json:"memory_total,omitempty"`         // Total memory of the Node in Gigabytes
+	MemoryTotal          float32             `json:"memory_total,omitempty"`         // Total memory of the Node in Gigabytes
 	TrustedModules       []string            `json:"trusted_modules,omitempty"`      // Trusted modules of the Node
 	TrustedComponents    []string            `json:"trusted_components,omitempty"`   // Trusted components of the Chassis
 	Chassis_SKU          string              `json:"chassis_sku,omitempty"`          // SKU of the Chassis
@@ -141,8 +141,7 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 
 	// Obtain the ServiceRoot
 	rf_service := client.GetService()
-	log.Debug().
-		Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
 
 	// Nodes are sometimes only found under Chassis, but they should be found under Systems.
 	rf_chassis, err := rf_service.Chassis()
@@ -151,14 +150,22 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 		for _, chassis := range rf_chassis {
 			rf_chassis_systems, err := chassis.ComputerSystems()
 			if err == nil {
+				// rf_systems = append(rf_systems, rf_chassis_systems...)
 				log.Debug().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
 			}
 
+			// Walk the systems found under Chassis with reference
 			newSystems, err := walkSystems(rf_chassis_systems, chassis, config.URI)
 			if err != nil {
-				log.Error().Err(err).Str("chassis_id", chassis.ID).Str("uri", config.URI).Msg("failed to get systems in chassis...continuing...")
+				log.Error().
+					Err(err).
+					Str("chassis_id", chassis.ID).
+					Str("uri", config.URI).
+					Msg("failed to get systems in chassis...continuing...")
 				continue
 			}
+
+			// add systems found from chassis to total collection
 			for i := range newSystems {
 				systems[newSystems[i].URI] = &newSystems[i]
 			}
@@ -174,11 +181,28 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 	if err != nil {
 		return extractPtrMapValues(systems), fmt.Errorf("failed to get systems: %v", err)
 	}
+	// If nodes are found under both Chassis and Systems, Systems is assumed to be "more definitive"
+	// and will override corresponding fields from the Chassis version.
 	systems = merge(systems, newSystems)
 	return extractPtrMapValues(systems), nil
 }
 
-// CrawlBMCForManagers retrieves the managers from a BMC's ServiceRoot.
+// CrawlBMCForManagers connects to a BMC (Baseboard Management Controller) using the provided configuration,
+// retrieves the ServiceRoot, and then fetches the list of managers from the ServiceRoot.
+//
+// Parameters:
+//   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
+//
+// Returns:
+//   - []Manager: A slice of Manager structs representing the managers retrieved from the BMC.
+//   - error: An error object if any error occurs during the connection or retrieval process.
+//
+// The function performs the following steps:
+//  1. Creates a logged-in gofish client for the BMC with the provided configuration.
+//  2. Logs out from the client after the operations are completed.
+//  3. Retrieves the ServiceRoot from the connected BMC.
+//  4. Fetches the list of managers from the ServiceRoot.
+//  5. Returns the list of managers and any error encountered during the process.
 func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 	var managers []Manager
 	client, err := GetBMCClient(config)
@@ -187,11 +211,16 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 	}
 	defer client.Logout()
 
+	// Obtain the ServiceRoot
 	rf_service := client.GetService()
-	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+	log.Debug().
+		Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+
 	rf_managers, err := rf_service.Managers()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get managers from ServiceRoot")
+		log.Error().
+			Err(err).
+			Msg("failed to get managers from ServiceRoot")
 	}
 	return walkManagers(rf_managers, config.URI)
 }
@@ -263,15 +292,9 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		}
 
 		// convert supported reset types to []string
-		var (
-			resetTypes []schemas.ResetType
-			actions    []string
-		)
-		resetTypes, err = rf_computersystem.GetSupportedResetTypes()
-		if err != nil {
-			log.Warn().Err(err).Str("system", rf_computersystem.Name).Msg("failed to get supported reset types for system")
-		}
-		for _, action := range resetTypes {
+		actions := []string{}
+		supportedResetTypes, _ := rf_computersystem.GetSupportedResetTypes()
+		for _, action := range supportedResetTypes {
 			actions = append(actions, string(action))
 		}
 
@@ -286,12 +309,15 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			SerialNumber: rf_computersystem.SerialNumber,
 			SerialConsole: SerialConsole{
 				IPMI: SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.IPMI.Port),
 					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
 				},
 				SSH: SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.SSH.Port),
 					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
 				},
 				Telnet: SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.Telnet.Port),
 					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
 				},
 			},
@@ -306,28 +332,12 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				RestorePolicy:   string(rf_computersystem.PowerRestorePolicy),
 				PowerControlIDs: powercontrolIDs,
 			},
-			Actions:       actions,
-			ProcessorType: rf_computersystem.ProcessorSummary.Model,
-			NodeID:        rf_computersystem.ID,
+			Actions:        actions,
+			ProcessorCount: derefUint(rf_computersystem.ProcessorSummary.Count),
+			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
+			MemoryTotal:    derefFloat(rf_computersystem.MemorySummary.TotalSystemMemoryGiB),
+			NodeID:         rf_computersystem.ID,
 		}
-
-		// check that pointers values are set before de-referencing
-		if rf_computersystem.SerialConsole.IPMI.Port != nil {
-			system.SerialConsole.IPMI.Port = uint(*rf_computersystem.SerialConsole.IPMI.Port)
-		}
-		if rf_computersystem.SerialConsole.SSH.Port != nil {
-			system.SerialConsole.SSH.Port = uint(*rf_computersystem.SerialConsole.SSH.Port)
-		}
-		if rf_computersystem.SerialConsole.Telnet.Port != nil {
-			system.SerialConsole.Telnet.Port = uint(*rf_computersystem.SerialConsole.Telnet.Port)
-		}
-		if rf_computersystem.ProcessorSummary.Count != nil {
-			system.ProcessorCount = uint(*rf_computersystem.ProcessorSummary.Count)
-		}
-		if rf_computersystem.MemorySummary.TotalSystemMemoryGiB != nil {
-			system.MemoryTotal = float64(*rf_computersystem.MemorySummary.TotalSystemMemoryGiB)
-		}
-
 		if rf_chassis != nil {
 			system.Chassis_SKU = rf_chassis.SKU
 			system.Chassis_Serial = rf_chassis.SerialNumber
@@ -391,8 +401,6 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			system.NetworkInterfaces = append(system.NetworkInterfaces, networkInterface)
 		}
 
-		// TrustedModules is retained for compatibility with older Redfish services.
-		//nolint:staticcheck
 		for _, rf_trustedmodule := range rf_computersystem.TrustedModules {
 			system.TrustedModules = append(system.TrustedModules, fmt.Sprintf("%s %s", rf_trustedmodule.InterfaceType, rf_trustedmodule.FirmwareVersion))
 		}
@@ -443,8 +451,6 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 		}
 
 		var supported_serial_console []string
-		// Manager.SerialConsole is retained for compatibility with older services.
-		//nolint:staticcheck
 		for _, console_type := range rf_manager.SerialConsole.ConnectTypesSupported {
 			supported_serial_console = append(supported_serial_console, string(console_type))
 		}
@@ -452,7 +458,6 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 		for _, shell_type := range rf_manager.CommandShell.ConnectTypesSupported {
 			supported_command_shell = append(supported_command_shell, string(shell_type))
 		}
-
 		managers = append(managers, Manager{
 			URI:                    baseURI + "/redfish/v1/Managers/" + rf_manager.ID,
 			UUID:                   rf_manager.UUID,
@@ -468,6 +473,44 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 	}
 	return managers, nil
 }
+
+// func getPowerInfo(serviceroot *gofish.Service) ([]Power, error) {
+// 	// get the power control related information (Actions, URL, PowerControl, Links, etc.)
+
+// 	// get the SupportedResetTypes from /redfish/v1/Systems
+// 	// get the Power/PowerControl from /redfish/v1/Chassis
+// 	rf_chassis, err := serviceroot.Chassis()
+// 	if err != nil {
+
+// 	}
+
+// 	power := []Power{}
+// 	for _, chassis := range rf_chassis {
+// 		rf_power, err := chassis.Power()
+// 		if err != nil {
+
+// 		}
+// 		rf_computersystems, err := chassis.ComputerSystems()
+// 		if err != nil {
+
+// 		}
+
+// 		for _, computersystem := range rf_computersystems {
+// 			computersystem.SupportedResetTypes
+// 		}
+
+// 		power = append(power, Power{
+// 			URL: "",
+// 			Control: PowerControl{
+// 				MemberID:     "",
+// 				ResetTypes:   rf_computersystem.SupportedResetTypes,
+// 				RelatedItems: []string{},
+// 			},
+// 		})
+// 	}
+
+// }
+
 func extractPtrMapValues[T any](m map[string]*T) []T {
 	slice := make([]T, 0, len(m))
 	for i := range m {
