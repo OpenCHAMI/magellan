@@ -77,7 +77,13 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				}
 
 				trimmedHost := strings.TrimPrefix(sr.Host, "https://")
-				uri := fmt.Sprintf("%s:%d", sr.Host, sr.Port)
+				// resolve the hostname if it exists
+				if net.ParseIP(trimmedHost) == nil {
+					addrs, err := net.LookupIP(trimmedHost)
+					if err == nil && len(addrs) > 0 {
+						trimmedHost = addrs[0].String()
+					}
+				}
 				keys := &idmap.MapperKeys{
 					IPv4Addr: trimmedHost,
 				}
