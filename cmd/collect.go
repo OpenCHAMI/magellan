@@ -55,14 +55,20 @@ var CollectCmd = &cobra.Command{
 			scannedResults []magellan.RemoteAsset
 			err            error
 		)
-		if cachePath != "" && IsStdinEmpty() {
+
+		// expect --cache to be set if nothing in stdin
+		if IsStdinEmpty() {
 			log.Debug().
 				Str("cache", cachePath).
 				Bool("read_stdin", !IsStdinEmpty()).
 				Msg("using cache path")
+
+			if cachePath == "" {
+				log.Fatal().Msg("expected '--cache' to be set when stdin is empty")
+			}
 			scannedResults, err = sqlite.GetScannedAssets(cachePath)
 			if err != nil {
-				log.Error().Err(err).Msgf("failed to get scanned results from cache")
+				log.Fatal().Err(err).Msgf("failed to get scanned results from cache")
 			}
 		} else {
 			// unmarshal directly from standard input
