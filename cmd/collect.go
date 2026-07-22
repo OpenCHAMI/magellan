@@ -56,6 +56,10 @@ var CollectCmd = &cobra.Command{
 			err            error
 		)
 		if cachePath != "" && IsStdinEmpty() {
+			log.Debug().
+				Str("cache", cachePath).
+				Bool("read_stdin", !IsStdinEmpty()).
+				Msg("using cache path")
 			scannedResults, err = sqlite.GetScannedAssets(cachePath)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to get scanned results from cache")
@@ -240,7 +244,9 @@ func IsStdinEmpty() bool {
 		os.Exit(1)
 	}
 
-	fromTerminal := (file.Mode() & os.ModeCharDevice) != 0
-	fromPipe := (file.Mode() & os.ModeNamedPipe) != 0
-	return !fromTerminal || !fromPipe
+	return file.Size() <= 0
+
+	// fromTerminal := (file.Mode() & os.ModeCharDevice) != 0
+	// fromPipe := (file.Mode() & os.ModeNamedPipe) != 0
+	// return !fromTerminal || !fromPipe
 }
