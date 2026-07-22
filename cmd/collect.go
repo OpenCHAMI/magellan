@@ -56,11 +56,12 @@ var CollectCmd = &cobra.Command{
 			err            error
 		)
 
-		// expect --cache to be set if nothing in stdin
-		if IsStdinEmpty() {
+		// use --cache path if stdin is empty
+		if isStdinEmpty := IsStdinEmpty(); isStdinEmpty {
 			log.Debug().
+				Str("cmd", cmd.Name()).
 				Str("cache", cachePath).
-				Bool("read_stdin", !IsStdinEmpty()).
+				Bool("read_stdin", !isStdinEmpty).
 				Msg("using cache path")
 
 			if cachePath == "" {
@@ -244,15 +245,20 @@ func init() {
 }
 
 func IsStdinEmpty() bool {
-	file, err := os.Stdin.Stat()
+	var (
+		file         os.FileInfo
+		fromTerminal bool
+		err          error
+	)
+	log.Debug().Msg("checking if data in stdin...")
+	file, err = os.Stdin.Stat()
 	if err != nil {
-		fmt.Printf("Error checking stdin: %v\n", err)
-		os.Exit(1)
+		log.Error().Err(err).Msg("failed to stat stdin")
 	}
 
-	return file.Size() <= 0
+	// check if there's data from terminal or piped in
+	fromTerminal = (file.Mode() & os.ModeCharDevice) == 0
 
-	// fromTerminal := (file.Mode() & os.ModeCharDevice) != 0
-	// fromPipe := (file.Mode() & os.ModeNamedPipe) != 0
-	// return !fromTerminal || !fromPipe
+	log.Debug().Bool("terminal", fromTerminal).Send()
+	return !fromTerminal
 }
