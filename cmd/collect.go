@@ -15,7 +15,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gonum.org/v1/gonum/stat"
 	_ "modernc.org/sqlite"
 )
 
@@ -56,12 +55,12 @@ var CollectCmd = &cobra.Command{
 			scannedResults []magellan.RemoteAsset
 			err            error
 		)
-		if cachePath != "" {
+		if cachePath != "" && IsStdinEmpty() {
 			scannedResults, err = sqlite.GetScannedAssets(cachePath)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to get scanned results from cache")
 			}
-		} else if (stat.Mode() & os.ModeCharDevice) == 0 {
+		} else {
 			// unmarshal directly from standard input
 			for _, arg := range args {
 				var asset magellan.RemoteAsset
@@ -232,4 +231,16 @@ func init() {
 	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
 
 	rootCmd.AddCommand(CollectCmd)
+}
+
+func IsStdinEmpty() bool {
+	file, err := os.Stdin.Stat()
+	if err != nil {
+		fmt.Printf("Error checking stdin: %v\n", err)
+		os.Exit(1)
+	}
+
+	fromTerminal := (file.Mode() & os.ModeCharDevice) != 0
+	fromPipe := (file.Mode() & os.ModeNamedPipe) != 0
+	return !fromTerminal || !fromPipe
 }
