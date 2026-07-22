@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gonum.org/v1/gonum/stat"
 	_ "modernc.org/sqlite"
 )
 
@@ -60,7 +61,7 @@ var CollectCmd = &cobra.Command{
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to get scanned results from cache")
 			}
-		} else {
+		} else if (stat.Mode() & os.ModeCharDevice) == 0 {
 			// unmarshal directly from standard input
 			for _, arg := range args {
 				var asset magellan.RemoteAsset
