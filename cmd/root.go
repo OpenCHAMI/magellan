@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
 	logger "github.com/OpenCHAMI/magellan/internal/log"
@@ -133,6 +134,7 @@ func completionFormatData(cmd *cobra.Command, args []string, toComplete string) 
 // from a file given a non-empty string.
 func InitializeConfig() {
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	if configPath == "" {
 		config_dir := os.Getenv("XDG_CONFIG_HOME")
 		if config_dir == "" {

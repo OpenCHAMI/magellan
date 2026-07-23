@@ -249,6 +249,7 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("collect.output-dir", CollectCmd.Flags().Lookup("output-dir")))
 	// checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
 	// checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
+	checkBindFlagError(viper.BindPFlag("collect.insecure", CollectCmd.Flags().Lookup("insecure")))
 	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
 
 	rootCmd.AddCommand(CollectCmd)
