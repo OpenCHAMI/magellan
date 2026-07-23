@@ -256,9 +256,11 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
 ./magellan scan \
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
-    --format json \
+	--output-format json \
     --cache data/assets.db
 ```
+
+Alternatively, to write only JSON to stdout remove the `--cache` flag.
 
 > [!NOTE]
 > Make sure to include the `--insecure` flag if the BMC does not require TLS verification when using HTTPS.
@@ -285,14 +287,14 @@ We can then save the output and make a request with the `send` subcommand or pip
     --timeout 5 \
     --username $USERNAME \
     --password $PASSWORD \
-    --format yaml \
+    --output-format yaml \
     --output-file nodes.yaml \
     --cacert cacert.pem
 ```
 
 This will initiate a crawler to fetch inventory data from the specified BMC host. The data can be saved, viewed, or modified from standard output by setting the `-v/--verbose` flag. Similarly, this output can also be saved by using the `-o/--output-file` flag and providing a path argument.
 
-To make a request with the `collect` output, we specify the `-d/--data` flag for `send`. For files, use the `@` symbol before the file path. Make sure that you set the correct input format with `-F/--format`. Finally, specify the host as a positional argument.
+To make a request with the `collect` output, we specify the `-d/--data` flag for `send`. For files, use the `@` symbol before the file path. Make sure that you set the correct input format with `-f/--input-format`. Finally, specify the host as a positional argument.
 
 ```bash
 magellan send -F yaml -d @nodes.yaml https://example.openchami.cluster:8443

@@ -123,7 +123,7 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 *-o, --output-file* _path_
 	Set the path to store collection data in a single file. This will take the
 	output that is normally printed to standard output and write it to a file as
-	one of the specified formats with *--format*.
+	one of the specified formats with *--output-format*.
 
 	Additionally, this file can be specified as input for the *send* command. See
 	*magellan-send*(1) for details.

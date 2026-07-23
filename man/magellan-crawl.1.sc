@@ -15,7 +15,7 @@ magellan crawl https://bmc.example.com -i -u username -p password
 
 # FLAGS
 
-*-F, --format* _format_
+*-F, --output-format* _format_
 	Set the output data format.
 
 	Possible output formats:
