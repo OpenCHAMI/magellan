@@ -76,6 +76,63 @@ The *magellan* command accepts
 	Set the timeout for requests in seconds. This includes requests used in *scan*,
 	*crawl*, *collect*, and *send*. By default, the value of _time_in_secs_ is 5.
 
+# ENVIRONMENT VARIABLES
+
+The *magellan* CLI tool allows configuring its flags using environment variables. These are automatically parsed based on the flag names, with dots (".") and hyphens ("-") converted to underscores ("_"), and fully capitalized.
+
+*Global Variables*
+- *CONCURRENCY*: Sets the number of concurrent processes
+- *TIMEOUT*: Sets the timeout for requests in seconds
+- *LOG_LEVEL*: Sets the logger log-level
+- *ACCESS_TOKEN*: Sets the access token
+- *CACHE*: Sets the scanning result cache path
+- *CONFIG*: Sets the config file path
+
+*Scan Variables*
+- *SCAN_PORTS*: Adds additional ports to scan
+- *SCAN_SCHEME*: Sets the default scheme to use
+- *SCAN_PROTOCOL*: Sets the default protocol to use
+- *SCAN_SUBNETS*: Adds subnets to scan
+- *SCAN_SUBNET_MASKS*: Sets the default subnet mask
+- *SCAN_DISABLE_PROBING*: Disables probing found assets for Redfish services
+- *SCAN_DISABLE_CACHE*: Disables saving found assets to cache
+- *SCAN_INSECURE*: Skips TLS certificate verification during probe
+
+*Collect Variables*
+- *COLLECT_PROTOCOL* (or *PROTOCOL*): Sets the protocol used to query
+- *COLLECT_OUTPUT_FILE* (or *OUTPUT_FILE*): Sets the path to store collection data
+- *COLLECT_OUTPUT_DIR* (or *OUTPUT_DIR*): Sets the path to store collection data using HIVE
+- *COLLECT_USERNAME* (or *USERNAME*): Sets the master BMC username
+- *COLLECT_PASSWORD* (or *PASSWORD*): Sets the master BMC password
+- *SECRETS_FILE*: Sets path to the node secrets file
+- *COLLECT_INSECURE*: Skips TLS certificate verification during probe
+- *SHOW*: Shows the output of a collect run
+- *FORMAT*: Sets the default output data format
+- *BMC_ID_MAP*: Sets the BMC ID mapping
+
+*Crawl Variables*
+- *CRAWL_INSECURE*: Ignores SSL errors
+
+*Power Variables*
+- *POWER_CACERT* (or *CACERT*): Sets the path to CA cert file
+- *POWER_FORMAT* (or *FORMAT*): Sets the output format
+- *LIST_RESET_TYPES*: Lists supported Redfish reset types
+- *RESET_TYPE*: Redfish reset type to perform
+- *INVENTORY_FILE*: YAML file containing node inventory
+
+*Update Variables*
+- *UPDATE_SCHEME*: Sets the transfer protocol
+- *UPDATE_FIRMWARE_URI*: Sets the URI to retrieve the firmware
+- *UPDATE_STATUS*: Gets the status of the update
+- *UPDATE_INSECURE*: Allows insecure connections to the server
+
+*Secrets Variables*
+- *FILE*: Sets the secrets file with BMC credentials
+- *FORMAT*: Sets the input format for the secrets file
+- *INPUT_FILE*: Sets the file to read as input
+
+Note: Environment variables that take multiple arguments (like `SCAN_SUBNETS` or `SCAN_PORTS`) should have their values delimited by a comma `,` (e.g., `SCAN_PORTS=5000,5001`).
+
 # GETTING STARTED
 
 The *magellan* CLI is a frontend tool for collecting inventory data from board
