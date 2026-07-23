@@ -213,6 +213,7 @@ func init() {
 	checkBindFlagError(viper.BindPFlag("scan.subnet-masks", ScanCmd.Flags().Lookup("subnet-mask")))
 	checkBindFlagError(viper.BindPFlag("scan.disable-probing", ScanCmd.Flags().Lookup("disable-probing")))
 	checkBindFlagError(viper.BindPFlag("scan.disable-cache", ScanCmd.Flags().Lookup("disable-cache")))
+	checkBindFlagError(viper.BindPFlag("scan.insecure", ScanCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(ScanCmd)
 }

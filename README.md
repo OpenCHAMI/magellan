@@ -26,6 +26,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 		- [Managing Power](#managing-power)
 		- [Getting an Access Token (WIP)](#getting-an-access-token-wip)
 		- [Running with Docker](#running-with-docker)
+		- [Environment Variables](#environment-variables)
 	- [How It Works](#how-it-works)
 	- [TODO](#todo)
 	- [Copyright](#copyright)
@@ -528,6 +529,56 @@ docker run ghcr.io/openchami/magellan:latest /magellan.sh --scan "--subnet 172.1
 # ... or ..
 docker ghcr.io/openhami/magellan:latest /magellan scan --subnet 172.16.0.0 --subnet-mask 255.255.255.0
 ```
+
+### Environment Variables
+
+The `magellan` CLI tool allows configuring its flags using environment variables. These are automatically parsed based on the flag names, with dots (`.`) and hyphens (`-`) converted to underscores (`_`), and fully capitalized.
+
+| Command(s) | CLI Flag / Config Key | Environment Variable | Description |
+| :--- | :--- | :--- | :--- |
+| **Global** | `--concurrency` | `CONCURRENCY` | Sets the number of concurrent processes |
+| **Global** | `--timeout` | `TIMEOUT` | Sets the timeout for requests in seconds |
+| **Global** | `--log-level` | `LOG_LEVEL` | Sets the logger log-level (debug, info, warn, etc.) |
+| **Global** | `--access-token` | `ACCESS_TOKEN` | Sets the access token |
+| **Global** | `--cache` | `CACHE` | Sets the scanning result cache path |
+| **Global** | `--config`, `-c` | `CONFIG` | Sets the config file path |
+| **scan** | `--port` | `SCAN_PORTS` | Adds additional ports to scan |
+| **scan** | `--scheme` | `SCAN_SCHEME` | Sets the default scheme to use (e.g., https) |
+| **scan** | `--protocol` | `SCAN_PROTOCOL` | Sets the default protocol to use (e.g., tcp) |
+| **scan** | `--subnet` | `SCAN_SUBNETS` | Adds subnets to scan |
+| **scan** | `--subnet-mask` | `SCAN_SUBNET_MASKS` | Sets the default subnet mask |
+| **scan** | `--disable-probing`| `SCAN_DISABLE_PROBING` | Disables probing found assets for Redfish services |
+| **scan** | `--disable-cache`| `SCAN_DISABLE_CACHE` | Disables saving found assets to cache |
+| **scan** | `--insecure`, `-i` | `SCAN_INSECURE` | Skips TLS certificate verification during probe |
+| **collect** | `--protocol` | `COLLECT_PROTOCOL` | Sets the protocol used to query |
+| **collect** | `--output-file`| `COLLECT_OUTPUT_FILE` | Sets the path to store collection data in a single file |
+| **collect** | `--output-dir` | `COLLECT_OUTPUT_DIR` | Sets the path to store collection data using HIVE partitioning |
+| **collect** | `--username` | `COLLECT_USERNAME` / `USERNAME` | Sets the master BMC username |
+| **collect** | `--password` | `COLLECT_PASSWORD` / `PASSWORD` | Sets the master BMC password |
+| **collect** | `--secrets-file`| `SECRETS_FILE` | Sets path to the node secrets file |
+| **collect** | `--insecure` | `COLLECT_INSECURE` | Skips TLS certificate verification during probe |
+| **collect** | `--show` | `SHOW` | Shows the output of a collect run |
+| **collect** | `--format` | `FORMAT` | Sets the default output data format |
+| **collect** | `--bmc-id-map` | `BMC_ID_MAP` | Sets the BMC ID mapping |
+| **crawl** | `--insecure` | `CRAWL_INSECURE` | Ignores SSL errors |
+| **power** | `--cacert` | `POWER_CACERT` / `CACERT` | Sets the path to CA cert file |
+| **power** | `--format` | `POWER_FORMAT` / `FORMAT` | Sets the output format |
+| **power** | `--list-reset-types`| `LIST_RESET_TYPES` | Lists supported Redfish reset types |
+| **power** | `--reset-type` | `RESET_TYPE` | Redfish reset type to perform |
+| **power** | `--inventory-file`| `INVENTORY_FILE` | YAML file containing node inventory |
+| **update** | `--scheme` | `UPDATE_SCHEME` | Sets the transfer protocol |
+| **update** | `--firmware-uri` | `UPDATE_FIRMWARE_URI` | Sets the URI to retrieve the firmware |
+| **update** | `--status` | `UPDATE_STATUS` | Gets the status of the update |
+| **update** | `--insecure` | `UPDATE_INSECURE` | Allows insecure connections to the server |
+| **secrets**| `--file` | `FILE` | Sets the secrets file with BMC credentials |
+| **secrets**| `--format` | `FORMAT` | Sets the input format for the secrets file |
+| **secrets**| `--input-file` | `INPUT_FILE` | Sets the file to read as input |
+
+> [!NOTE]
+> Due to how configuration defaults and bindings are resolved in `magellan`, some flags accept both a global variable and a command-specific variable (e.g. `--password` under `collect` accepts both `PASSWORD` and `COLLECT_PASSWORD`).
+
+> [!TIP]
+> Environment variables that take multiple arguments (like `SCAN_SUBNETS` or `SCAN_PORTS`) should have their values delimited by a comma `,` (e.g. `SCAN_PORTS=5000,5001`).
 
 ## How It Works
 
