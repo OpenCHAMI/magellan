@@ -53,23 +53,27 @@ var CollectCmd = &cobra.Command{
 		// get probe states stored in db from scan
 		var (
 			scannedResults []magellan.RemoteAsset
-			err            error
+			isStdinEmpty   bool
+
+			// used for processing stdin and --data arguments
+			inputData []map[string]any
+			temp      = processDataArgs(collectDataArgs)
+			err       error
 		)
 
 		// use --cache path if stdin is empty
-		if isStdinEmpty := IsStdinEmpty(); isStdinEmpty {
-			log.Debug().
-				Str("cmd", cmd.Name()).
-				Str("cache", cachePath).
-				Bool("read_stdin", !isStdinEmpty).
-				Msg("using cache path")
-
+		isStdinEmpty, _ = IsStdinEmpty()
+		log.Debug().
+			Str("cache", cachePath).
+			Bool("is_stdin_empty", isStdinEmpty).
+			Send()
+		if isStdinEmpty {
 			if cachePath == "" {
-				log.Fatal().Msg("expected '--cache' to be set when stdin is empty")
+				log.Warn().Msg("expected '--cache' to be set when stdin is empty")
 			}
 			scannedResults, err = sqlite.GetScannedAssets(cachePath)
 			if err != nil {
-				log.Fatal().Err(err).Msgf("failed to get scanned results from cache")
+				log.Warn().Err(err).Msgf("failed to get scanned results from cache")
 			}
 		} else {
 			// unmarshal directly from standard input
@@ -83,39 +87,42 @@ var CollectCmd = &cobra.Command{
 				scannedResults = append(scannedResults, asset)
 			}
 
-			// process input provided from the -d/--data flag
-			var inputData []map[string]any
-			temp := append(handleArgs(args), processDataArgs(sendDataArgs)...)
-			for _, data := range temp {
-				if data != nil {
-					inputData = append(inputData, data)
-				}
-			}
-			if len(inputData) == 0 {
-				log.Error().Msg("data required with standard input or -d/--data flag")
-				os.Exit(1)
-			}
+			// otherwise, add the arg to be processed further down
+			temp = append(temp, handleArgs(args)...)
+		}
 
-			// show the data that was just loaded as input
-			log.Debug().Int("endpoint_count", len(inputData)).Send()
-
-			// build and append target hosts from input data
-			for _, dataObject := range inputData {
-				// assert that we have certain values in data object
-				var (
-					asset    magellan.RemoteAsset
-					inputRaw []byte
-				)
-				inputRaw, err = format.MarshalData(dataObject, collectInputFormat)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to marshal input data")
-				}
-				err = format.UnmarshalData(inputRaw, &asset, collectInputFormat)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to unmarshal input data")
-				}
-				scannedResults = append(scannedResults, asset)
+		// process input provided from stdin and --data flag
+		for _, data := range temp {
+			if data != nil {
+				inputData = append(inputData, data)
 			}
+		}
+
+		// show the data count that was just loaded as input
+		log.Debug().Int("input_count", len(inputData)).Send()
+
+		// build and append target hosts from input data
+		for _, dataObject := range inputData {
+			// assert that we have certain values in data object
+			var (
+				asset    magellan.RemoteAsset
+				inputRaw []byte
+			)
+			inputRaw, err = format.MarshalData(dataObject, collectInputFormat)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal input data")
+			}
+			err = format.UnmarshalData(inputRaw, &asset, collectInputFormat)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to unmarshal input data")
+			}
+			scannedResults = append(scannedResults, asset)
+		}
+
+		// check that we have something to actually scan
+		if len(scannedResults) == 0 {
+			log.Error().Msg("data required to perform collect either from standard input, '--data' flag, or '--cache'")
+			os.Exit(1)
 		}
 
 		// set the minimum/maximum number of concurrent processes
@@ -244,21 +251,20 @@ func init() {
 	rootCmd.AddCommand(CollectCmd)
 }
 
-func IsStdinEmpty() bool {
+func IsStdinEmpty() (bool, error) {
 	var (
 		file         os.FileInfo
 		fromTerminal bool
 		err          error
 	)
-	log.Debug().Msg("checking if data in stdin...")
 	file, err = os.Stdin.Stat()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to stat stdin")
+		return true, fmt.Errorf("failed to stat stdin")
 	}
 
 	// check if there's data from terminal or piped in
 	fromTerminal = (file.Mode() & os.ModeCharDevice) == 0
 
-	log.Debug().Bool("terminal", fromTerminal).Send()
-	return !fromTerminal
+	return !fromTerminal, nil
 }
