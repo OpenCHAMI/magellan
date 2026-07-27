@@ -8,27 +8,27 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [OpenCHAMI Magellan](#openchami-magellan)
-	- [Main Features](#main-features)
-	- [Getting Started](#getting-started)
-	- [Documentation](#documentation)
-	- [Building the Executable](#building-the-executable)
-		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
-		- [Docker](#docker)
-		- [Arch Linux (AUR)](#arch-linux-aur)
-	- [Usage](#usage)
-		- [Checking for Redfish](#checking-for-redfish)
-		- [BMC ID Mapping](#bmc-id-mapping)
-		- [Running the Tool](#running-the-tool)
-			- [Modular Workflows](#modular-workflows)
-		- [PDU Inventory Collection](#pdu-inventory-collection)
-		- [Starting the Emulator](#starting-the-emulator)
-		- [Updating Firmware](#updating-firmware)
-		- [Managing Power](#managing-power)
-		- [Getting an Access Token (WIP)](#getting-an-access-token-wip)
-		- [Running with Docker](#running-with-docker)
-	- [How It Works](#how-it-works)
-	- [TODO](#todo)
-	- [Copyright](#copyright)
+  - [Main Features](#main-features)
+  - [Getting Started](#getting-started)
+  - [Documentation](#documentation)
+  - [Building the Executable](#building-the-executable)
+    - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+    - [Docker](#docker)
+    - [Arch Linux (AUR)](#arch-linux-aur)
+  - [Usage](#usage)
+    - [Checking for Redfish](#checking-for-redfish)
+    - [BMC ID Mapping](#bmc-id-mapping)
+    - [Running the Tool](#running-the-tool)
+      - [Modular Workflows](#modular-workflows)
+    - [PDU Inventory Collection](#pdu-inventory-collection)
+    - [Starting the Emulator](#starting-the-emulator)
+    - [Updating Firmware](#updating-firmware)
+    - [Managing Power](#managing-power)
+    - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+    - [Running with Docker](#running-with-docker)
+  - [How It Works](#how-it-works)
+  - [TODO](#todo)
+  - [Copyright](#copyright)
 
 <!-- TOC end -->
 
@@ -256,7 +256,7 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
 ./magellan scan \
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
-	--output-format json \
+	  --output-format json \
     --cache data/assets.db
 ```
 
@@ -297,7 +297,7 @@ This will initiate a crawler to fetch inventory data from the specified BMC host
 To make a request with the `collect` output, we specify the `-d/--data` flag for `send`. For files, use the `@` symbol before the file path. Make sure that you set the correct input format with `-f/--input-format`. Finally, specify the host as a positional argument.
 
 ```bash
-magellan send -F yaml -d @nodes.yaml https://example.openchami.cluster:8443
+magellan send -f yaml -d @nodes.yaml https://example.openchami.cluster:8443
 ```
 
 This allows for modification of the data before making the request. However, be cautious as there is no data validation done before the request is made.
@@ -306,7 +306,7 @@ Alternatively, we can pass the output of `collect` into `send` using pipes. See 
 
 ```bash
 # collect and send data in YAML format
-magellan collect -u $USERNAME -p $PASSWORD -v -F yaml | magellan send -F yaml https://example.openchami.cluster:8443
+magellan collect -u $USERNAME -p $PASSWORD -v -F yaml | magellan send -f yaml https://example.openchami.cluster:8443
 
 # collect and send data using default JSON format and secret store (see below)
 export MASTER_KEY=mysecret

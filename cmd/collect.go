@@ -62,7 +62,10 @@ var CollectCmd = &cobra.Command{
 		)
 
 		// use --cache path if stdin is empty
-		isStdinEmpty, _ = IsStdinEmpty()
+		isStdinEmpty, err = IsStdinEmpty()
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to determine if stdin is empty")
+		}
 		log.Debug().
 			Str("cache", cachePath).
 			Bool("is_stdin_empty", isStdinEmpty).
@@ -88,7 +91,7 @@ var CollectCmd = &cobra.Command{
 			}
 
 			// otherwise, add the arg to be processed further down
-			temp = append(temp, handleArgs(args)...)
+			temp = append(temp, handleArgs(args, collectInputFormat)...)
 		}
 
 		// process input provided from stdin and --data flag
@@ -259,7 +262,6 @@ func IsStdinEmpty() (bool, error) {
 	)
 	file, err = os.Stdin.Stat()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to stat stdin")
 		return true, fmt.Errorf("failed to stat stdin")
 	}
 

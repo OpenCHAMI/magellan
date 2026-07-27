@@ -168,8 +168,7 @@ var ScanCmd = &cobra.Command{
 				} else {
 					fmt.Println(string(output))
 				}
-				// stop here so we don't write to cache if using JSON or YAML
-				return
+
 			default:
 				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanFormat)
 			}

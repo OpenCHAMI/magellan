@@ -59,7 +59,7 @@ var sendCmd = &cobra.Command{
 
 		// make one request be host positional argument (restricted to 1 for now)
 		var inputData []map[string]any
-		temp := append(handleArgs(args), processDataArgs(sendDataArgs)...)
+		temp := append(handleArgs(args, sendInputFormat), processDataArgs(sendDataArgs)...)
 		for _, data := range temp {
 			if data != nil {
 				inputData = append(inputData, data)
@@ -217,14 +217,10 @@ func processDataArgs(args []string) []map[string]any {
 	return collection
 }
 
-func handleArgs(args []string) []map[string]any {
-	// JSON representation
-	type (
-		JSONObject = map[string]any
-		JSONArray  = []JSONObject
-	)
+func handleArgs(args []string, inputFormat format.DataFormat) []map[string]any {
 	// no file to load, so we just use the joined args (since each one is a new line)
 	// and then stop
+	type JSONArray = []map[string]any
 	var (
 		collection JSONArray
 		data       []byte
@@ -243,8 +239,7 @@ func handleArgs(args []string) []map[string]any {
 		log.Warn().Msg("no data found from standard input")
 		return nil
 	}
-	fmt.Println(string(data))
-	collection, err = parseInput([]byte(data), sendInputFormat)
+	collection, err = parseInput([]byte(data), inputFormat)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to validate input from arg")
 	}
