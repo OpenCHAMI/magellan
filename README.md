@@ -8,27 +8,27 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [OpenCHAMI Magellan](#openchami-magellan)
-  - [Main Features](#main-features)
-  - [Getting Started](#getting-started)
-  - [Documentation](#documentation)
-  - [Building the Executable](#building-the-executable)
-    - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
-    - [Docker](#docker)
-    - [Arch Linux (AUR)](#arch-linux-aur)
-  - [Usage](#usage)
-    - [Checking for Redfish](#checking-for-redfish)
-    - [BMC ID Mapping](#bmc-id-mapping)
-    - [Running the Tool](#running-the-tool)
-      - [Modular Workflows](#modular-workflows)
-    - [PDU Inventory Collection](#pdu-inventory-collection)
-    - [Starting the Emulator](#starting-the-emulator)
-    - [Updating Firmware](#updating-firmware)
-    - [Managing Power](#managing-power)
-    - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
-    - [Running with Docker](#running-with-docker)
-  - [How It Works](#how-it-works)
-  - [TODO](#todo)
-  - [Copyright](#copyright)
+	- [Main Features](#main-features)
+	- [Getting Started](#getting-started)
+	- [Documentation](#documentation)
+	- [Building the Executable](#building-the-executable)
+		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+		- [Docker](#docker)
+		- [Arch Linux (AUR)](#arch-linux-aur)
+	- [Usage](#usage)
+		- [Checking for Redfish](#checking-for-redfish)
+		- [BMC ID Mapping](#bmc-id-mapping)
+		- [Running the Tool](#running-the-tool)
+			- [Modular Workflows](#modular-workflows)
+		- [PDU Inventory Collection](#pdu-inventory-collection)
+		- [Starting the Emulator](#starting-the-emulator)
+		- [Updating Firmware](#updating-firmware)
+		- [Managing Power](#managing-power)
+		- [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+		- [Running with Docker](#running-with-docker)
+	- [How It Works](#how-it-works)
+	- [TODO](#todo)
+	- [Copyright](#copyright)
 
 <!-- TOC end -->
 
@@ -256,7 +256,7 @@ To start a network scan for BMC nodes, use the `scan` command. If the port is no
 ./magellan scan \
     --subnet 172.16.0.0 \
     --subnet-mask 255.255.255.0 \
-	  --output-format json \
+    --output-format json \
     --cache data/assets.db
 ```
 
