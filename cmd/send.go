@@ -206,7 +206,7 @@ func processDataArgs(args []string, inputFormat format.DataFormat) []map[string]
 					log.Error().Msgf("argument %d not a valid JSON", i)
 					continue
 				}
-				err = json.Unmarshal(input, &data)
+				err = format.UnmarshalData(input, &data, inputFormat)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to unmarshal input for argument %d", i)
 				}
