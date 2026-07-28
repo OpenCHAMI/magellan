@@ -147,7 +147,7 @@ func InitializeConfig() {
 		viper.SetConfigFile(configPath)
 	}
 	if err := viper.ReadInConfig(); err != nil {
-		log.Warn().Err(err).Msg("failed to load config")
+		log.Debug().Err(err).Msg("failed to load config")
 	}
 }
 
