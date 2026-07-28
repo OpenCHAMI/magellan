@@ -59,7 +59,7 @@ var sendCmd = &cobra.Command{
 
 		// make one request be host positional argument (restricted to 1 for now)
 		var inputData []map[string]any
-		temp := append(handleArgs(args, sendInputFormat), processDataArgs(sendDataArgs)...)
+		temp := append(handleArgs(args, sendInputFormat), processDataArgs(sendDataArgs, sendInputFormat)...)
 		for _, data := range temp {
 			if data != nil {
 				inputData = append(inputData, data)
@@ -155,7 +155,7 @@ func init() {
 // NOTE: The purpose is to make the input arguments uniform for our request. This
 // function is meant to handle data passed with the `-d/--data` flag and positional
 // args from the CLI.
-func processDataArgs(args []string) []map[string]any {
+func processDataArgs(args []string, inputFormat format.DataFormat) []map[string]any {
 	// JSON representation
 	type (
 		JSONObject = map[string]any
@@ -188,7 +188,7 @@ func processDataArgs(args []string) []map[string]any {
 				}
 
 				// convert/validate input data
-				data, err = parseInput(contents, format.DataFormatFromFileExt(path, sendInputFormat))
+				data, err = parseInput(contents, format.DataFormatFromFileExt(path, inputFormat))
 				if err != nil {
 					log.Error().Err(err).Str("path", path).Msg("failed to validate input from file")
 				}

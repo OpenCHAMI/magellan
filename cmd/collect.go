@@ -57,7 +57,7 @@ var CollectCmd = &cobra.Command{
 
 			// used for processing stdin and --data arguments
 			inputData []map[string]any
-			temp      = processDataArgs(collectDataArgs)
+			temp      = processDataArgs(collectDataArgs, collectInputFormat)
 			err       error
 		)
 
