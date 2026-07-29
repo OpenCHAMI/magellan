@@ -128,7 +128,7 @@ magellan collect --secrets-file secrets.json -o nodes.yaml -F yaml
 vim nodes.yaml
 
 // read editted inventory and send data to host
-magellan send -d @nodes.yaml -F yaml https://smd.example.com
+magellan send -d @nodes.yaml -f yaml https://smd.example.com
 ```
 
 ## Collect Workflow

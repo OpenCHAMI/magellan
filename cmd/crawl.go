@@ -150,9 +150,10 @@ func init() {
 	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
 	CrawlCmd.Flags().BoolVar(&showOutput, "show", false, "Show the output of a crawl")
-	CrawlCmd.Flags().VarP(&crawlOutputFormat, "format", "F", "Set the output format (json|yaml)")
+	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
+	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml)")
 
-	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("format", completionFormatData))
+	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 
 	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 

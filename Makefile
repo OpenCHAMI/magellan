@@ -48,14 +48,26 @@ endef
 #
 
 NAME    ?= magellan
-VERSION ?= $(shell git describe --tags --always --dirty --broken --abbrev=0)
-BUILD   ?= $(shell git rev-parse --short HEAD)
-GOPATH  ?= $(shell echo $${GOPATH:-~/go})
-IMPORT  := github.com/OpenCHAMI/magellan/
+VERSION    ?= $(shell git describe --tags --always --dirty --broken --abbrev=0)
+BUILD      ?= $(shell git rev-parse --short HEAD)
+GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+GIT_TAG    ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+GIT_STATE  ?= $(shell if git diff-index --quiet HEAD --; then echo 'clean'; else echo 'dirty'; fi)
+BUILD_HOST ?= $(shell $(HOSTCMD))
+GO_VERSION ?= $(shell $(GO) version | awk '{print $$3}')
+BUILD_USER ?= $(shell whoami)
+GOPATH     ?= $(shell echo $${GOPATH:-~/go})
+IMPORT     := github.com/OpenCHAMI/magellan/
 LDFLAGS := -s \
-	   -X='$(IMPORT)main.commit=$(BUILD)' \
-	   -X='$(IMPORT)main.version=$(VERSION)' \
-	   -X='$(IMPORT)main.date=$(shell date -Iseconds)'
+	   -X $(IMPORT)internal/version.GitCommit=$(BUILD) \
+	   -X $(IMPORT)internal/version.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ) \
+	   -X $(IMPORT)internal/version.Version=$(VERSION) \
+	   -X $(IMPORT)internal/version.GitBranch=$(GIT_BRANCH) \
+	   -X $(IMPORT)internal/version.GitTag=$(GIT_TAG) \
+	   -X $(IMPORT)internal/version.GitState=$(GIT_STATE) \
+	   -X $(IMPORT)internal/version.BuildHost=$(BUILD_HOST) \
+	   -X $(IMPORT)internal/version.GoVersion=$(GO_VERSION) \
+	   -X $(IMPORT)internal/version.BuildUser=$(BUILD_USER)
 INTERNAL := $(call rwildcard,internal,*.go)
 PKG      := $(call rwildcard,pkg,*.go)
 MANSRC   := $(wildcard man/*.sc)

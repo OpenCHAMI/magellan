@@ -20,7 +20,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 	"golang.org/x/exp/slices"
@@ -29,14 +28,15 @@ import (
 // CollectParams is a collection of common parameters passed to the CLI
 // for the 'collect' subcommand.
 type CollectParams struct {
-	Concurrency int                 // set the of concurrent jobs with the 'concurrency' flag
-	Timeout     int                 // set the timeout with the 'timeout' flag
-	Insecure    bool                // set whether to ignore TLS verification
-	OutputPath  string              // set the path to save output with 'output' flag
-	OutputDir   string              // set the directory path to save output with `output-dir` flag
-	Format      format.DataFormat   // set the output format
-	BMCIDMap    string              // Set the path to the BMC ID mapping YAML or JSON data or file name (if any)
-	SecretStore secrets.SecretStore // set BMC credentials
+	Concurrency  int                 // set the of concurrent jobs with the 'concurrency' flag
+	Timeout      int                 // set the timeout with the 'timeout' flag
+	Insecure     bool                // set whether to ignore TLS verification
+	OutputPath   string              // set the path to save output with 'output' flag
+	OutputDir    string              // set the directory path to save output with `output-dir` flag
+	OutputFormat format.DataFormat   // set the output format
+	InputFormat  format.DataFormat   // set the input format
+	BMCIDMap     string              // Set the path to the BMC ID mapping YAML or JSON data or file name (if any)
+	SecretStore  secrets.SecretStore // set BMC credentials
 }
 
 // This is the main function used to collect information from the BMC nodes via Redfish.
@@ -48,10 +48,10 @@ type CollectParams struct {
 func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[string]any, error) {
 	// check for available remote assets found from scan
 	if assets == nil {
-		return nil, fmt.Errorf("no assets found")
+		return nil, fmt.Errorf("invalid assets (assets == nil)")
 	}
 	if len(*assets) <= 0 {
-		return nil, fmt.Errorf("no assets found")
+		return nil, fmt.Errorf("no assets found for collection (assets <= 0)")
 	}
 
 	// collect bmc information asynchronously
@@ -61,7 +61,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 		found      = make([]string, 0, len(*assets))
 		done       = make(chan struct{}, params.Concurrency+1)
 		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
-		mapper     = idmap.PickIDMapper(params.BMCIDMap, params.Format)
+		mapper     = idmap.PickIDMapper(params.BMCIDMap, params.OutputFormat)
 		err        error
 	)
 
@@ -203,7 +203,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	)
 
 	// format our output to write to file or standard out
-	formatType = format.DataFormatFromFileExt(params.OutputPath, params.Format)
+	formatType = format.DataFormatFromFileExt(params.OutputPath, params.OutputFormat)
 	output, err = format.MarshalData(collection, formatType)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to marshal output to %s", strings.ToUpper(formatType.String()))

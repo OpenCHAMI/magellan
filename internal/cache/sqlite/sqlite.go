@@ -7,9 +7,13 @@ import (
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 
 	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
-const TABLE_NAME = "magellan_scanned_assets"
+const (
+	SQLITE_DRIVER = "sqlite"
+	TABLE_NAME    = "magellan_scanned_assets"
+)
 
 func CreateScannedAssetIfNotExists(path string) (*sqlx.DB, error) {
 	schema := fmt.Sprintf(`
@@ -23,7 +27,7 @@ func CreateScannedAssetIfNotExists(path string) (*sqlx.DB, error) {
 	);
 	`, TABLE_NAME)
 	// TODO: it may help with debugging to check for file permissions here first
-	db, err := sqlx.Open("sqlite3", path)
+	db, err := sqlx.Open(SQLITE_DRIVER, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
@@ -66,7 +70,7 @@ func DeleteScannedAssets(path string, results ...magellan.RemoteAsset) error {
 	if results == nil {
 		return fmt.Errorf("no assets found")
 	}
-	db, err := sqlx.Open("sqlite3", path)
+	db, err := sqlx.Open(SQLITE_DRIVER, path)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
@@ -94,7 +98,7 @@ func GetScannedAssets(path string) ([]magellan.RemoteAsset, error) {
 	}
 
 	// now check if the file is the SQLite database
-	db, err := sqlx.Open("sqlite3", path)
+	db, err := sqlx.Open(SQLITE_DRIVER, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}

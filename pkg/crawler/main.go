@@ -492,6 +492,7 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 		for _, shell_type := range rf_manager.CommandShell.ConnectTypesSupported {
 			supported_command_shell = append(supported_command_shell, string(shell_type))
 		}
+
 		managers = append(managers, Manager{
 			URI:                    baseURI + "/redfish/v1/Managers/" + rf_manager.ID,
 			UUID:                   rf_manager.UUID,
@@ -507,43 +508,6 @@ func walkManagers(rf_managers []*redfish.Manager, baseURI string) ([]Manager, er
 	}
 	return managers, nil
 }
-
-// func getPowerInfo(serviceroot *gofish.Service) ([]Power, error) {
-// 	// get the power control related information (Actions, URL, PowerControl, Links, etc.)
-
-// 	// get the SupportedResetTypes from /redfish/v1/Systems
-// 	// get the Power/PowerControl from /redfish/v1/Chassis
-// 	rf_chassis, err := serviceroot.Chassis()
-// 	if err != nil {
-
-// 	}
-
-// 	power := []Power{}
-// 	for _, chassis := range rf_chassis {
-// 		rf_power, err := chassis.Power()
-// 		if err != nil {
-
-// 		}
-// 		rf_computersystems, err := chassis.ComputerSystems()
-// 		if err != nil {
-
-// 		}
-
-// 		for _, computersystem := range rf_computersystems {
-// 			computersystem.SupportedResetTypes
-// 		}
-
-// 		power = append(power, Power{
-// 			URL: "",
-// 			Control: PowerControl{
-// 				MemberID:     "",
-// 				ResetTypes:   rf_computersystem.SupportedResetTypes,
-// 				RelatedItems: []string{},
-// 			},
-// 		})
-// 	}
-
-// }
 
 func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
 	// NOTE: it is possible for the SecretStore to be nil, so we need a check

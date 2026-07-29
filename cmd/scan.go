@@ -36,8 +36,7 @@ var (
 // related to the implementation.
 var ScanCmd = &cobra.Command{
 	Use: "scan urls...",
-	Example: `
-  // assumes host https://10.0.0.101:443
+	Example: `  // assumes host https://10.0.0.101:443
   magellan scan 10.0.0.101 --insecure
 
   // assumes subnet using HTTPS and port 443 except for specified host
@@ -51,6 +50,9 @@ var ScanCmd = &cobra.Command{
 
   // assumes subnet using HTTPS and port 443 with specified CIDR
   magellan scan --subnet 10.0.0.0/16 -i
+
+  // same as above example but output is in JSON without caching
+  magellan scan --subnet 10.0.0.0/16 -i -F json --disable-cache
 
   // assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16
   magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
@@ -166,10 +168,13 @@ var ScanCmd = &cobra.Command{
 				} else {
 					fmt.Println(string(output))
 				}
+
 			default:
 				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanFormat)
 			}
 		}
+
+		// write to a cache file if not disabled at specified path
 		if !disableCache && cachePath != "" {
 			err := os.MkdirAll(path.Dir(cachePath), 0755)
 			if err != nil {
@@ -193,10 +198,14 @@ func init() {
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
 	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
-	ScanCmd.Flags().VarP(&scanFormat, "format", "F", "Output format (json, yaml)")
+	ScanCmd.Flags().VarP(&scanFormat, "output-format", "F", "Output format (json, yaml)")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
 	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
 
+	// register completion flag functions
+	checkRegisterFlagCompletionError(ScanCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
+
+	// bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
 	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
 	checkBindFlagError(viper.BindPFlag("scan.protocol", ScanCmd.Flags().Lookup("protocol")))
