@@ -45,6 +45,9 @@ func TestScanAndCollect(t *testing.T) {
 		buferr  bytes.Buffer
 	)
 
+	// say what test we're starting
+	fmt.Printf("[%s] Starting test...", t.Name())
+
 	// set up the emulator to run before test
 	err = waitUntilEmulatorIsReady()
 	if err != nil {
@@ -69,12 +72,18 @@ func TestScanAndCollect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get absolute path: %v", err)
 	}
-	command = strings.Split("scan https://127.0.0.1 --port 5000 --verbose", " ")
+	command = strings.Split("scan https://127.0.0.1 --port 5000 --log-level debug", " ")
 	cmd = exec.Command(path, command...)
 	cmd.Stdout = &bufout
 	cmd.Stderr = &buferr
 	err = cmd.Run()
-	fmt.Printf("out:\n%s\nerr:\n%s\n", bufout.String(), buferr.String())
+
+	// show output and error of test
+	fmt.Printf("[%s INFO] %s\n [%s ERR] %s\n",
+		t.Name(), bufout.String(),
+		t.Name(), buferr.String(),
+	)
+
 	if err != nil {
 		t.Fatalf("failed to run 'scan' command: %v", err)
 	}
@@ -86,12 +95,18 @@ func TestScanAndCollect(t *testing.T) {
 
 	// try and run a "collect" with the emulator
 
-	command = strings.Split("collect --username root --password root_password --verbose", " ")
+	command = strings.Split("collect --username root --password root_password --log-level debug --insecure --show-output", " ")
 	cmd = exec.Command(path, command...)
 	cmd.Stdout = &bufout
 	cmd.Stderr = &buferr
 	err = cmd.Run()
-	fmt.Printf("out:\n%s\nerr:\n%s\n", bufout.String(), buferr.String())
+
+	// show output and error of test
+	fmt.Printf("[%s INFO] %s\n [%s ERR] %s\n",
+		t.Name(), bufout.String(),
+		t.Name(), buferr.String(),
+	)
+
 	if err != nil {
 		t.Fatalf("failed to run 'collect' command: %v", err)
 	}
@@ -100,6 +115,9 @@ func TestScanAndCollect(t *testing.T) {
 	if len(bufout.Bytes()) <= 0 {
 		t.Fatalf("expected the 'collect' output to not be empty")
 	}
+
+	// say what test we're completing
+	fmt.Printf("[%s] Test complete.", t.Name())
 
 	// TODO: check for at least one System/EthernetInterface that we know should exist
 }
@@ -114,6 +132,9 @@ func TestCrawlCommand(t *testing.T) {
 		path    string
 	)
 
+	// say what test we're starting
+	fmt.Printf("[%s] Starting test...", t.Name())
+
 	// set up the emulator to run before test
 	path, err = filepath.Abs(*exePath)
 	if err != nil {
@@ -126,26 +147,29 @@ func TestCrawlCommand(t *testing.T) {
 	}
 
 	// try and run a "collect" with the emulator
-	command = strings.Split("crawl --username root --password root_password -i https://127.0.0.1:5000", " ")
+	command = strings.Split("crawl --username root --password root_password --insecure https://127.0.0.1:5000 --show-output", " ")
 	cmd = exec.Command(path, command...)
 	cmd.Stdout = &bufout
 	cmd.Stderr = &buferr
 	err = cmd.Run()
-	fmt.Printf("out:\n%s\nerr:\n%s\n", bufout.String(), buferr.String())
+
+	// show output and error of test
+	fmt.Printf("[%s INFO] %s\n [%s ERR] %s\n",
+		t.Name(), bufout.String(),
+		t.Name(), buferr.String(),
+	)
+
 	if err != nil {
 		t.Fatalf("failed to run 'crawl' command: %v", err)
 	}
-
-	// err = cmd.Wait()
-	// if err != nil {
-	// 	t.Fatalf("failed to call 'wait' for crawl: %v", err)
-	// }
 
 	// make sure that the output is not empty
 	if len(bufout.Bytes()) <= 0 {
 		t.Fatalf("expected the 'crawl' output to not be empty")
 	}
 
+	// say what test we're completing
+	fmt.Printf("[%s] Test complete.", t.Name())
 }
 
 func TestListCommand(t *testing.T) {
@@ -153,6 +177,9 @@ func TestListCommand(t *testing.T) {
 		err error
 		cmd *exec.Cmd
 	)
+
+	// say what test we're starting
+	fmt.Printf("[%s] Starting test...", t.Name())
 
 	// set up the emulator to run before test
 	err = waitUntilEmulatorIsReady()
@@ -168,6 +195,8 @@ func TestListCommand(t *testing.T) {
 	}
 	// NOTE: the output of `list` can be empty if no scan has been performed
 
+	// say what test we're completing
+	fmt.Printf("[%s] Test complete.", t.Name())
 }
 
 func TestUpdateCommand(t *testing.T) {
@@ -177,6 +206,9 @@ func TestUpdateCommand(t *testing.T) {
 		cmd *exec.Cmd
 		err error
 	)
+
+	// say what test we're starting
+	fmt.Printf("[%s] Starting test...", t.Name())
 
 	// set up the emulator to run before test
 	err = waitUntilEmulatorIsReady()
@@ -191,6 +223,8 @@ func TestUpdateCommand(t *testing.T) {
 		t.Fatalf("failed to run 'update' command: %v", err)
 	}
 
+	// say what test we're completing
+	fmt.Printf("[%s] Test complete.", t.Name())
 }
 
 func TestGofishFunctions(t *testing.T) {
@@ -208,6 +242,10 @@ func TestGenerateHosts(t *testing.T) {
 		scheme     = "https"
 		hosts      = [][]string{}
 	)
+
+	// say what test we're starting
+	fmt.Printf("[%s] Starting test...", t.Name())
+
 	t.Run("generate-hosts", func(t *testing.T) {
 		hosts = magellan.GenerateHostsWithSubnet(subnet, subnetMask, ports, scheme)
 
@@ -237,6 +275,8 @@ func TestGenerateHosts(t *testing.T) {
 		}
 	})
 
+	// say what test we're completing
+	fmt.Printf("[%s] Test complete.", t.Name())
 }
 
 func startEmulatorInBackground(path string) (int, error) {

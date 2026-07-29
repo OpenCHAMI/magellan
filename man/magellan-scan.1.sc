@@ -25,6 +25,9 @@ magellan scan --subnet 10.0.0.0 -i
 // assumes subnet using HTTPS and port 443 with specified CIDR++
 magellan scan --subnet 10.0.0.0/16 -i
 
+// same as above example but output is in JSON without caching
+magellan scan --subnet 10.0.0.0/16 -i -F json --disable-cache
+
 // assumes subnet using HTTP and port 5000 similar to 192.168.0.0/16++
 magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
 
@@ -35,7 +38,7 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 
 *--disable-cache*
 	Disable saving found remote assets that respond to a Redfish request to a
-	cache database specified with *--cache* flag. By default, the cache is saved
+	cache database specifiead with *--cache* flag. By default, the cache is saved
 	at */tmp/$USER/magellan/assets.db* as a SQLite3 file with a table named
 	*magellan_scanned_assets*. It is set to _false_ by default.
 
@@ -46,7 +49,7 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 	networks. The purpose of this probing request is to determine which remote
 	assets having an accessible Redfish service on the BMC node(s).
 
-*-F, --format* _format_
+*-F, --output-format* _format_
 	Sets the output format to print the found assets in either JSON or YAML.
 	By default, the value of _format_ is empty and therefore no output is printed
 	from the scan.
@@ -86,7 +89,7 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 *-o, --output* _path_
 	Output file path (for json/yaml formats)
 
-	See *--format* for possible output formats.
+	See *--output-format* for possible output formats.
 
 *--port* _value_,...
 	Add additional ports to scan per host with unspecified ports.

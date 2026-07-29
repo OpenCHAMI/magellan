@@ -13,7 +13,7 @@ magellan list [OPTIONS]
 *--cache-info*
 	Show cache information and exit
 
-*-F, --format* _format_
+*-F, --output-format* _format_
 	Set the output format.
 
 	Possible _format_ values:

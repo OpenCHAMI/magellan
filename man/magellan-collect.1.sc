@@ -29,6 +29,12 @@ magellan collect pdu x3000m0 --username admin --password initial0
 // Collect from multiple PDUs and send to SMD++
 magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https://smd.example.com
 
+// Take the output of 'scan' and input directly into 'collect'
+magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan collect -f json --show-output -i
+
+// Complete flow combined as a single line
+magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan collect -f json --show-output -i | magellan send https://smd.example.com
+
 # FLAGS
 
 *-m, --bmc-id-map* (_data_ | @_path_)
@@ -65,7 +71,26 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 	remove and then re-create the objects whenever a 409 is received from the
 	initial response.
 
-*-F, --format* _format_
+*-f, --input-format* _format_
+	Set the data format used for STDIN for the collection input.
+
+	Supported values _format_ are:
+
+		- _json_ (default)
+		- _yaml_
+	
+	STDIN expects the following values to be specified. These values are usually
+	found from running a scan.
+
+	*host* - Host of the remote asset.
+	*port* - Port of the remote asset.
+	*protocol* - Protocol TCP or UDP. (tcp|udp)
+	*state* - State of the remote asset. (true|false)
+	*timestamp* - Last time the remote asset was scanned or pinged.
+	*service_type* - Type of service. (Redfish|PDU)
+
+
+*-F, --output-format* _format_
 	Set the data format used for the collection output. This value is overridden
 	whenever a file is specified with *--output-file* with a file extension
 
@@ -98,7 +123,7 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 *-o, --output-file* _path_
 	Set the path to store collection data in a single file. This will take the
 	output that is normally printed to standard output and write it to a file as
-	one of the specified formats with *--format*.
+	one of the specified formats with *--output-format*.
 
 	Additionally, this file can be specified as input for the *send* command. See
 	*magellan-send*(1) for details.
@@ -124,6 +149,9 @@ magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send https:
 
 *--show*
 	Show the output of a collect run.
+
+*--show-output*
+	Alias for '--show'.
 
 *-u, --username* _value_
 	Set the username to _value_ used for basic authentication to the BMC node.

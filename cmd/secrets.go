@@ -197,8 +197,9 @@ func isValidCredsJSON(val string) bool {
 }
 
 var secretsRetrieveCmd = &cobra.Command{
-	Use:  "retrieve secretID",
-	Args: cobra.MinimumNArgs(1),
+	Use:   "retrieve [secretID]",
+	Args:  cobra.MinimumNArgs(1),
+	Short: "Retrieve the value of specific secret ID.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			secretID    = args[0]

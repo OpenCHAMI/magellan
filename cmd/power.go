@@ -248,13 +248,13 @@ func init() {
 	PowerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
 	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
 	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	PowerCmd.Flags().VarP(&powerFormat, "format", "F", "Set the output format (json|yaml)")
+	PowerCmd.Flags().VarP(&powerFormat, "output-format", "F", "Set the output format (json|yaml)")
 
-	checkRegisterFlagCompletionError(PowerCmd.RegisterFlagCompletionFunc("format", completionFormatData))
+	checkRegisterFlagCompletionError(PowerCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 
 	// Bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlag("power.format", PowerCmd.Flags().Lookup("format")))
+	checkBindFlagError(viper.BindPFlag("power.output-format", PowerCmd.Flags().Lookup("output-format")))
 	checkBindFlagError(viper.BindPFlags(PowerCmd.Flags()))
 
 	rootCmd.AddCommand(PowerCmd)
