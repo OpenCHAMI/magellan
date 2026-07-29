@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
-	github.com/go-chi/chi/v5 v5.2.2
+	github.com/go-chi/chi/v5 v5.2.4
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lestrrat-go/jwx v1.2.29
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
@@ -20,7 +20,6 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.52.0
-	gonum.org/v1/gonum v0.17.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.46.1
 )
