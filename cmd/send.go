@@ -196,19 +196,15 @@ func processDataArgs(args []string, inputFormat format.DataFormat) []map[string]
 				// add loaded data to collection of all data
 				collection = append(collection, data...)
 			} else {
-				// input should be a valid JSON
+				// input should be a valid data in the selected input format
 				var (
 					data  JSONArray
 					input = []byte(arg)
 					err   error
 				)
-				if !json.Valid(input) {
-					log.Error().Msgf("argument %d not a valid JSON", i)
-					continue
-				}
 				err = format.UnmarshalData(input, &data, inputFormat)
 				if err != nil {
-					log.Error().Err(err).Msgf("failed to unmarshal input for argument %d", i)
+					log.Error().Err(err).Msgf("failed to unmarshal %s input for argument %d", inputFormat, i)
 				}
 				return data
 			}
