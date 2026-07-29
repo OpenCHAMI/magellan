@@ -163,7 +163,7 @@ func processDataArgs(args []string, inputFormat format.DataFormat) []map[string]
 	)
 
 	// load data either from file or directly from args
-	var collection = make(JSONArray, len(args))
+	var collection = make(JSONArray, 0, len(args))
 	for i, arg := range args {
 		// if arg is empty string, then skip and continue
 		if len(arg) > 0 {
@@ -206,7 +206,7 @@ func processDataArgs(args []string, inputFormat format.DataFormat) []map[string]
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to unmarshal %s input for argument %d", inputFormat, i)
 				}
-				return data
+				collection = append(collection, data...)
 			}
 		}
 	}
