@@ -49,7 +49,7 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 	networks. The purpose of this probing request is to determine which remote
 	assets having an accessible Redfish service on the BMC node(s).
 
-*-F, --format* _format_
+*-F, --output-format* _format_
 	Sets the output format to print the found assets in either JSON or YAML.
 	By default, the value of _format_ is empty and therefore no output is printed
 	from the scan.
@@ -89,7 +89,7 @@ magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --
 *-o, --output* _path_
 	Output file path (for json/yaml formats)
 
-	See *--format* for possible output formats.
+	See *--output-format* for possible output formats.
 
 *--port* _value_,...
 	Add additional ports to scan per host with unspecified ports.
