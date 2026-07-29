@@ -25,7 +25,7 @@ var sendCmd = &cobra.Command{
 	Example: `  // minimal working example
   magellan send -d @inventory.json https://smd.openchami.cluster
 
-  // send data from multiple files (must specify -F/--output-format if not JSON)
+  // send data from multiple files (must specify -f/--input-format if not JSON)
   magellan send -d @cluster-1.json -d @cluster-2.json https://smd.openchami.cluster
   magellan send -d '{...}' -d @cluster-1.json https://proxy.example.com
 
