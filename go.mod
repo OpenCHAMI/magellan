@@ -17,7 +17,7 @@ require (
 require (
 	github.com/Cray-HPE/hms-xname v1.4.0
 	github.com/ncruces/go-strftime v1.0.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.52.0
 	gonum.org/v1/gonum v0.17.0
@@ -26,7 +26,7 @@ require (
 )
 
 require (
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 )
 
