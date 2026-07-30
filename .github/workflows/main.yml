@@ -60,6 +60,6 @@ jobs:
           args: release --clean
         id: goreleaser
       - name: Attest Binaries
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-checksums: dist/checksums.txt
