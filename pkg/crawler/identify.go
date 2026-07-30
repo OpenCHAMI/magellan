@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 // BMCInfo represents relevant information about a BMC
@@ -18,7 +18,7 @@ type BMCInfo struct {
 }
 
 // IsBMC checks if a given Manager is a BMC based on its type and associations
-func IsBMC(manager *redfish.Manager) bool {
+func IsBMC(manager *schemas.Manager) bool {
 	if manager == nil {
 		return false
 	}

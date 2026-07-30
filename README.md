@@ -476,7 +476,7 @@ The `magellan power` tool facilitates control of node power states by identifyin
 As such, it requires a `collect` to be performed before it can translate a node name into a particular ComputerSystem within the correct BMC.
 (For now, `collect` output should be saved to a file, and passed to `power` via the `-f/--inventory-file` flag. Support for retrieving inventory from SMD will be added soon.)
 
-Power control is accomplished via the Redfish [Reset action](https://pkg.go.dev/github.com/stmcginnis/gofish/redfish#ComputerSystem.Reset), which supports various types of resets.
+Power control is accomplished via the Redfish [Reset action](https://pkg.go.dev/github.com/stmcginnis/gofish/schemas#ComputerSystem.Reset), which supports various types of resets.
 The supported reset types depend on BMC firmware implementation, and can be queried with the `-l/--list-reset-types` flag.
 Once the desired reset type is identified, it can be applied via the `-r/--reset-type` flag.
 

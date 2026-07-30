@@ -13,7 +13,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 )
 
 type CrawlableNode struct {
@@ -23,7 +23,7 @@ type CrawlableNode struct {
 }
 type PowerInfo struct {
 	ClusterID string
-	State     redfish.PowerState
+	State     schemas.PowerState
 }
 
 // Hold onto the current set of open clients, so we don't continually have to log into and out of BMCs
@@ -99,9 +99,9 @@ func ParseInventory(filename string, dataFormat format.DataFormat) ([]bmc.Node, 
 //   - node: A CrawlableNode struct containing the node's xname, index within the BMC, and a CrawlerConfig to connect to the BMC.
 //
 // Returns:
-//   - []redfish.ResetType: a slice of Redfish reset types supported on the node.
+//   - []schemas.ResetType: a slice of Redfish reset types supported on the node.
 //   - error: An error object if any error occurs during the connection or reset process.
-func GetResetTypes(node CrawlableNode) ([]redfish.ResetType, error) {
+func GetResetTypes(node CrawlableNode) ([]schemas.ResetType, error) {
 	log.Debug().Msgf("polling %s for reset types", node.ConnConfig.URI)
 
 	// Obtain an active client
@@ -115,7 +115,7 @@ func GetResetTypes(node CrawlableNode) ([]redfish.ResetType, error) {
 	if err != nil {
 		return nil, err
 	}
-	var system *redfish.ComputerSystem
+	var system *schemas.ComputerSystem
 	for i := range rf_systems {
 		if rf_systems[i].ID == node.NodeID {
 			system = rf_systems[i]
@@ -132,9 +132,9 @@ func GetResetTypes(node CrawlableNode) ([]redfish.ResetType, error) {
 //   - node: A CrawlableNode struct containing the target node's xname, index within the BMC, and a crawler.CrawlerConfig struct.
 //
 // Returns:
-//   - redfish.PowerState: The current power state of the node. (Custom string subtype)
+//   - schemas.PowerState: The current power state of the node. (Custom string subtype)
 //   - error: An error object if any error occurs during the connection or retrieval process.
-func GetPowerState(node CrawlableNode) (redfish.PowerState, error) {
+func GetPowerState(node CrawlableNode) (schemas.PowerState, error) {
 	log.Debug().Msgf("polling %s for power states", node.ConnConfig.URI)
 
 	// Obtain an active client
@@ -148,7 +148,7 @@ func GetPowerState(node CrawlableNode) (redfish.PowerState, error) {
 	if err != nil {
 		return "", err
 	}
-	var system *redfish.ComputerSystem
+	var system *schemas.ComputerSystem
 	for i := range rf_systems {
 		if rf_systems[i].ID == node.NodeID {
 			system = rf_systems[i]
@@ -163,11 +163,11 @@ func GetPowerState(node CrawlableNode) (redfish.PowerState, error) {
 //
 // Parameters:
 //   - node: A CrawlableNode struct containing the node's xname, index within the BMC, and a CrawlerConfig to connect to the BMC.
-//   - resetType: A redfish.ResetType parameter, specifying the manner in which the target ComputerSystem should be reset.
+//   - resetType: A schemas.ResetType parameter, specifying the manner in which the target ComputerSystem should be reset.
 //
 // Returns:
 //   - error: An error object if any error occurs during the connection or reset process.
-func ResetComputerSystem(node CrawlableNode, resetType redfish.ResetType) error {
+func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) error {
 	log.Debug().Msgf("resetting computer system %s: %s", node.ClusterID, resetType)
 
 	client, err := crawler.GetBMCClient(node.ConnConfig)
@@ -185,7 +185,7 @@ func ResetComputerSystem(node CrawlableNode, resetType redfish.ResetType) error 
 	if err != nil {
 		return err
 	}
-	var rf_compsys *redfish.ComputerSystem
+	var rf_compsys *schemas.ComputerSystem
 	for i := range rf_systems {
 		if rf_systems[i].ID == node.NodeID {
 			rf_compsys = rf_systems[i]
