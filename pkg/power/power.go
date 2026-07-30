@@ -122,7 +122,12 @@ func GetResetTypes(node CrawlableNode) ([]schemas.ResetType, error) {
 			break
 		}
 	}
-	return system.SupportedResetTypes, nil
+
+	resetTypes, err := system.GetSupportedResetTypes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get supported reset types for: %v", err)
+	}
+	return resetTypes, nil
 }
 
 // PollBMCPowerStates connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -167,12 +172,12 @@ func GetPowerState(node CrawlableNode) (schemas.PowerState, error) {
 //
 // Returns:
 //   - error: An error object if any error occurs during the connection or reset process.
-func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) error {
+func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
 	log.Debug().Msgf("resetting computer system %s: %s", node.ClusterID, resetType)
 
 	client, err := crawler.GetBMCClient(node.ConnConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer client.Logout()
 
@@ -183,7 +188,7 @@ func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) error 
 	// Select the relevant ComputerSystem
 	rf_systems, err := rf_service.Systems()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var rf_compsys *schemas.ComputerSystem
 	for i := range rf_systems {

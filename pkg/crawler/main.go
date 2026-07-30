@@ -74,7 +74,7 @@ type Power struct {
 }
 
 type SerialConsoleConfig struct {
-	Port    int  `json:"port,omitempty"`
+	Port    uint `json:"port,omitempty"`
 	Enabled bool `json:"enabled,omitempty"`
 }
 
@@ -98,9 +98,9 @@ type InventoryDetail struct {
 	NetworkInterfaces    []NetworkInterface  `json:"network_interfaces,omitempty"`   // Network interfaces of the Node
 	Actions              []string            `json:"actions,omitempty"`              // Available actions for Node
 	Power                Power               `json:"power,omitempty"`                // Power related settings of Node
-	ProcessorCount       int                 `json:"processor_count,omitempty"`      // Processors of the Node
+	ProcessorCount       uint                `json:"processor_count,omitempty"`      // Processors of the Node
 	ProcessorType        string              `json:"processor_type,omitempty"`       // Processor type of the Node
-	MemoryTotal          float32             `json:"memory_total,omitempty"`         // Total memory of the Node in Gigabytes
+	MemoryTotal          float64             `json:"memory_total,omitempty"`         // Total memory of the Node in Gigabytes
 	TrustedModules       []string            `json:"trusted_modules,omitempty"`      // Trusted modules of the Node
 	TrustedComponents    []string            `json:"trusted_components,omitempty"`   // Trusted components of the Chassis
 	Chassis_SKU          string              `json:"chassis_sku,omitempty"`          // SKU of the Chassis
@@ -327,8 +327,15 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		}
 
 		// convert supported reset types to []string
-		actions := []string{}
-		for _, action := range rf_computersystem.SupportedResetTypes {
+		var (
+			resetTypes []schemas.ResetType
+			actions    []string
+		)
+		resetTypes, err = rf_computersystem.GetSupportedResetTypes()
+		if err != nil {
+			log.Warn().Err(err).Str("system", rf_computersystem.Name).Msg("failed to get supported reset types for system")
+		}
+		for _, action := range resetTypes {
 			actions = append(actions, string(action))
 		}
 
@@ -343,19 +350,19 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			SerialNumber: rf_computersystem.SerialNumber,
 			SerialConsole: SerialConsole{
 				IPMI: SerialConsoleConfig{
-					Port:    rf_computersystem.SerialConsole.IPMI.Port,
+					Port:    uint(*rf_computersystem.SerialConsole.IPMI.Port),
 					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
 				},
 				SSH: SerialConsoleConfig{
-					Port:    rf_computersystem.SerialConsole.SSH.Port,
+					Port:    uint(*rf_computersystem.SerialConsole.SSH.Port),
 					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
 				},
 				Telnet: SerialConsoleConfig{
-					Port:    rf_computersystem.SerialConsole.Telnet.Port,
+					Port:    uint(*rf_computersystem.SerialConsole.Telnet.Port),
 					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
 				},
 			},
-			BiosVersion: rf_computersystem.BIOSVersion,
+			BiosVersion: rf_computersystem.BiosVersion,
 			Links: Links{
 				Managers: managerLinks,
 				Chassis:  chassisLinks,
@@ -367,9 +374,9 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				PowerControlIDs: powercontrolIDs,
 			},
 			Actions:        actions,
-			ProcessorCount: rf_computersystem.ProcessorSummary.Count,
+			ProcessorCount: uint(*rf_computersystem.ProcessorSummary.Count),
 			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
-			MemoryTotal:    rf_computersystem.MemorySummary.TotalSystemMemoryGiB,
+			MemoryTotal:    float64(*rf_computersystem.MemorySummary.TotalSystemMemoryGiB),
 			NodeID:         rf_computersystem.ID,
 		}
 		if rf_chassis != nil {
