@@ -16,7 +16,7 @@ require (
 
 require (
 	github.com/Cray-HPE/hms-xname v1.4.0
-	github.com/lestrrat-go/jwx v1.2.31
+	github.com/lestrrat-go/jwx/v4 v4.2.0
 	github.com/ncruces/go-strftime v1.0.0
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.11.1
