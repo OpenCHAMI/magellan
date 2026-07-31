@@ -12,7 +12,6 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var crawlOutputFormat format.DataFormat = format.FORMAT_JSON
@@ -155,7 +154,7 @@ func init() {
 
 	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
+
 
 	rootCmd.AddCommand(CrawlCmd)
 }

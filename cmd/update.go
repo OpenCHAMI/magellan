@@ -9,7 +9,6 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -124,10 +123,7 @@ func init() {
 	updateCmd.Flags().BoolVar(&showStatus, "status", false, "Get the status of the update")
 	updateCmd.Flags().BoolVarP(&Insecure, "insecure", "i", false, "Allow insecure connections to the server")
 
-	checkBindFlagError(viper.BindPFlag("update.scheme", updateCmd.Flags().Lookup("scheme")))
-	checkBindFlagError(viper.BindPFlag("update.firmware-uri", updateCmd.Flags().Lookup("firmware-uri")))
-	checkBindFlagError(viper.BindPFlag("update.status", updateCmd.Flags().Lookup("status")))
-	checkBindFlagError(viper.BindPFlag("update.insecure", updateCmd.Flags().Lookup("insecure")))
+
 
 	rootCmd.AddCommand(updateCmd)
 }

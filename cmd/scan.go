@@ -14,7 +14,6 @@ import (
 	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/cznic/mathutil"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -201,19 +200,6 @@ func init() {
 	ScanCmd.Flags().VarP(&scanFormat, "output-format", "F", "Output format (json, yaml)")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
 	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
-
-	// register completion flag functions
-	checkRegisterFlagCompletionError(ScanCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
-
-	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("scan.ports", ScanCmd.Flags().Lookup("port")))
-	checkBindFlagError(viper.BindPFlag("scan.scheme", ScanCmd.Flags().Lookup("scheme")))
-	checkBindFlagError(viper.BindPFlag("scan.protocol", ScanCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("scan.subnets", ScanCmd.Flags().Lookup("subnet")))
-	checkBindFlagError(viper.BindPFlag("scan.subnet-masks", ScanCmd.Flags().Lookup("subnet-mask")))
-	checkBindFlagError(viper.BindPFlag("scan.disable-probing", ScanCmd.Flags().Lookup("disable-probing")))
-	checkBindFlagError(viper.BindPFlag("scan.disable-cache", ScanCmd.Flags().Lookup("disable-cache")))
-	checkBindFlagError(viper.BindPFlag("scan.insecure", ScanCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(ScanCmd)
 }
