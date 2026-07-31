@@ -49,6 +49,7 @@ var (
 	idMap       string
 	logLevel    logger.LogLevel = logger.INFO
 	logFile     string
+	tokenPath   string
 )
 
 // The `root` command doesn't do anything on it's own except display
