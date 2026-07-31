@@ -1,12 +1,12 @@
 module github.com/OpenCHAMI/magellan
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/lestrrat-go/jwx v1.2.31
+	github.com/lestrrat-go/jwx/v4 v4.2.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -16,6 +16,7 @@ require (
 
 require (
 	github.com/Cray-HPE/hms-xname v1.4.0
+	github.com/lestrrat-go/jwx v1.2.31
 	github.com/ncruces/go-strftime v1.0.0
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.11.1
