@@ -14,8 +14,6 @@ import (
 	"github.com/cznic/mathutil"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	_ "modernc.org/sqlite"
 )
 
 var (
@@ -242,15 +240,6 @@ func init() {
 	// register completion flag functions
 	checkRegisterFlagCompletionError(CollectCmd.RegisterFlagCompletionFunc("input-format", completionFormatData))
 	checkRegisterFlagCompletionError(CollectCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
-
-	// bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("collect.protocol", CollectCmd.Flags().Lookup("protocol")))
-	checkBindFlagError(viper.BindPFlag("collect.output-file", CollectCmd.Flags().Lookup("output-file")))
-	checkBindFlagError(viper.BindPFlag("collect.output-dir", CollectCmd.Flags().Lookup("output-dir")))
-	// checkBindFlagError(viper.BindPFlag("collect.force-update", CollectCmd.Flags().Lookup("force-update")))
-	// checkBindFlagError(viper.BindPFlag("collect.cacert", CollectCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlag("collect.insecure", CollectCmd.Flags().Lookup("insecure")))
-	checkBindFlagError(viper.BindPFlags(CollectCmd.Flags()))
 
 	rootCmd.AddCommand(CollectCmd)
 }

@@ -255,10 +255,5 @@ func init() {
 
 	checkRegisterFlagCompletionError(PowerCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 
-	// Bind flags to config properties
-	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
-	checkBindFlagError(viper.BindPFlag("power.output-format", PowerCmd.Flags().Lookup("output-format")))
-	checkBindFlagError(viper.BindPFlags(PowerCmd.Flags()))
-
 	rootCmd.AddCommand(PowerCmd)
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -299,10 +298,5 @@ func init() {
 
 	rootCmd.AddCommand(secretsCmd)
 
-	checkBindFlagError(viper.BindPFlags(secretsCmd.PersistentFlags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsStoreCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
-	checkBindFlagError(viper.BindPFlags(secretsGenerateKeyCmd.Flags()))
+
 }
