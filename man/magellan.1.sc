@@ -197,13 +197,30 @@ store set up and send the data to our remote host all in one step like in the
 
 ```
 // assume we already have a cache database and secrets store somewhere...
-magellan collect --secrets_file secrets.json | magellan send https://smd.example.com
+magellan collect --secrets-file secrets.json | magellan send https://smd.example.com
 
 // alternatively, just update the file we send our output
 magellan collect --secrets-file secrets.json -o nodes.json
 ```
 
 We can continuously do this whenever we want to update the state of our inventory.
+Alternatively, we can also pipe the contents from 'send' directly to 'collect'.
+
+```
+magellan scan --subnet 172.16.0.0/24 | magellan collect
+```
+
+This allows getting the inventory data dynamically while avoiding writing to disk.
+We can also do this in two steps if for some reason, we want to edit the scanned
+asset data before a 'collect'.
+
+```
+// write output of scan to file
+magellan scan --subnet 172.16.0.0/24 -F yaml -o assets.yaml
+
+// read the output of scan back as input to collect
+magellan collect -d @assets.yaml -f yaml
+```
 
 ## Crawl Workflow
 
