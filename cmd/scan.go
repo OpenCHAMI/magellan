@@ -39,7 +39,7 @@ var ScanCmd = &cobra.Command{
   magellan scan 10.0.0.101 --insecure
 
   // assumes subnet using HTTPS and port 443 except for specified host
-  magellan scan http://10.0.0.101:80 https://user:password@10.0.0.102:443 http://172.16.0.105:8080 --subnet 172.16.0.0/24
+  magellan scan http://10.0.0.101:80 https://$username:$password@10.0.0.102:443 http://172.16.0.105:8080 --subnet 172.16.0.0/24
 
   // assumes hosts http://10.0.0.101:8080 and http://10.0.0.102:8080
   magellan scan 10.0.0.101 10.0.0.102 https://172.16.0.10:443 --port 8080 --protocol tcp
@@ -57,20 +57,28 @@ var ScanCmd = &cobra.Command{
   magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --subnet-mask 255.255.0.0
 
   // assumes subnet without CIDR has a subnet-mask of 255.255.0.0
-  magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db`,
-	Short: "Scan to discover BMC nodes on a network",
-	Long: "Perform a net scan by attempting to connect to each host and port specified and getting a response.\n" +
-		"Each host is passed *with a full URL* including the protocol and port. Additional subnets can be added\n" +
-		"by using the '--subnet' flag and providing an IP address on the subnet as well as a CIDR. If no CIDR is\n" +
-		"provided, then the subnet mask specified with the '--subnet-mask' flag will be used instead (will use\n" +
-		"default mask if not set).\n\n" +
-		"Similarly, any host provided with no port will use either the ports specified\n" +
-		"with `--port` or the default port used with each specified protocol. The default protocol is 'tcp' unless\n" +
-		"specified. The `--scheme` flag works similarly and the default value is 'https' in the host URL or with the\n" +
-		"'--protocol' flag.\n\n" +
-		"If the '--disable-probe` flag is used, the tool will not send another request to probe for available.\n" +
-		"Redfish and JAWS services. This is not recommended, since the extra request makes the scan a bit more reliable\n" +
-		"for determining which hosts to collect inventory data.\n\n",
+  magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db
+
+  // pipe 'scan' output as input for 'scan' (requires that 'collect' accept the same data format as 'scan')
+  magellan secrets generatekey -f key.txt
+  export MASTER_KEY=$(cat key.txt)
+  magellan secrets store default $username:$password -f secrets.json
+  magellan scan --subnet 172.18.0.0/24 --port 5000 -i -F yaml | magellan collect -i -f yaml --secrets-file secrets.json
+  
+  // perform scan by setting environment variables
+  SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure`,
+	Short: "Perform network scan to discover BMC nodes",
+	Long: `	Perform a network scan by attempting to connect to each host and port specified and getting a response. Each host is passed *with a full URL* including the protocol and port. Additional subnets can be added by using the '--subnet' flag and providing an IP address on the subnet as well as a CIDR. If no CIDR is provided, then the subnet mask specified with the '--subnet-mask' flag will be used instead (will use default mask if not set).
+
+	Similarly, any host provided with no port will use either the ports specified with '--port' or the default port used with each specified protocol. The default protocol is 'tcp' unless specified. The '--scheme' flag works similarly and the default value is 'https' in the host URL or with the '--protocol' flag.
+
+	If the '--disable-probe' flag is used, the tool will not send another request to probe for available. Redfish and JAWS services. This is not recommended, since the extra request makes the scan a bit more reliable for determining which hosts to collect inventory data.
+
+	The output of the 'scan' can be piped as input to 'collect', but both commands must use the same data format specified with '-f/--input-format' and '-F/--output-format'.
+
+	See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of available environment variables.
+	`,
+
 	Run: func(cmd *cobra.Command, args []string) {
 		// add default ports for hosts if none are specified with flag
 		if len(ports) == 0 {
