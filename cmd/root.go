@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
 	logger "github.com/OpenCHAMI/magellan/internal/log"
 	"github.com/OpenCHAMI/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -47,6 +49,7 @@ var (
 	idMap       string
 	logLevel    logger.LogLevel = logger.INFO
 	logFile     string
+	tokenPath   string
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -54,7 +57,10 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "magellan",
 	Short: "Redfish-based BMC discovery tool",
-	Long:  "Redfish-based BMC discovery tool with dynamic discovery features.",
+	Long: `Redfish-based BMC discovery tool with dynamic discovery features.
+	
+See 'magellan(1)' on getting started and examples.
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			err := cmd.Help()
@@ -82,10 +88,12 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(
-		InitializeLogger,
-		InitializeConfig,
-	)
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		InitializeLogger()
+		InitializeConfig()
+		resolveFlagsFromViper(cmd)
+		return nil
+	}
 	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "j", -1, "Set the number of concurrent processes")
 	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 5, "Set the timeout for requests in seconds")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Set the config file path")
@@ -93,13 +101,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
 	rootCmd.PersistentFlags().VarP(&logLevel, "log-level", "l", "Set the logger log-level (debug|info|warn|error|trace|disabled)")
 	rootCmd.PersistentFlags().StringVar(&logFile, "log-file", "", "Set the path to store a log file")
-
-	// bind viper config flags with cobra
-	checkBindFlagError(viper.BindPFlag("concurrency", rootCmd.PersistentFlags().Lookup("concurrency")))
-	checkBindFlagError(viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")))
-	checkBindFlagError(viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")))
-	checkBindFlagError(viper.BindPFlag("access-token", rootCmd.PersistentFlags().Lookup("access-token")))
-	checkBindFlagError(viper.BindPFlag("cache", rootCmd.PersistentFlags().Lookup("cache")))
 
 }
 
@@ -133,6 +134,16 @@ func completionFormatData(cmd *cobra.Command, args []string, toComplete string) 
 // from a file given a non-empty string.
 func InitializeConfig() {
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
+
+	for _, key := range []string{"concurrency", "timeout", "log-level", "access-token", "cache"} {
+		f := rootCmd.PersistentFlags().Lookup(key)
+		viper.SetDefault(key, f.DefValue)
+		if f.Changed {
+			checkBindFlagError(viper.BindPFlag(key, f))
+		}
+	}
+
 	if configPath == "" {
 		config_dir := os.Getenv("XDG_CONFIG_HOME")
 		if config_dir == "" {
@@ -149,6 +160,25 @@ func InitializeConfig() {
 	if err := viper.ReadInConfig(); err != nil {
 		log.Debug().Err(err).Msg("failed to load config")
 	}
+
+	for _, key := range []string{"concurrency", "timeout", "log-level", "access-token", "cache"} {
+		f := rootCmd.PersistentFlags().Lookup(key)
+		if f.Changed || !viper.IsSet(key) {
+			continue
+		}
+		switch key {
+		case "concurrency":
+			concurrency = viper.GetInt(key)
+		case "timeout":
+			timeout = viper.GetInt(key)
+		case "log-level":
+			logLevel.Set(viper.GetString(key))
+		case "access-token":
+			accessToken = viper.GetString(key)
+		case "cache":
+			cachePath = viper.GetString(key)
+		}
+	}
 }
 
 func InitializeLogger() {
@@ -157,6 +187,47 @@ func InitializeLogger() {
 	if err != nil {
 		log.Error().Err(err).Msg("failed to initialize logger")
 		os.Exit(1)
+	}
+}
+
+var viperKeyAliases = map[string]string{
+	"scan.subnet":      "scan.subnets",
+	"scan.port":        "scan.ports",
+	"scan.subnet-mask": "scan.subnet-masks",
+}
+
+func resolveFlagsFromViper(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Changed {
+			return
+		}
+		key := cmd.Name() + "." + f.Name
+		keys := []string{key}
+		if alias, ok := viperKeyAliases[key]; ok {
+			keys = []string{alias, key}
+		}
+		for _, k := range keys {
+			if viper.IsSet(k) {
+				setFlagFromViper(cmd, f, k)
+				return
+			}
+		}
+	})
+}
+
+func setFlagFromViper(cmd *cobra.Command, f *pflag.Flag, key string) {
+	switch f.Value.Type() {
+	case "stringSlice":
+		if vals := viper.GetStringSlice(key); len(vals) > 0 {
+			cmd.Flags().Set(f.Name, strings.Join(vals, ","))
+		}
+	default:
+		if s := viper.GetString(key); s != "" && s != f.DefValue {
+			cmd.Flags().Set(f.Name, s)
+		}
 	}
 }
 

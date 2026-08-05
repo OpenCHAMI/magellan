@@ -20,7 +20,9 @@ List of available commands:
 |  *scan*
 :  Perform scan to discover BMC or PDU nodes
 |  *collect*
-:  Retrieve node data using Redfish or JAWS API
+:  Retrieve node data using Redfish or JAWS API concurrently
+|  *crawl*
+:  Crawl a single BMC for hardware inventory
 |  *send*
 :  Send retrieve node data to specified host
 |  *list*
@@ -29,6 +31,8 @@ List of available commands:
 :  Manage BMC credentials
 |  *update*
 :  Update firmware through Redfish API
+|  *version*
+:  Print version info and exit
 
 # GLOBAL FLAGS
 
@@ -76,16 +80,75 @@ The *magellan* command accepts
 	Set the timeout for requests in seconds. This includes requests used in *scan*,
 	*crawl*, *collect*, and *send*. By default, the value of _time_in_secs_ is 5.
 
+# ENVIRONMENT VARIABLES
+
+The *magellan* CLI tool allows configuring its flags using environment variables. These are automatically parsed based on the flag names, with dots (".") and hyphens ("-") converted to underscores ("_"), and fully capitalized.
+
+*Global Variables*
+- *CONCURRENCY*: Sets the number of concurrent processes
+- *TIMEOUT*: Sets the timeout for requests in seconds
+- *LOG_LEVEL*: Sets the logger log-level
+- *ACCESS_TOKEN*: Sets the access token
+- *CACHE*: Sets the scanning result cache path
+- *CONFIG*: Sets the config file path
+
+*Scan Variables*
+- *SCAN_PORTS*: Adds additional ports to scan
+- *SCAN_SCHEME*: Sets the default scheme to use
+- *SCAN_PROTOCOL*: Sets the default protocol to use
+- *SCAN_SUBNETS*: Adds subnets to scan
+- *SCAN_SUBNET_MASKS*: Sets the default subnet mask
+- *SCAN_DISABLE_PROBING*: Disables probing found assets for Redfish services
+- *SCAN_DISABLE_CACHE*: Disables saving found assets to cache
+- *SCAN_INSECURE*: Skips TLS certificate verification during probe
+
+*Collect Variables*
+- *COLLECT_PROTOCOL* (or *PROTOCOL*): Sets the protocol used to query
+- *COLLECT_OUTPUT_FILE* (or *OUTPUT_FILE*): Sets the path to store collection data
+- *COLLECT_OUTPUT_DIR* (or *OUTPUT_DIR*): Sets the path to store collection data using HIVE
+- *COLLECT_USERNAME* (or *USERNAME*): Sets the master BMC username
+- *COLLECT_PASSWORD* (or *PASSWORD*): Sets the master BMC password
+- *COLLECT_SECRETS_FILE*: Sets path to the node secrets file
+- *COLLECT_INSECURE*: Skips TLS certificate verification for Redfish requests
+- *COLLECT_SHOW_OUTPUT*: Shows the output of a collect run
+- *COLLECT_OUTPUT_FORMAT*: Sets the default output data format
+- *COLLECT_BMC_ID_MAP*: Sets the BMC ID mapping
+
+*Crawl Variables*
+- *CRAWL_INSECURE*: Skip TLS certificate verification for Redfish request
+
+*Power Variables*
+- *POWER_CACERT* (or *CACERT*): Sets the path to CA cert file
+- *POWER_FORMAT* (or *FORMAT*): Sets the output format
+- *LIST_RESET_TYPES*: Lists supported Redfish reset types
+- *RESET_TYPE*: Redfish reset type to perform
+- *INVENTORY_FILE*: YAML file containing node inventory
+
+*Update Variables*
+- *UPDATE_SCHEME*: Sets the transfer protocol
+- *UPDATE_FIRMWARE_URI*: Sets the URI to retrieve the firmware
+- *UPDATE_STATUS*: Gets the status of the update
+- *UPDATE_INSECURE*: Allows insecure connections to the server
+
+*Secrets Variables*
+- *FILE*: Sets the secrets file with BMC credentials
+- *FORMAT*: Sets the input format for the secrets file
+- *INPUT_FILE*: Sets the file to read as input
+- *MASTER_KEY*: Set the generated key for the secrets file
+
+Note: Environment variables that take multiple arguments (like `SCAN_SUBNETS` or `SCAN_PORTS`) should have their values delimited by a comma `,` (e.g., `SCAN_PORTS=5000,5001`).
+
 # GETTING STARTED
 
-The *magellan* CLI is a frontend tool for collecting inventory data from board
-management controllers (BMCs) through a running Redfish service. The tool may be 
-used in the following workflows:
+The *magellan* CLI is a frontend tool for dynamically scanning and collecting 
+inventory data from board management controllers (BMCs) through a running Redfish 
+service. Here are some of the command ways to use the tool:
 
-1. Simple Workflow: 	scan -> collect -> send++
-2. Complex Workflow: 	scan -> list -> secrets -> collect -> send++
-3. Collect Workflow:	scan -> collect -> send -> collect -> send -> *++
-4. Crawl Workflow:		crawl -> send -> crawl -> send -> *
+1. Simple Workflow: 	scan -> collect -> send -> *++
+2. Complex Workflow: 	scan -> list -> secrets -> collect -> send -> *++
+3. Recursive Workflow:	scan -> collect -> send -> collect -> send -> *++
+4. Debug Workflow:		crawl -> send -> crawl -> send -> *++
+5. Static Workflow:		send -> *
 
 ## Simple Workflow
 
@@ -128,10 +191,10 @@ magellan collect --secrets-file secrets.json -o nodes.yaml -F yaml
 vim nodes.yaml
 
 // read editted inventory and send data to host
-magellan send -d @nodes.yaml -f yaml https://smd.example.com
+magellan send -d @nodes.yaml -f yaml https://demo.openchami.cluster:8443/hsm/v2
 ```
 
-## Collect Workflow
+## Recursive Workflow
 
 If we already have cache data, we can completely bypass doing a scan. Instead,
 we can repeatedly do a collect with little effort if we already have the secrets
@@ -140,15 +203,32 @@ store set up and send the data to our remote host all in one step like in the
 
 ```
 // assume we already have a cache database and secrets store somewhere...
-magellan collect --secrets_file secrets.json | magellan send https://smd.example.com
+magellan collect --secrets-file secrets.json | magellan send https://demo.openchami.cluster:8443/hsm/v2
 
 // alternatively, just update the file we send our output
 magellan collect --secrets-file secrets.json -o nodes.json
 ```
 
 We can continuously do this whenever we want to update the state of our inventory.
+Alternatively, we can also pipe the contents from 'send' directly to 'collect'.
 
-## Crawl Workflow
+```
+magellan scan --subnet 172.16.0.0/24 | magellan collect
+```
+
+This allows getting the inventory data dynamically while avoiding writing to disk.
+We can also do this in two steps if for some reason, we want to edit the scanned
+asset data before a 'collect'.
+
+```
+// write output of scan to file
+magellan scan --subnet 172.16.0.0/24 -F yaml -o assets.yaml
+
+// read the output of scan back as input to collect
+magellan collect -d @assets.yaml -f yaml
+```
+
+## Debug Workflow
 
 This workflow is similar to the "Collect" workflow except we crawl a single BMC
 that we specify instead of multiple BMCs found from the scan. Like with the previous
@@ -160,6 +240,16 @@ magellan send -d @node.json https://smd.example.com
 ```
 
 Note that this only uses a single go routine instead of multiple like with *collect*.
+
+## Static Workflow
+
+Instead of using the tool for dynamic hardware inventory collection, we can instead
+just create a file similar to the 'collect' output and use the 'send' command to
+make a request to the specified host.
+
+```
+magellan send -d@inventory.yaml -f yaml https://demo.openchami.cluster:8443/hsm/v2
+```
 
 # REFERENCES
 

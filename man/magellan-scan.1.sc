@@ -8,6 +8,14 @@ magellan-scan - Scan network for BMCs or PDUs and save data to cache
 
 magellan scan [OPTIONS] _host_...
 
+## OUTPUT ATTRIBUTES
+
+The 'scan' command output includes just enough data to continously run the 'collect' 
+command without having to re-discover existing BMCs on a network. The output must 
+contain the following attributes:
+
+
+
 # EXAMPLES
 
 // assumes host https://10.0.0.101:443++
@@ -33,6 +41,9 @@ magellan scan --subnet 192.168.0.0 --protocol tcp --scheme https --port 5000 --s
 
 // assumes subnet without CIDR has a subnet-mask of 255.255.0.0++
 magellan scan --subnet 10.0.0.0 --subnet 172.16.0.0 --subnet-mask 255.255.0.0 --cache ./assets.db
+
+// perform scan by setting environment variables
+SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure
 
 # FLAGS
 
