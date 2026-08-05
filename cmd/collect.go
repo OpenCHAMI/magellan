@@ -27,36 +27,40 @@ var (
 // on a subnet.
 var CollectCmd = &cobra.Command{
 	Use: "collect",
-	Example: `  // basic collect after scan without making a follow-up request
+	Example: `  # basic collect after scan without making a follow-up request
   magellan collect --cache ./assets.db --cacert ochami.pem -o nodes.yaml -t 30
 
-  // set username and password for all nodes and produce the collected
-  // data in a file called 'nodes.yaml'
+  # set username and password for all nodes and produce the collected
+  # data in a file called 'nodes.yaml'
   magellan collect -u $bmc_username -p $bmc_password -o nodes.yaml
 
-  // run a collect using secrets from the secrets manager
+  # run a collect using secrets from the secrets manager
   export MASTER_KEY=$(magellan secrets generatekey)
   magellan secrets store $node_creds_json -f nodes.json
   magellan collect -o nodes.yaml
 
-  // Take the output of 'scan' and input directly into 'collect'
+  # Take the output of 'scan' and input directly into 'collect'
   magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | magellan collect -f json --show-output -i
 
-  // Similar to above, but with intermediate step to allow editting 'scan' output using YAML
+  # Similar to above, but with intermediate step to allow editting 'scan' output using YAML
   magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F yaml > asset.yaml
   magellan collect -d@asset.yaml -f yaml --show-output -i
 
-  // Take the output of 'collect' and input directly into 'send'
+  # Take the output of 'collect' and input directly into 'send'
   magellan collect -F json -i --show-output | magellan send https://demo.openchami.cluster:8443/hsm/v2
   
-  // Complete flow combined as a single line (data format must match all commands)
+  # Complete flow combined as a single line (data format must match all commands)
   magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | magellan collect -f json -F json --show-output -i | magellan send -f json https://demo.openchami.cluster:8443/hsm/v2
 
-  // Run 'collect' using environment variables
+  # Run 'collect' using environment variables
   SHOW_OUTPUT=true LOG_LEVEL=debug magellan collect -i -d@assets.json
   `,
-	Short: "Collect system information by interrogating BMC node",
-	Long: `	Send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache.\nSee the 'scan' command on how to perform a scan.
+	Short: "Collect hardware inventory by interrogating BMC nodes using scan data",
+	Long: `	Collect hardware inventory by interrogating BMC nodes using scan data. This command send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache, provided through stdin, or provided using the '-d/--data' flag. 
+	
+	See the 'scan' command on how to perform a scan to create. 
+	
+	The path to BMC ID mappings can be specified using the '--bmc-id-mappings' flag. This will convert any hosts found  
 	
 	See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of available environment variables.
 	`,
