@@ -57,7 +57,10 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "magellan",
 	Short: "Redfish-based BMC discovery tool",
-	Long:  "Redfish-based BMC discovery tool with dynamic discovery features.",
+	Long: `Redfish-based BMC discovery tool with dynamic discovery features.
+	
+See 'magellan(1)' on getting started and examples.
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			err := cmd.Help()

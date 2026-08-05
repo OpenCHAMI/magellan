@@ -8,6 +8,14 @@ magellan-scan - Scan network for BMCs or PDUs and save data to cache
 
 magellan scan [OPTIONS] _host_...
 
+## OUTPUT ATTRIBUTES
+
+The 'scan' command output includes just enough data to continously run the 'collect' 
+command without having to re-discover existing BMCs on a network. The output must 
+contain the following attributes:
+
+
+
 # EXAMPLES
 
 // assumes host https://10.0.0.101:443++

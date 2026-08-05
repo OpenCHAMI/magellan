@@ -20,19 +20,19 @@ var (
 
 var secretsCmd = &cobra.Command{
 	Use: "secrets",
-	Example: `  // generate new key and set environment variable
+	Example: `  # generate new key and set environment variable
   export MASTER_KEY=$(magellan secrets generatekey)
 
-  // store specific BMC node creds for collect and crawl in default secrets store (--file/-f flag not set)
-  magellan secrets store $bmc_host $bmc_creds
+  # store specific BMC node creds for collect and crawl in default secrets store (--file/-f flag not set)
+  magellan secrets store $bmc_host $username:$password
 
-  // retrieve creds from secrets store
+  # retrieve creds from secrets store
   magellan secrets retrieve $bmc_host -f secrets.json
 
-  // list creds from specific secrets
+  # list creds from specific secrets
   magellan secrets list -f nodes.json`,
 	Short: "Manage credentials for BMC nodes",
-	Long:  "Manage credentials for BMC nodes to for querying information through redfish. This requires generating a key and setting the 'MASTER_KEY' environment variable for the secrets store.",
+	Long:  "Manage credentials for BMC nodes for querying information through Redfish. This requires generating a key and setting the 'MASTER_KEY' environment variable for the secrets store.",
 }
 
 var secretsGenerateKeyCmd = &cobra.Command{
@@ -50,9 +50,27 @@ var secretsGenerateKeyCmd = &cobra.Command{
 }
 
 var secretsStoreCmd = &cobra.Command{
-	Use:   "store secretID <basic(default)|json|base64>",
-	Args:  cobra.MinimumNArgs(1),
+	Use: "store secretID <basic(default)|json|base64>",
+	Example: `  # store a default username and password using basic format
+  magellan secrets store default $username:$password
+
+  # store credentials for specific host in JSON
+  magellan secrets store $bmc_host '{"username": "$username", "password": "$password"}' 
+	`,
 	Short: "Stores the given string value under secretID.",
+	Long: `Stores the given string value under secretID. The secretID string should
+be in the format specified with '-F/--format'. If the '--format' is set to 'basic',
+the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
+	Args: func(cmd *cobra.Command, args []string) error {
+
+		if len(args) < 1 {
+			return fmt.Errorf("expected at least one argument")
+		} else if len(args) < 1 && secretsStoreInputFile == "" {
+			log.Error().Msg("requires input data or file")
+			return fmt.Errorf("must have input data or secrets (-f/--s)")
+		}
+		return nil
+	}, //cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			secretID       = args[0]
@@ -288,7 +306,7 @@ var secretsRemoveCmd = &cobra.Command{
 func init() {
 	secretsCmd.PersistentFlags().StringVarP(&secretsFile, "file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreFormat, "format", "F", "basic", "Set the input format for the secrets file (basic|json|base64).")
-	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "Set the file to read as input.")
+	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "Set the file to read as input with credentials. The file must match the format specified with '--format'.")
 
 	secretsCmd.AddCommand(secretsGenerateKeyCmd)
 	secretsCmd.AddCommand(secretsStoreCmd)
@@ -297,6 +315,5 @@ func init() {
 	secretsCmd.AddCommand(secretsRemoveCmd)
 
 	rootCmd.AddCommand(secretsCmd)
-
 
 }
