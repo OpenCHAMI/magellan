@@ -20,6 +20,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
     - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
     - [Docker](#docker)
     - [Arch Linux (AUR)](#arch-linux-aur)
+  - [Local checks before pushing](#local-checks-before-pushing)
   - [Usage](#usage)
     - [Checking for Redfish](#checking-for-redfish)
     - [BMC ID Mapping](#bmc-id-mapping)
@@ -153,7 +154,6 @@ docker pull ghcr.io/openchami/magellan:latest
 
 See the ["Running with Docker"](#running-with-docker) section below about running with the Docker container.
 
-
 ### Arch Linux (AUR)
 
 The `magellan` tool is in the AUR as a binary package and can be installed via your favorite AUR helper.
@@ -161,6 +161,7 @@ The `magellan` tool is in the AUR as a binary package and can be installed via y
 ```bash
 yay -S magellan-bin
 ```
+
 > [!NOTE]
 > The AUR package may not always be in sync with the latest release. It is recommended to install `magellan` from source for the latest version.
 
