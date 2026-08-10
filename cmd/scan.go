@@ -6,13 +6,13 @@ import (
 	"os"
 	"path"
 
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/format"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
+	"github.com/openchami/magellan/internal/cache/sqlite"
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
 	"github.com/rs/zerolog/log"
 
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/cznic/mathutil"
+	urlx "github.com/openchami/magellan/internal/url"
 	"github.com/spf13/cobra"
 )
 

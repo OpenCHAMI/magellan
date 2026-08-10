@@ -80,7 +80,7 @@ Git, and Make, clone the repository, and then build the binary in the root
 directory:
 
 ```bash
-git clone https://github.com/OpenCHAMI/magellan
+git clone https://github.com/openchami/magellan
 cd magellan
 make
 ```
@@ -661,7 +661,7 @@ In summary, `magellan` needs at minimum the following configured to work on each
 
 ## TODO
 
-See the [issue list](https://github.com/OpenCHAMI/magellan/issues) for plans for `magellan`. Here is a list of other features left to add, fix, or do (and some ideas!):
+See the [issue list](https://github.com/openchami/magellan/issues) for plans for `magellan`. Here is a list of other features left to add, fix, or do (and some ideas!):
 
 * [X] Confirm loading different components into SMD
 * [X] Add ability to set subnet mask for scanning

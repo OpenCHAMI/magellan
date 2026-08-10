@@ -71,7 +71,7 @@ BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 BUILD_HOST ?= $(shell $(HOSTCMD))
 GO_VERSION ?= $(shell $(GO) env GOVERSION)
 BUILD_USER ?= $(shell whoami)
-IMPORT     := github.com/OpenCHAMI/magellan/
+IMPORT     := github.com/openchami/magellan/
 CONTAINER_TAG ?= latest
 FQCN          ?= ghcr.io/openchami/$(NAME):$(CONTAINER_TAG)
 LDFLAGS := -s \
@@ -150,9 +150,9 @@ distclean: clean clean-man ## Clean everything (prepare for distribution)
 .PHONY: docs
 docs: ## Show documentation generated from Go comments
 	$(call require-command-shell,$(GO),go)
-	$(GO) doc github.com/OpenCHAMI/magellan/cmd
-	$(GO) doc github.com/OpenCHAMI/magellan/internal
-	$(GO) doc github.com/OpenCHAMI/magellan/pkg/crawler
+	$(GO) doc github.com/openchami/magellan/cmd
+	$(GO) doc github.com/openchami/magellan/internal
+	$(GO) doc github.com/openchami/magellan/pkg/crawler
 
 .PHONY: emulator
 emulator: ## Run the Redfish emulator

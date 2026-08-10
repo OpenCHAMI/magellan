@@ -20,9 +20,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	logger "github.com/OpenCHAMI/magellan/internal/log"
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/openchami/magellan/internal/format"
+	logger "github.com/openchami/magellan/internal/log"
+	"github.com/openchami/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

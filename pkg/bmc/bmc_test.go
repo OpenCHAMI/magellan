@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/stretchr/testify/require"
 )
 

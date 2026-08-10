@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/openchami/magellan/pkg/secrets"
 )
 
 type BMCCredentials struct {

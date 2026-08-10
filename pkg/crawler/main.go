@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/openchami/magellan/internal/util"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"

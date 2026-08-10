@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	"github.com/OpenCHAMI/magellan/internal/util"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
-	"github.com/OpenCHAMI/magellan/pkg/idmap"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/internal/util"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/idmap"
+	"github.com/openchami/magellan/pkg/secrets"
 
 	"github.com/rs/zerolog/log"
 

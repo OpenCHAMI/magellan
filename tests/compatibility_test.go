@@ -16,9 +16,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/pkg/client"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/openchami/magellan/pkg/client"
+	"github.com/openchami/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/secrets"
 )
 
 var (

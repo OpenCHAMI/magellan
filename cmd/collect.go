@@ -6,12 +6,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/format"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
+	"github.com/openchami/magellan/internal/cache/sqlite"
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
