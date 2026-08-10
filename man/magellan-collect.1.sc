@@ -148,8 +148,7 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 	secrets file.
 
 
-See *magellan*(1) for information about global flags and environment variables 
-used for all commands.
+See *magellan*(1) for information about global flags and environment variables used for all commands.
 
 # COMMANDS
 
@@ -173,8 +172,7 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 
 # SEE ALSO
 
-*magellan*(1), *magellan-scan*(1), *magellan-list*(1), *magellan-send*(1), 
-*magellan-secrets*(1)
+*magellan*(1), *magellan-scan*(1), *magellan-list*(1), *magellan-send*(1), *magellan-secrets*(1)
 
 ; Vim modeline settings
 ; vim: set tw=80 noet sts=4 ts=4 sw=4 syntax=scdoc:
