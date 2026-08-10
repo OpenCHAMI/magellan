@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/openchami/magellan/internal/format"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -14,8 +15,9 @@ import (
 
 var (
 	secretsFile           string
+	secretsStoreInputFile string // this is for inputs not the store itself
 	secretsStoreFormat    string // slightly different from format.DataFormat
-	secretsStoreInputFile string
+	secretsListFormat     format.DataFormat
 )
 
 var secretsCmd = &cobra.Command{
@@ -227,14 +229,14 @@ var secretsRetrieveCmd = &cobra.Command{
 
 		store, err = secrets.OpenStore(secretsFile)
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			log.Error().Err(err).Msg("failed to open secret store")
+			return
 		}
 
 		secretValue, err = store.GetSecretByID(secretID)
 		if err != nil {
-			fmt.Printf("Error retrieving secret: %v\n", err)
-			os.Exit(1)
+			log.Error().Err(err).Msg("failed to retrieve secrets")
+			return
 		}
 		fmt.Printf("Secret for %s: %s\n", secretID, secretValue)
 	},
@@ -248,17 +250,24 @@ var secretsListCmd = &cobra.Command{
 		store, err := secrets.OpenStore(secretsFile)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(1)
+			return
 		}
 
 		secrets, err := store.ListSecrets()
 		if err != nil {
-			fmt.Printf("Error listing secrets: %v\n", err)
-			os.Exit(1)
+			log.Error().Err(err).Msg("failed to list secrets")
+			return
 		}
 
-		for key, value := range secrets {
-			fmt.Printf("%s: %s\n", key, value)
+		switch secretsListFormat {
+		case format.FORMAT_JSON, format.FORMAT_YAML:
+			format.MarshalData(secrets, secretsListFormat)
+		case format.FORMAT_LIST:
+			fallthrough
+		default:
+			for key, value := range secrets {
+				fmt.Printf("%s: %s\n", key, value)
+			}
 		}
 	},
 }
@@ -304,15 +313,12 @@ var secretsRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	secretsCmd.PersistentFlags().StringVarP(&secretsFile, "file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
-	secretsStoreCmd.Flags().StringVarP(&secretsStoreFormat, "format", "F", "basic", "Set the input format for the secrets file (basic|json|base64).")
+	secretsCmd.PersistentFlags().StringVar(&secretsFile, "file", "secrets.json", "Set the secrets file with BMC credentials.")
+	secretsStoreCmd.Flags().StringVarP(&secretsStoreFormat, "input-format", "f", "basic", "Set the input format for the secrets file (basic|json|base64).")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "Set the file to read as input with credentials. The file must match the format specified with '--format'.")
+	secretsListCmd.Flags().VarP(&secretsListFormat, "output-format", "F", "Set the output format to list secrets.")
 
-	secretsCmd.AddCommand(secretsGenerateKeyCmd)
-	secretsCmd.AddCommand(secretsStoreCmd)
-	secretsCmd.AddCommand(secretsRetrieveCmd)
-	secretsCmd.AddCommand(secretsListCmd)
-	secretsCmd.AddCommand(secretsRemoveCmd)
+	secretsCmd.AddCommand(secretsGenerateKeyCmd, secretsStoreCmd, secretsRetrieveCmd, secretsListCmd, secretsRemoveCmd)
 
 	rootCmd.AddCommand(secretsCmd)
 
