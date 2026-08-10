@@ -614,26 +614,27 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **collect** | `--protocol` | `COLLECT_PROTOCOL` | Sets the protocol used to query |
 | **collect** | `--output-file`| `COLLECT_OUTPUT_FILE` | Sets the path to store collection data in a single file |
 | **collect** | `--output-dir` | `COLLECT_OUTPUT_DIR` | Sets the path to store collection data using HIVE partitioning |
-| **collect** | `--username` | `COLLECT_USERNAME` / `USERNAME` | Sets the master BMC username |
-| **collect** | `--password` | `COLLECT_PASSWORD` / `PASSWORD` | Sets the master BMC password |
-| **collect** | `--secrets-file`| `SECRETS_FILE` | Sets path to the node secrets file |
+| **collect** | `--username` | `COLLECT_USERNAME` | Sets the master BMC username |
+| **collect** | `--password` | `COLLECT_PASSWORD` | Sets the master BMC password |
+| **collect** | `--secrets-file` | `COLLECT_SECRETS_FILE` | Sets path to the node secrets file |
 | **collect** | `--insecure` | `COLLECT_INSECURE` | Skips TLS certificate verification during probe |
-| **collect** | `--show` | `SHOW` | Shows the output of a collect run |
-| **collect** | `--format` | `FORMAT` | Sets the default output data format |
-| **collect** | `--bmc-id-map` | `BMC_ID_MAP` | Sets the BMC ID mapping |
+| **collect** | `--show-output` | `COLLECT_SHOW_OUTPUT` | Shows the output of a collect run |
+| **collect** | `--output-format` | `COLLECT_OUTPUT_FORMAT` | Sets the default output data format |
+| **collect** | `--bmc-id-map` | `COLLECT_BMC_ID_MAP` | Sets the BMC ID mapping |
 | **crawl** | `--insecure` | `CRAWL_INSECURE` | Ignores SSL errors |
+| **crawl** | `--show-output` | `CRAWL_SHOW_OUTPUT` | Show the hardware inventory found from BMC |
 | **power** | `--cacert` | `POWER_CACERT` / `CACERT` | Sets the path to CA cert file |
 | **power** | `--format` | `POWER_FORMAT` / `FORMAT` | Sets the output format |
-| **power** | `--list-reset-types`| `LIST_RESET_TYPES` | Lists supported Redfish reset types |
+| **power** | `--list-reset-types` | `LIST_RESET_TYPES` | Lists supported Redfish reset types |
 | **power** | `--reset-type` | `RESET_TYPE` | Redfish reset type to perform |
-| **power** | `--inventory-file`| `INVENTORY_FILE` | YAML file containing node inventory |
+| **power** | `--inventory-file` | `INVENTORY_FILE` | YAML file containing node inventory |
 | **update** | `--scheme` | `UPDATE_SCHEME` | Sets the transfer protocol |
 | **update** | `--firmware-uri` | `UPDATE_FIRMWARE_URI` | Sets the URI to retrieve the firmware |
 | **update** | `--status` | `UPDATE_STATUS` | Gets the status of the update |
 | **update** | `--insecure` | `UPDATE_INSECURE` | Allows insecure connections to the server |
-| **secrets**| `--file` | `FILE` | Sets the secrets file with BMC credentials |
-| **secrets**| `--format` | `FORMAT` | Sets the input format for the secrets file |
-| **secrets**| `--input-file` | `INPUT_FILE` | Sets the file to read as input |
+| **secrets** | `--file` | `SECRETS_FILE` | Sets the secrets file with BMC credentials |
+| **secrets** | `--input-format` | `SECRETS_INPUT_FORMAT` | Sets the input format for the secrets file |
+| **secrets** | `--input-file` | `SECRETS_INPUT_FILE` | Sets the file to read as input |
 
 > [!NOTE]
 > Due to how configuration defaults and bindings are resolved in `magellan`, some flags accept both a global variable and a command-specific variable (e.g. `--password` under `collect` accepts both `PASSWORD` and `COLLECT_PASSWORD`).

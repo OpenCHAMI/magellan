@@ -143,7 +143,7 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *UPDATE_INSECURE*: Allows insecure connections to the server
 
 *Secrets Variables*
-- *FILE*: Sets the secrets file with BMC credentials
+- *SECRETS_FILE*: Sets the secrets file with BMC credentials
 - *FORMAT*: Sets the input format for the secrets file
 - *INPUT_FILE*: Sets the file to read as input
 - *MASTER_KEY*: Set the generated key for the secrets file
