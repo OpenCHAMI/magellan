@@ -158,7 +158,7 @@ func init() {
 	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
 	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification for Redfish request")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
+	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the hardware inventory found from BMC")
 	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml)")
 
 	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
