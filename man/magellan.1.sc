@@ -114,11 +114,11 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *SCAN_INSECURE*: Skips TLS certificate verification during probe
 
 *Collect Variables*
-- *COLLECT_PROTOCOL* (or *PROTOCOL*): Sets the protocol used to query
-- *COLLECT_OUTPUT_FILE* (or *OUTPUT_FILE*): Sets the path to store collection data
-- *COLLECT_OUTPUT_DIR* (or *OUTPUT_DIR*): Sets the path to store collection data using HIVE
-- *COLLECT_USERNAME* (or *USERNAME*): Sets the master BMC username
-- *COLLECT_PASSWORD* (or *PASSWORD*): Sets the master BMC password
+- *COLLECT_PROTOCOL*: Sets the protocol used to query
+- *COLLECT_OUTPUT_FILE*: Sets the path to store collection data
+- *COLLECT_OUTPUT_DIR*: Sets the path to store collection data using HIVE
+- *COLLECT_USERNAME*: Sets the master BMC username
+- *COLLECT_PASSWORD*: Sets the master BMC password
 - *COLLECT_SECRETS_FILE*: Sets path to the node secrets file
 - *COLLECT_INSECURE*: Skips TLS certificate verification for Redfish requests
 - *COLLECT_SHOW_OUTPUT*: Shows the output of a collect run
@@ -127,6 +127,7 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 
 *Crawl Variables*
 - *CRAWL_INSECURE*: Skip TLS certificate verification for Redfish request
+- *CRAWL_SHOW_OUTPUT*: Show the hardware inventory found from BMC
 
 *Power Variables*
 - *POWER_CACERT* (or *CACERT*): Sets the path to CA cert file

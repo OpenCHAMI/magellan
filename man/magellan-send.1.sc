@@ -200,7 +200,7 @@ magellan collect -v -F yaml | magellan send -d @inventory.yaml -f yaml https://s
 *-f, --input-format* _format_
 	Set the default data input format (json|yaml) can be overridden by file extension (default json)
 
-See *magellan*(1) for information about global flags used for all commands.
+See *magellan*(1) for information about global flags and environment variables used for all commands.
 
 # AUTHOR
 
