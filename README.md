@@ -620,6 +620,7 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **collect** | `--secrets-file` | `COLLECT_SECRETS_FILE` | Sets path to the node secrets file |
 | **collect** | `--insecure` | `COLLECT_INSECURE` | Skips TLS certificate verification during probe |
 | **collect** | `--show-output` | `COLLECT_SHOW_OUTPUT` | Shows the output of a collect run |
+| **collect** | `--input-format` | `COLLECT_INPUT_FORMAT` | Sets the default input data format |
 | **collect** | `--output-format` | `COLLECT_OUTPUT_FORMAT` | Sets the default output data format |
 | **collect** | `--bmc-id-map` | `COLLECT_BMC_ID_MAP` | Sets the BMC ID mapping |
 | **crawl** | `--insecure` | `CRAWL_INSECURE` | Ignores SSL errors |
