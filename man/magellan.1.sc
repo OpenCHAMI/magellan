@@ -124,6 +124,7 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *COLLECT_SECRETS_FILE*: Sets path to the node secrets file
 - *COLLECT_INSECURE*: Skips TLS certificate verification for Redfish requests
 - *COLLECT_SHOW_OUTPUT*: Shows the output of a collect run
+- *COLLECT_INPUT_FORMAT*: Sets the default input data format
 - *COLLECT_OUTPUT_FORMAT*: Sets the default output data format
 - *COLLECT_BMC_ID_MAP*: Sets the BMC ID mapping
 
