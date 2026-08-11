@@ -13,29 +13,28 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [OpenCHAMI Magellan](#openchami-magellan)
-	- [Main Features](#main-features)
-	- [Getting Started](#getting-started)
-	- [Documentation](#documentation)
-	- [Building the Executable](#building-the-executable)
-		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
-		- [Docker](#docker)
-		- [Arch Linux (AUR)](#arch-linux-aur)
-	- [Local checks before pushing](#local-checks-before-pushing)
-	- [Usage](#usage)
-		- [Checking for Redfish](#checking-for-redfish)
-		- [BMC ID Mapping](#bmc-id-mapping)
-		- [Running the Tool](#running-the-tool)
-			- [Modular Workflows](#modular-workflows)
-		- [PDU Inventory Collection](#pdu-inventory-collection)
-		- [Starting the Emulator](#starting-the-emulator)
-		- [Updating Firmware](#updating-firmware)
-		- [Managing Power](#managing-power)
-		- [Getting an Access Token (WIP)](#getting-an-access-token-wip)
-		- [Running with Docker](#running-with-docker)
-		- [Environment Variables](#environment-variables)
-	- [How It Works](#how-it-works)
-	- [TODO](#todo)
-	- [Copyright](#copyright)
+  - [Main Features](#main-features)
+  - [Getting Started](#getting-started)
+  - [Documentation](#documentation)
+  - [Building the Executable](#building-the-executable)
+    - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+    - [Docker](#docker)
+    - [Arch Linux (AUR)](#arch-linux-aur)
+  - [Usage](#usage)
+    - [Checking for Redfish](#checking-for-redfish)
+    - [BMC ID Mapping](#bmc-id-mapping)
+    - [Running the Tool](#running-the-tool)
+      - [Modular Workflows](#modular-workflows)
+    - [PDU Inventory Collection](#pdu-inventory-collection)
+    - [Starting the Emulator](#starting-the-emulator)
+    - [Updating Firmware](#updating-firmware)
+    - [Managing Power](#managing-power)
+    - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+    - [Running with Docker](#running-with-docker)
+    - [Environment Variables](#environment-variables)
+  - [How It Works](#how-it-works)
+  - [TODO](#todo)
+  - [Copyright](#copyright)
 
 <!-- TOC end -->
 
@@ -277,7 +276,7 @@ If you are using `magellan` in an application that is not OpenCHAMI and have a n
 There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand which will print this output:
 
 ```bash
-magellan help     
+magellan help
 Redfish-based BMC discovery tool with dynamic discovery features.
 
 Usage:
@@ -395,7 +394,7 @@ This maintains the original behavior of passing the `--host` flag to `collect` w
 
 #### Modular Workflows
 
-The `magellan` CLI commands can be ran in a single command or broken up to run different parts of the workflow without needing to write to the filesystem. 
+The `magellan` CLI commands can be ran in a single command or broken up to run different parts of the workflow without needing to write to the filesystem.
 
 For example, the `scan`, `collect`, and `send` can be done in a single command.
 
@@ -477,7 +476,7 @@ If you pass arguments with the `--username/--password` flags, the arguments will
 
 > [!TIP]
 > You can set default fallback credentials by storing a secret with the `secretID` of "default". This is used if no `secretID` is found in the local store for the specified host. This is useful when you want to set a username and password that is the same for all BMCs with the exception of the ones specified.
-> 
+>
 > ```bash
 > magellan secrets default $username:$password
 > ```
@@ -608,11 +607,13 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **scan** | `--protocol` | `SCAN_PROTOCOL` | Sets the default protocol to use (e.g., tcp) |
 | **scan** | `--subnet` | `SCAN_SUBNETS` | Adds subnets to scan |
 | **scan** | `--subnet-mask` | `SCAN_SUBNET_MASKS` | Sets the default subnet mask |
-| **scan** | `--disable-probing`| `SCAN_DISABLE_PROBING` | Disables probing found assets for Redfish services |
-| **scan** | `--disable-cache`| `SCAN_DISABLE_CACHE` | Disables saving found assets to cache |
+| **scan** | `--disable-probing` | `SCAN_DISABLE_PROBING` | Disables probing found assets for Redfish services |
+| **scan** | `--disable-cache` | `SCAN_DISABLE_CACHE` | Disables saving found assets to cache |
 | **scan** | `--insecure`, `-i` | `SCAN_INSECURE` | Skips TLS certificate verification during probe |
+| **scan** | `--output-format`, `-F` | `SCAN_OUTPUT_FORMAT` | Sets the output format (json, yaml) |
+| **scan** | `--output`, `-o` | `SCAN_OUTPUT` | Sets the output file path (for json/yaml formats) |
 | **collect** | `--protocol` | `COLLECT_PROTOCOL` | Sets the protocol used to query |
-| **collect** | `--output-file`| `COLLECT_OUTPUT_FILE` | Sets the path to store collection data in a single file |
+| **collect** | `--output-file` | `COLLECT_OUTPUT_FILE` | Sets the path to store collection data in a single file |
 | **collect** | `--output-dir` | `COLLECT_OUTPUT_DIR` | Sets the path to store collection data using HIVE partitioning |
 | **collect** | `--username` | `COLLECT_USERNAME` | Sets the master BMC username |
 | **collect** | `--password` | `COLLECT_PASSWORD` | Sets the master BMC password |

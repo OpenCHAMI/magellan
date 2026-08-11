@@ -112,6 +112,8 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *SCAN_DISABLE_PROBING*: Disables probing found assets for Redfish services
 - *SCAN_DISABLE_CACHE*: Disables saving found assets to cache
 - *SCAN_INSECURE*: Skips TLS certificate verification during probe
+- *SCAN_OUTPUT_FORMAT*: Sets the output format (json, yaml)
+- *SCAN_OUTPUT*: Sets the output file path (for json/yaml formats)
 
 *Collect Variables*
 - *COLLECT_PROTOCOL*: Sets the protocol used to query
@@ -148,7 +150,8 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *INPUT_FILE*: Sets the file to read as input
 - *MASTER_KEY*: Set the generated key for the secrets file
 
-Note: Environment variables that take multiple arguments (like `SCAN_SUBNETS` or `SCAN_PORTS`) should have their values delimited by a comma `,` (e.g., `SCAN_PORTS=5000,5001`).
+Note: Environment variables that take multiple arguments (like `SCAN_SUBNETS` or
+`SCAN_PORTS`) should have their values delimited by a comma `,` (e.g., `SCAN_PORTS=5000,5001`).
 
 # GETTING STARTED
 
