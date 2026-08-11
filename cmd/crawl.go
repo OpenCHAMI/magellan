@@ -34,7 +34,12 @@ var CrawlCmd = &cobra.Command{
   magellan crawl --secrets-file secrets.json
   `,
 	Short: "Crawl a single BMC for inventory information",
-	Long:  "Crawl a single BMC for inventory information with URI.\n\n NOTE: This command does not scan subnets, store scan information in cache, nor make a request to a specified host. It is used only to retrieve inventory data directly. Otherwise, use 'scan' and 'collect' instead.",
+	Long: `Crawl a single BMC for inventory information with URI. This command
+bypasses the scan and the cache. It is used only to retrieve inventory data
+directly. Otherwise, use 'scan' and 'collect' instead.
+	
+See 'magellan-crawl(1)' for more details. See 'magellan(1)' for a list of 
+available environment variables.`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Validate that the only argument is a valid URI
 		var err error
