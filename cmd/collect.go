@@ -57,19 +57,19 @@ var CollectCmd = &cobra.Command{
   `,
 	Short: "Collect hardware inventory by interrogating BMC nodes using scan data",
 	Long: `Collect hardware inventory by interrogating BMC nodes using scan 
-	data. This command send request(s) to a collection of hosts running Redfish 
-	services found stored from the 'scan' in cache, provided through stdin, or 
-	provided using the '-d/--data' flag. 
-	
-	See 'magellan scan --help' on how to perform a scan to create. 
-	See 'magellan scan --help' on how to send the inventory to a remote host.
-	
-	The path to BMC ID mappings can be specified using the '--bmc-id-mappings' 
-	flag. This will convert any hosts found in the mappings file to the each
-	value specified.
-	
-	See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of 
-	available environment variables.
+data. This command send request(s) to a collection of hosts running Redfish 
+services found stored from the 'scan' in cache, provided through stdin, or 
+provided using the '-d/--data' flag. 
+
+See 'magellan scan --help' on how to perform a scan to create. 
+See 'magellan send --help' on how to send the inventory to a remote host.
+
+The path to BMC ID mappings can be specified using the '--bmc-id-mappings' flag. 
+This will convert any hosts found in the mappings file to the each value 
+specified.
+
+See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of 
+available environment variables.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan

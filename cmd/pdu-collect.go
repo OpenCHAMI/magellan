@@ -58,14 +58,19 @@ func transformToSMDFormat(inventory *pdu.PDUInventory) []map[string]any {
 }
 
 var pduCmd = &cobra.Command{
-	Use:   "pdu [hosts...]",
-	Short: "Collect inventory from JAWS-based PDUs",
-	Long:  `Connects to one or more PDUs with a JAWS interface to collect hardware inventory.`,
+	Use: "pdu <hosts>...",
 	Example: `  // Collect inventory from a single PDU using credentials
   magellan collect pdu x3000m0 --username admin --password initial0
 
   // Collect from multiple PDUs and send to SMD
   magellan collect pdu x3000m0 x3000m1 -u admin -p initial0 | magellan send <smd-endpoint>`,
+	Short: "Collect inventory from JAWS-based PDUs",
+	Long: `Connects to one or more PDUs with a JAWS interface to collect 
+hardware inventory.
+
+See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of 
+available environment variables.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			log.Error().Msg("no PDU hosts provided")
