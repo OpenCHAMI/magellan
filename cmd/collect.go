@@ -244,18 +244,18 @@ var CollectCmd = &cobra.Command{
 }
 
 func init() {
-	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
-	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
-	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
-	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file")
-	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
-	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
-	CollectCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
-	CollectCmd.Flags().VarP(&collectInputFormat, "input-format", "f", "Set the default input data format (json|yaml)")
-	CollectCmd.Flags().VarP(&collectOutputFormat, "output-format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions)")
-	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
-	CollectCmd.Flags().StringArrayVarP(&collectDataArgs, "data", "d", []string{}, "Set the data as input for collect (prepend @ for files)")
+	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username.")
+	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
+	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
+	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query.")
+	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file.")
+	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning.")
+	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	CollectCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run.")
+	CollectCmd.Flags().VarP(&collectInputFormat, "input-format", "f", "Set the default input data format (json|yaml).")
+	CollectCmd.Flags().VarP(&collectOutputFormat, "output-format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions).")
+	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input).")
+	CollectCmd.Flags().StringArrayVarP(&collectDataArgs, "data", "d", []string{}, "Set the data as input for collect (prepend @ for files).")
 
 	// set mutually exclusive flags
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")

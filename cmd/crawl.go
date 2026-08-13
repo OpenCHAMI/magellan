@@ -159,12 +159,12 @@ available environment variables.`,
 }
 
 func init() {
-	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
-	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
-	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification for Redfish request")
-	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the hardware inventory found from BMC")
-	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml)")
+	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC.")
+	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC.")
+	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification for Redfish request.")
+	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
+	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the hardware inventory found from BMC.")
+	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml).")
 
 	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 

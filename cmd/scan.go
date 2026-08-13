@@ -216,12 +216,12 @@ func init() {
 	ScanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan.")
 	ScanCmd.Flags().StringSliceVar(&subnets, "subnet", nil, "Add additional hosts from specified subnets to scan.")
 	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
-	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
-	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
-	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
-	ScanCmd.Flags().VarP(&scanOutputFormat, "output-format", "F", "Sets the output format (json, yaml)")
-	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Sets the output file path (for json/yaml formats)")
-	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
+	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes.")
+	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag.")
+	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	ScanCmd.Flags().VarP(&scanOutputFormat, "output-format", "F", "Sets the output format (json, yaml).")
+	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Sets the output file path (for json/yaml formats).")
+	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus).")
 
 	rootCmd.AddCommand(ScanCmd)
 }
