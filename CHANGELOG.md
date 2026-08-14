@@ -8,8 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 0.5.2
 
 - Fixed issue with secrets file being closed too early
+- Fixed issue related to updating `gofish`
 - Added documentation about using `--insecure` with `scan`
 - Improved overall logging messages and consistency
+- Allow environment variables to be used
 
 ## 0.5.1
 
