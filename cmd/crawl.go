@@ -12,7 +12,6 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var crawlOutputFormat format.DataFormat = format.FORMAT_JSON
@@ -21,9 +20,19 @@ var crawlOutputFormat format.DataFormat = format.FORMAT_JSON
 // specfic inventory detail. This command only expects host names and does
 // not require a scan to be performed beforehand.
 var CrawlCmd = &cobra.Command{
-	Use: "crawl [uri]",
-	Example: `  magellan crawl https://bmc.example.com
-  magellan crawl https://bmc.example.com -i -u username -p password`,
+	Use: "crawl <bmc_host>",
+	Example: `  # crawl a single BMC node for hardware inventory
+  magellan crawl http://nid0001
+  
+  # crawl BMC node with specified username and password
+  magellan crawl https://bmc.example.com -i -u $username -p $password
+  
+  # crawl BMC node using secrets store with credentials
+  magellan secrets generatekey -o key.txt
+  export MASTER_KEY=$(cat key.txt)
+  magellan secrets store $username $password
+  magellan crawl --secrets-file secrets.json
+  `,
 	Short: "Crawl a single BMC for inventory information",
 	Long:  "Crawl a single BMC for inventory information with URI.\n\n NOTE: This command does not scan subnets, store scan information in cache, nor make a request to a specified host. It is used only to retrieve inventory data directly. Otherwise, use 'scan' and 'collect' instead.",
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -147,15 +156,12 @@ var CrawlCmd = &cobra.Command{
 func init() {
 	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
 	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
-	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
+	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification for Redfish request")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	CrawlCmd.Flags().BoolVar(&showOutput, "show", false, "Show the output of a crawl")
 	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
 	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml)")
 
 	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
-
-	checkBindFlagError(viper.BindPFlag("crawl.insecure", CrawlCmd.Flags().Lookup("insecure")))
 
 	rootCmd.AddCommand(CrawlCmd)
 }

@@ -350,15 +350,12 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			SerialNumber: rf_computersystem.SerialNumber,
 			SerialConsole: SerialConsole{
 				IPMI: SerialConsoleConfig{
-					Port:    uint(*rf_computersystem.SerialConsole.IPMI.Port),
 					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
 				},
 				SSH: SerialConsoleConfig{
-					Port:    uint(*rf_computersystem.SerialConsole.SSH.Port),
 					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
 				},
 				Telnet: SerialConsoleConfig{
-					Port:    uint(*rf_computersystem.SerialConsole.Telnet.Port),
 					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
 				},
 			},
@@ -373,12 +370,28 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				RestorePolicy:   string(rf_computersystem.PowerRestorePolicy),
 				PowerControlIDs: powercontrolIDs,
 			},
-			Actions:        actions,
-			ProcessorCount: uint(*rf_computersystem.ProcessorSummary.Count),
-			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
-			MemoryTotal:    float64(*rf_computersystem.MemorySummary.TotalSystemMemoryGiB),
-			NodeID:         rf_computersystem.ID,
+			Actions:       actions,
+			ProcessorType: rf_computersystem.ProcessorSummary.Model,
+			NodeID:        rf_computersystem.ID,
 		}
+
+		// check that pointers values are set before de-referencing
+		if rf_computersystem.SerialConsole.IPMI.Port != nil {
+			system.SerialConsole.IPMI.Port = uint(*rf_computersystem.SerialConsole.IPMI.Port)
+		}
+		if rf_computersystem.SerialConsole.SSH.Port != nil {
+			system.SerialConsole.SSH.Port = uint(*rf_computersystem.SerialConsole.SSH.Port)
+		}
+		if rf_computersystem.SerialConsole.Telnet.Port != nil {
+			system.SerialConsole.Telnet.Port = uint(*rf_computersystem.SerialConsole.Telnet.Port)
+		}
+		if rf_computersystem.ProcessorSummary.Count != nil {
+			system.ProcessorCount = uint(*rf_computersystem.ProcessorSummary.Count)
+		}
+		if rf_computersystem.MemorySummary.TotalSystemMemoryGiB != nil {
+			system.MemoryTotal = float64(*rf_computersystem.MemorySummary.TotalSystemMemoryGiB)
+		}
+
 		if rf_chassis != nil {
 			system.Chassis_SKU = rf_chassis.SKU
 			system.Chassis_Serial = rf_chassis.SerialNumber
