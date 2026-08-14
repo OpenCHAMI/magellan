@@ -45,10 +45,21 @@ The *magellan* command accepts
 
 *--cache* _path_
 	Set the path to cache data from a scan. The default path to the cache is
-	'/tmp/allend/magellan/assets.db'.
+	'/tmp/allend/magellan/assets.db'. 
+	
+	The *magellan* CLI can run full workflows without writing to disk. See the
+	*Simple Workflow* on how to do so in the "Getting Started" section of this
+	document.
 
 *-j, --concurrency* _process_count_
-	Set the number of concurrent processes (default -1)
+	Set the number of concurrent processes. This will affect the number of
+	processes used for commands such as *collect* (e.g. number of simultaneous
+	requests made to BMCs). 
+	
+	By default, the _process_count_ is set to -1 which
+	automatically calculates the number of processes optimally needed. For
+	example, if *collect* is ran to gather hardware inventory from 50 BMCs, then
+	50 proccesses (goroutines) will spawn to make a requests per BMC.
 
 *-c, --config* _path_
 	Set the path to a config file. When _path_ is not set, *magellan* will attempt
@@ -154,12 +165,31 @@ service. Here are some of the command ways to use the tool:
 
 This is the simplest and most minimalistic way for using *magellan*. This method
 does not use the secrets store and no changes are made after an inventory
-collection.
+collection. This example also stores the cache in a local file as opposed to the
+default location.
 
 ```
-magellan scan --subnet 172.16.0.0/24
-magellan collect -u $u -p $p | magellan send https://smd.example.com
+magellan scan --subnet 172.16.0.0/24 --cache assets.db
+magellan collect -u $username -p $password --cache assets.db | 
+magellan send https://demo.openchami.cluster:8443/hsm/v2
 ```
+
+We can also use JSON or YAML files in between the *scan* and *collect* commands.
+
+```
+magellan scan --subnet 172.18.0.0 --subnet-mask 255.255.255.0 --disable-cache -F json -o assets.json
+magellan collect -i -d@assets.json --secrets-file secrets.json -o nodes.json
+```
+
+Note that it is possible to run entire workflow without touching the filesystem
+using pipes. This example also allows for modification between each step using YAML.
+
+```
+magellan scan --subnet 172.18.0.0/24 --port 5000 -F yaml |
+magellan collect -i --secrets-file secrets.json -f yaml -F yaml | 
+magellan send -f yaml https://demo.openchami.cluster:8443/hsm/v2
+```
+
 
 ## Complex Workflow
 
@@ -236,7 +266,7 @@ workflow, this can be done repeatedly to update the state of the inventory.
 
 ```
 magellan crawl -i -u $u -p $p https://bmc.example.com -o node.json
-magellan send -d @node.json https://smd.example.com
+magellan send -d @node.json https://demo.openchami.cluster:8443/hsm/v2
 ```
 
 Note that this only uses a single go routine instead of multiple like with *collect*.

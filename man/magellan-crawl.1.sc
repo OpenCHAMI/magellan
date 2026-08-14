@@ -36,7 +36,7 @@ magellan crawl https://bmc.example.com -i -u username -p password
 
 	See *magellan-secrets*(1) for more information about using the secrets file.
 
-*--show*
+*--show-output*
 	Show the output of a successful crawl.
 
 *-u, --username* _value_

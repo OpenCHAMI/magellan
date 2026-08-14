@@ -54,17 +54,6 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 		...
 	```
 
-*--cacert* _path_
-	Set the path to a certificate file. This certificate is NOT included in requests
-	made to BMC nodes. When this flag is not provided, the default system
-	certificates are used instead.
-
-	**DEPRECATED**
-
-	This flag will be removed in the future since the *collect* command no longer
-	makes a request to a remote host. That functionality has been moved to the
-	*send* command.
-
 *--force-update*
 	Set this flag to force updating the *RedfishEndpoint*s, *Component*s, and
 	*ComponentEndpoint*s in SMD. This is done by making seperate requests to
@@ -89,6 +78,8 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 	*timestamp* - Last time the remote asset was scanned or pinged.
 	*service_type* - Type of service. (Redfish|PDU)
 
+*-i, --insecure*                   
+	Skip TLS certificate verification during hardware inventory collection.
 
 *-F, --output-format* _format_
 	Set the data format used for the collection output. This value is overridden
@@ -147,11 +138,9 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 
 	See *magellan-secrets*(1) for more details.
 
-*--show*
-	Show the output of a collect run.
-
 *--show-output*
-	Alias for '--show'.
+	Show the output of a collect run. The output will only include logging
+	messages unless this is set to *true*.
 
 *-u, --username* _value_
 	Set the username to _value_ used for basic authentication to the BMC node.
@@ -159,7 +148,8 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 	secrets file.
 
 
-See *magellan*(1) for information about global flags used for all commands.
+See *magellan*(1) for information about global flags and environment variables 
+used for all commands.
 
 # COMMANDS
 
@@ -183,7 +173,8 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 
 # SEE ALSO
 
-*magellan*(1), *magellan-secrets*(1)
+*magellan*(1), *magellan-scan*(1), *magellan-list*(1), *magellan-send*(1), 
+*magellan-secrets*(1)
 
 ; Vim modeline settings
 ; vim: set tw=80 noet sts=4 ts=4 sw=4 syntax=scdoc:
