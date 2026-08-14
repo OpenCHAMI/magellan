@@ -114,6 +114,7 @@ func (s *Service) ResetOperation(ctx context.Context, uri, systemID string, op b
 // transition.
 func (s *Service) PowerTransition(ctx context.Context, uri, systemID string, op bmc.Operation, opts bmc.TransitionOptions) (*bmc.TransitionResult, error) {
 	return power.PowerTransition(ctx, s.crawlableNode(uri, systemID), op, opts)
+
 }
 
 // Close releases any cached BMC sessions held by the manager.
