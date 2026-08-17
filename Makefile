@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: © 2023-2025 Triad National Security, LLC. All rights reserved.
+# SPDX-FileCopyrightText: © 2025-2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
 # Set path to commands
 GO             ?= $(shell command -v go 2>/dev/null)
 GOLANGCI_LINT  ?= $(shell command -v golangci-lint 2>/dev/null)
@@ -5,6 +10,7 @@ GORELEASER     ?= $(shell command -v goreleaser 2>/dev/null)
 GIT            ?= $(shell command -v git 2>/dev/null)
 AWK            ?= $(shell command -v awk 2>/dev/null)
 MISSPELL       ?= $(shell command -v misspell 2>/dev/null)
+REUSE          ?= $(shell command -v reuse 2>/dev/null)
 # Use HOSTCMD to not conflict with Make's $(HOSTNAME)
 HOSTCMD        ?= $(shell command -v hostname 2>/dev/null)
 INSTALL        ?= $(shell command -v install 2>/dev/null)
@@ -219,6 +225,11 @@ prepare: ## Install development tools
 	$(GO) install github.com/client9/misspell/cmd/misspell@v0.3.4
 	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1
 	$(GO) install github.com/goreleaser/goreleaser/v2@v2.3.2
+
+.PHONY: reuse
+reuse: ## Check REUSE compliance
+	$(call require-command-shell,$(REUSE),reuse)
+	$(REUSE) lint --lines
 
 .PHONY: spell
 spell: ## Check Markdown spelling and fix detected issues

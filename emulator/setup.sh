@@ -1,5 +1,10 @@
 #/bin/sh
 
+# SPDX-FileCopyrightText: © 2024-2025 Triad National Security, LLC. All rights reserved.
+# SPDX-FileCopyrightText: © 2025-2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # clone the CSM redfish emulator if needed

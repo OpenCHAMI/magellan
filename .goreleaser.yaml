@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: © 2023-2025 Triad National Security, LLC. All rights reserved.
+# SPDX-FileCopyrightText: © 2025-2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
 version: 2
 
 before:
