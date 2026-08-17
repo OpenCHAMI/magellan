@@ -17,7 +17,24 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run unit tests
+        run: make unit-test
+
+  integration_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -32,8 +49,8 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Run tests
-        run: make test
+      - name: Run integration tests
+        run: make integration-test
 
       - name: Stop test emulator
         if: always()
