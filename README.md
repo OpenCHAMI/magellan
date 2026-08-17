@@ -51,7 +51,7 @@ See the [TODO](#todo) section for a list of soon-ish goals planned.
 
 ## Getting Started
 
-[Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be run by executing the `emulator/setup.sh` script or running `make emulator`.
+[Build](#building-the-executable) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be run by executing the `emulator/setup.sh` script or running `make emulator`.
 
 ## Documentation
 
@@ -69,43 +69,52 @@ make docs
 
 ## Building the Executable
 
-The `magellan` tool can be built to run on bare metal. Install the required Go tools, clone the repo, and then build the binary in the root directory with the following:
+The `magellan` tool can be built to run on bare metal. Install Go 1.26 or later,
+Git, and Make, clone the repository, and then build the binary in the root
+directory:
 
 ```bash
 git clone https://github.com/OpenCHAMI/magellan
 cd magellan
-go mod tidy && go build
+make
 ```
 
-And that's it. The last line should find and download all of the required dependencies to build the project. Although other versions of Go may work, the project has been tested to work with versions v1.20 and later on MacOS and Linux.
+The default `all` target downloads required Go dependencies as needed and builds
+the `magellan` binary with version metadata. Run `make help` to see all available
+targets and their configurable variables.
 
-### Building on Debian 12 (Bookworm)
+To use a specific Go executable, override `GO`:
 
-Getting the `magellan` tool to work with Go 1.21 on Debian 12 may require installing the `golang-1.21` meta-package from `bookworm-backports` through `apt` along with GCC for comping the `go-sqlite3` driver.
-
-```bash
-apt install gcc golang-1.21/bookworm-backport
+```console
+$ make GO=/path/to/go
 ```
-
-The binary executable for the `golang-1.21` executable can then be found using `dpkg`.v2.0.1
-
-```bash
-dpkg -L golang-1.21-go
-```
-
-Using the correct binary, set the `CGO_ENABLED` environment variable and build the executable with `cgo` enabled:
-
-```bash
-export GOBIN=/usr/bin/golang-1.21/bin/go
-go env -w CGO_ENABLED=1
-go mod tidy && go build
-```
-
-This might take some time to complete initially because of the `go-sqlite3` driver, but should be much faster for subsequent builds.
 
 ### Docker
 
-The tool can also run using Docker. To build the Docker container, run `docker build -t magellan:testing .` in the project's directory. This is useful if you to run `magellan` on a different system through Docker desktop without having to install and build with Go (or if you can't do so for some reason). [Prebuilt images](https://github.com/OpenCHAMI/magellan/pkgs/container/magellan) are available as well on `ghcr`. Images can be pulled directly from the repository:
+The tool can also run using Docker. There are two Dockerfiles for different build workflows:
+
+- `Dockerfile` is a multi-stage build for local use. It builds `magellan` from
+  source and copies the resulting binary into the runtime image.
+- `goreleaser.dockerfile` is used by GoReleaser in CI. It expects GoReleaser to
+  provide an already-built `magellan` binary.
+
+Build the local container with Make:
+
+```bash
+make container
+```
+
+The default image is `ghcr.io/openchami/magellan:latest`. The `container` target
+accepts `CONTAINER_PROG`, `CONTAINER_OPTS`, `CONTAINER_TAG`, and `FQCN`. For
+example:
+
+```bash
+make container CONTAINER_PROG=podman FQCN=magellan:testing
+```
+
+This is useful when running `magellan` on a different system without installing
+and building it directly with Go. [Prebuilt images](https://github.com/OpenCHAMI/magellan/pkgs/container/magellan)
+are also available on `ghcr`. Images can be pulled directly from the repository:
 
 ```bash
 docker pull ghcr.io/openchami/magellan:latest
