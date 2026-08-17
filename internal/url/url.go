@@ -16,10 +16,10 @@ func Sanitize(uri string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse URI: %w", err)
 	}
-	// Remove any trailing slashes
-	parsedURI.Path = strings.TrimSuffix(parsedURI.Path, "/")
 	// Collapse any doubled slashes
 	parsedURI.Path = strings.ReplaceAll(parsedURI.Path, "//", "/")
+	// Remove any trailing slashes
+	parsedURI.Path = strings.TrimRight(parsedURI.Path, "/")
 	return parsedURI.String(), nil
 }
 
@@ -43,20 +43,16 @@ func FormatHosts(hosts []string, ports []int, scheme string) [][]string {
 	// format each positional arg as a complete URL
 	var formattedHosts [][]string
 	for _, host := range hosts {
+		if !strings.Contains(host, "://") {
+			if scheme == "" {
+				scheme = "https"
+			}
+			host = scheme + "://" + host
+		}
 		uri, err := url.ParseRequestURI(host)
 		if err != nil {
 			log.Warn().Msgf("invalid URI parsed: %s", host)
 			continue
-		}
-
-		// check if scheme is set, if not set it with flag or default value ('https' if flag is not set)
-		if uri.Scheme == "" {
-			if scheme != "" {
-				uri.Scheme = scheme
-			} else {
-				// hardcoded assumption
-				uri.Scheme = "https"
-			}
 		}
 
 		// tidy up slashes and update arg with new value
@@ -96,30 +92,15 @@ func FormatIPs(ips []string, ports []int, scheme string, verbose bool) [][]strin
 			scheme = "https"
 		}
 		// make an entirely new object since we're expecting just IPs
-		uri := &url.URL{
-			Scheme: scheme,
-			Host:   ip,
+		if len(ports) == 0 {
+			ports = []int{443}
 		}
-
-		// tidy up slashes and update arg with new value
-		uri.Path = strings.ReplaceAll(uri.Path, "//", "/")
-		uri.Path = strings.TrimSuffix(uri.Path, "/")
-
-		// for hosts with unspecified ports, add ports to scan from flag
-		if uri.Port() == "" {
-			if len(ports) == 0 {
-				ports = append(ports, 443)
-			}
-			var tmp []string
-			for _, port := range ports {
-				portURI := *uri
-				portURI.Host = net.JoinHostPort(uri.Hostname(), strconv.Itoa(port))
-				tmp = append(tmp, portURI.String())
-			}
-			formattedHosts = append(formattedHosts, tmp)
-		} else {
-			formattedHosts = append(formattedHosts, []string{uri.String()})
+		var tmp []string
+		for _, port := range ports {
+			uri := &url.URL{Scheme: scheme, Host: net.JoinHostPort(ip, strconv.Itoa(port))}
+			tmp = append(tmp, uri.String())
 		}
+		formattedHosts = append(formattedHosts, tmp)
 
 	}
 	return formattedHosts

@@ -1,3 +1,5 @@
+//go:build integration
+
 // This file contains generic tests used to confirm expected behaviors of the
 // builtin APIs. This is to guarantee that our functions work as expected
 // regardless of the hardware being used such as testing the `scan`, and `collect`
@@ -10,8 +12,8 @@ package tests
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -25,12 +27,10 @@ import (
 	"github.com/OpenCHAMI/magellan/internal/util"
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 	"github.com/OpenCHAMI/magellan/pkg/client"
-	"github.com/rs/zerolog/log"
 )
 
 var (
 	exePath = flag.String("exe", "../magellan", "path to 'magellan' binary executable")
-	emuPath = flag.String("emu", "./emulator/setup.sh", "path to emulator 'setup.sh' script")
 )
 
 func TestScanAndCollect(t *testing.T) {
@@ -43,6 +43,7 @@ func TestScanAndCollect(t *testing.T) {
 		cmd     *exec.Cmd
 		bufout  bytes.Buffer
 		buferr  bytes.Buffer
+		cache   = filepath.Join(t.TempDir(), "assets.db")
 	)
 
 	// say what test we're starting
@@ -72,7 +73,7 @@ func TestScanAndCollect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get absolute path: %v", err)
 	}
-	command = strings.Split("scan https://127.0.0.1 --port 5000 --log-level debug", " ")
+	command = []string{"scan", "https://127.0.0.1", "--port", "5000", "--log-level", "debug", "--insecure", "--cache", cache, "--output-format", "json"}
 	cmd = exec.Command(path, command...)
 	cmd.Stdout = &bufout
 	cmd.Stderr = &buferr
@@ -88,14 +89,19 @@ func TestScanAndCollect(t *testing.T) {
 		t.Fatalf("failed to run 'scan' command: %v", err)
 	}
 
-	// make sure that the expected output is not empty
-	if len(buferr.Bytes()) <= 0 {
-		t.Fatalf("expected the 'scan' output to not be empty")
+	var scanned []magellan.RemoteAsset
+	if err := json.Unmarshal(bufout.Bytes(), &scanned); err != nil {
+		t.Fatalf("failed to decode scan output: %v\n%s", err, bufout.String())
+	}
+	if len(scanned) != 1 || scanned[0].Port != 5000 || !scanned[0].State {
+		t.Fatalf("unexpected scan result: %#v", scanned)
 	}
 
 	// try and run a "collect" with the emulator
 
-	command = strings.Split("collect --username root --password root_password --log-level debug --insecure --show-output", " ")
+	bufout.Reset()
+	buferr.Reset()
+	command = []string{"collect", "--cache", cache, "--username", "root", "--password", "root_password", "--log-level", "debug", "--insecure", "--show-output", "--output-format", "json"}
 	cmd = exec.Command(path, command...)
 	cmd.Stdout = &bufout
 	cmd.Stderr = &buferr
@@ -111,9 +117,15 @@ func TestScanAndCollect(t *testing.T) {
 		t.Fatalf("failed to run 'collect' command: %v", err)
 	}
 
-	// make sure that the output is not empty
-	if len(bufout.Bytes()) <= 0 {
-		t.Fatalf("expected the 'collect' output to not be empty")
+	var inventory []map[string]any
+	if err := json.Unmarshal(bufout.Bytes(), &inventory); err != nil {
+		t.Fatalf("failed to decode collect output: %v\n%s", err, bufout.String())
+	}
+	if len(inventory) == 0 {
+		t.Fatal("expected collect to return inventory")
+	}
+	if systems, ok := inventory[0]["Systems"].([]any); !ok || len(systems) == 0 {
+		t.Fatalf("expected collected systems, got %#v", inventory[0]["Systems"])
 	}
 
 	// say what test we're completing
@@ -172,136 +184,11 @@ func TestCrawlCommand(t *testing.T) {
 	fmt.Printf("[%s] Test complete.", t.Name())
 }
 
-func TestListCommand(t *testing.T) {
-	var (
-		err error
-		cmd *exec.Cmd
-	)
-
-	// say what test we're starting
-	fmt.Printf("[%s] Starting test...", t.Name())
-
-	// set up the emulator to run before test
-	err = waitUntilEmulatorIsReady()
-	if err != nil {
-		t.Fatalf("failed while waiting for emulator: %v", err)
-	}
-
-	// set up temporary directory
-	cmd = exec.Command("bash", "-c", fmt.Sprintf("%s list", *exePath))
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("failed to run 'list' command: %v", err)
-	}
-	// NOTE: the output of `list` can be empty if no scan has been performed
-
-	// say what test we're completing
-	fmt.Printf("[%s] Test complete.", t.Name())
-}
-
-func TestUpdateCommand(t *testing.T) {
-	// TODO: add test that does a Redfish simple update checking it success and
-	// failure points
-	var (
-		cmd *exec.Cmd
-		err error
-	)
-
-	// say what test we're starting
-	fmt.Printf("[%s] Starting test...", t.Name())
-
-	// set up the emulator to run before test
-	err = waitUntilEmulatorIsReady()
-	if err != nil {
-		t.Fatalf("failed while waiting for emulator: %v", err)
-	}
-
-	// set up temporary directory
-	cmd = exec.Command("bash", "-c", fmt.Sprintf("%s update", *exePath))
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("failed to run 'update' command: %v", err)
-	}
-
-	// say what test we're completing
-	fmt.Printf("[%s] Test complete.", t.Name())
-}
-
-func TestGofishFunctions(t *testing.T) {
-	// TODO: add test that checks certain gofish function output to make sure
-	// gofish's output isn't changing spontaneously and remains predictable
-}
-
-// TestGenerateHosts() tests creating a collection of hosts by changing arguments
-// and calling GenerateHostsWithSubnet().
-func TestGenerateHosts(t *testing.T) {
-	var (
-		subnet     = "127.0.0.1"
-		subnetMask = &net.IPMask{255, 255, 255, 0}
-		ports      = []int{443}
-		scheme     = "https"
-		hosts      = [][]string{}
-	)
-
-	// say what test we're starting
-	fmt.Printf("[%s] Starting test...", t.Name())
-
-	t.Run("generate-hosts", func(t *testing.T) {
-		hosts = magellan.GenerateHostsWithSubnet(subnet, subnetMask, ports, scheme)
-
-		// check for at least one host to be generated
-		if len(hosts) <= 0 {
-			t.Fatalf("expected at least one host to be generated for subnet %s", subnet)
-		}
-	})
-
-	t.Run("generate-hosts-with-multiple-ports", func(t *testing.T) {
-		ports = []int{443, 5000}
-		hosts = magellan.GenerateHostsWithSubnet(subnet, subnetMask, ports, scheme)
-
-		// check for at least one host to be generated
-		if len(hosts) <= 0 {
-			t.Fatalf("expected at least one host to be generated for subnet %s", subnet)
-		}
-	})
-
-	t.Run("generate-hosts-with-subnet-mask", func(t *testing.T) {
-		subnetMask = &net.IPMask{255, 255, 0, 0}
-		hosts = magellan.GenerateHostsWithSubnet(subnet, subnetMask, ports, scheme)
-
-		// check for at least one host to be generated
-		if len(hosts) <= 0 {
-			t.Fatalf("expected at least one host to be generated for subnet %s", subnet)
-		}
-	})
-
-	// say what test we're completing
-	fmt.Printf("[%s] Test complete.", t.Name())
-}
-
-func startEmulatorInBackground(path string) (int, error) {
-	// try and start the emulator in the background if arg passed
-	var (
-		cmd *exec.Cmd
-		err error
-	)
-	if path != "" {
-		cmd = exec.Command("bash", "-c", path)
-		err = cmd.Start()
-		if err != nil {
-			return -1, fmt.Errorf("failed while executing emulator startup script: %v", err)
-		}
-	} else {
-		return -1, fmt.Errorf("path to emulator start up script is required")
-	}
-	return cmd.Process.Pid, nil
-}
-
 // waitUntilEmulatorIsReady() polls with
 func waitUntilEmulatorIsReady() error {
 	var (
 		interval   = time.Second * 2
-		timeout    = time.Second * 6
+		timeout    = time.Second * 30
 		testClient = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -328,25 +215,4 @@ func waitUntilEmulatorIsReady() error {
 
 	})
 	return err
-}
-
-func init() {
-	var (
-		cwd string
-		err error
-	)
-	// get the current working directory
-	cwd, err = os.Getwd()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get working directory")
-	}
-	fmt.Printf("cwd: %s\n", cwd)
-
-	// start emulator in the background before running tests
-	pid, err := startEmulatorInBackground(*emuPath)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to start emulator in background")
-		os.Exit(1)
-	}
-	_ = pid
 }

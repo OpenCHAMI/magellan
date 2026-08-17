@@ -236,8 +236,15 @@ spell: ## Check Markdown spelling and fix detected issues
 	$(call require-command-shell,$(MISSPELL),misspell)
 	$(MISSPELL) -error -locale=US -w **.md
 
-.PHONY: test
-test: $(NAME) ## Run all tests with the Redfish emulator
+
+.PHONY: unit-test
+unit-test: ## Run unit tests without external services
+	$(call require-command-shell,$(GO),go)
+	$(GO) test -race -covermode=atomic -coverprofile=unit-coverage.out -coverpkg=./... ./...
+	$(GO) tool cover -html=unit-coverage.out -o unit-coverage.html
+
+.PHONY: integration-test
+integration-test: $(NAME) ## Run integration tests with the Redfish emulator
 	$(call require-command-shell,$(GO),go)
 	$(call require-command-shell,$(CONTAINER_PROG),container program "$(CONTAINER_PROG)")
 	@set -eu; \
@@ -245,9 +252,12 @@ test: $(NAME) ## Run all tests with the Redfish emulator
 		$(CONTAINER_PROG) compose -f emulator/rf-emulator.yml down --volumes --remove-orphans; \
 	}; \
 	trap cleanup EXIT INT TERM; \
-	./emulator/setup.sh --detach --wait; \
-	$(GO) test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... ./...; \
-	$(GO) tool cover -html=coverage.out -o coverage.html
+	CONTAINER_PROG="$(CONTAINER_PROG)" ./emulator/setup.sh --detach --wait; \
+	$(GO) test -tags=integration -race -count=1 -covermode=atomic -coverprofile=integration-coverage.out -coverpkg=./... ./tests; \
+	$(GO) tool cover -html=integration-coverage.out -o integration-coverage.html
+
+.PHONY: test
+test: unit-test integration-test ## Run unit and integration tests
 
 .PHONY: uninstall
 uninstall: uninstall-prog uninstall-man ## Uninstall everything

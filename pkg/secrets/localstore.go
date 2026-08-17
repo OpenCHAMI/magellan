@@ -35,13 +35,13 @@ func NewLocalSecretStore(masterKeyHex, filename string, create bool) (*LocalSecr
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file %s: %v", filename, err)
 		}
-		defer func() {
-			if err = file.Close(); err != nil {
-				log.Warn().Err(err).Msg("could not close file")
-			}
-		}()
-
+		if err := file.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close file %s: %v", filename, err)
+		}
 		secrets = make(map[string]string)
+		if err := SaveSecrets(filename, secrets); err != nil {
+			return nil, fmt.Errorf("failed to initialize file %s: %v", filename, err)
+		}
 	}
 
 	if secrets == nil {
@@ -110,15 +110,13 @@ func (l *LocalSecretStore) ListSecrets() (map[string]string, error) {
 
 // RemoveSecretByID removes the specified secretID stored locally
 func (l *LocalSecretStore) RemoveSecretByID(secretID string) error {
-	l.mu.RLock()
-	// Let user know if there was nothing to delete
-	_, err := l.GetSecretByID(secretID)
-	if err != nil {
-		return err
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if _, exists := l.Secrets[secretID]; !exists {
+		return fmt.Errorf("no secret found for %s", secretID)
 	}
 	delete(l.Secrets, secretID)
-	l.mu.RUnlock()
-	return nil
+	return SaveSecrets(l.filename, l.Secrets)
 }
 
 // openStore tries to create or open the LocalSecretStore based on the environment

@@ -210,7 +210,7 @@ func isValidCredsJSON(val string) bool {
 	}
 	_, validUsername = creds["username"]
 	_, validPassword = creds["password"]
-	return !json.Valid([]byte(val)) && validUsername && validPassword
+	return json.Valid([]byte(val)) && validUsername && validPassword
 }
 
 var secretsRetrieveCmd = &cobra.Command{

@@ -8,6 +8,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+container_prog=${CONTAINER_PROG:-docker}
 
 # clone the CSM redfish emulator if needed
 if [ ! -d "${script_dir}/rf-emulator" ]; then
@@ -15,4 +16,4 @@ if [ ! -d "${script_dir}/rf-emulator" ]; then
 fi
 
 # Run the prebuilt emulator with the requested Docker Compose options.
-docker compose -f "${script_dir}/rf-emulator.yml" up "$@"
+"${container_prog}" compose -f "${script_dir}/rf-emulator.yml" up "$@"

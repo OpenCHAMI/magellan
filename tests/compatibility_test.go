@@ -1,3 +1,5 @@
+//go:build integration
+
 // This file contains a series of tests that are meant to ensure correct
 // Redfish behaviors and responses across different Refish implementations
 // and are expected to be ran with various hardware and firmware to test
