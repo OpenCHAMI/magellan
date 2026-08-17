@@ -82,9 +82,9 @@ nfpms:
 dockers:
   - dockerfile: goreleaser.dockerfile
     image_templates:
-      - &amd64_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-amd64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-amd64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-amd64
+      - &amd64_linux_image 'ghcr.io/openchami/{{ .ProjectName }}:{{ if eq .Env.IS_PR_BUILD "true" }}{{ .Env.DOCKER_TAG }}{{ else }}{{ .Tag }}{{ end }}-amd64'
+      - '{{ if ne .Env.IS_PR_BUILD "true" }}ghcr.io/openchami/{{ .ProjectName }}:{{ .Major }}-amd64{{ end }}'
+      - '{{ if ne .Env.IS_PR_BUILD "true" }}ghcr.io/openchami/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -101,9 +101,9 @@ dockers:
       - README.md
   - dockerfile: goreleaser.dockerfile
     image_templates:
-      - &arm64v7_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-arm64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-arm64
-      - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-arm64
+      - &arm64_linux_image 'ghcr.io/openchami/{{ .ProjectName }}:{{ if eq .Env.IS_PR_BUILD "true" }}{{ .Env.DOCKER_TAG }}{{ else }}{{ .Tag }}{{ end }}-arm64'
+      - '{{ if ne .Env.IS_PR_BUILD "true" }}ghcr.io/openchami/{{ .ProjectName }}:{{ .Major }}-arm64{{ end }}'
+      - '{{ if ne .Env.IS_PR_BUILD "true" }}ghcr.io/openchami/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-arm64{{ end }}'
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -119,30 +119,35 @@ dockers:
     goarch: arm64
 
 docker_manifests:
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:latest"
+  - name_template: '{{ if ne .Env.IS_PR_BUILD "true" }}ghcr.io/openchami/{{ .ProjectName }}:latest{{ end }}'
+    skip_push: '{{ eq .Env.IS_PR_BUILD "true" }}'
     image_templates:
       - *amd64_linux_image
-      - *arm64v7_linux_image
+      - *arm64_linux_image
 
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}"
+  - name_template: 'ghcr.io/openchami/{{ .ProjectName }}:{{ if eq .Env.IS_PR_BUILD "true" }}{{ .Env.DOCKER_TAG }}{{ else }}{{ .Tag }}{{ end }}'
     image_templates:
       - *amd64_linux_image
-      - *arm64v7_linux_image
+      - *arm64_linux_image
 
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}"
+  - name_template: '{{ if ne .Env.IS_PR_BUILD "true" }}ghcr.io/openchami/{{ .ProjectName }}:{{ .Major }}{{ end }}'
+    skip_push: '{{ eq .Env.IS_PR_BUILD "true" }}'
     image_templates:
       - *amd64_linux_image
-      - *arm64v7_linux_image
+      - *arm64_linux_image
 
-  - name_template: "ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}"
+  - name_template: '{{ if ne .Env.IS_PR_BUILD "true" }}ghcr.io/openchami/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}{{ end }}'
+    skip_push: '{{ eq .Env.IS_PR_BUILD "true" }}'
     image_templates:
       - *amd64_linux_image
-      - *arm64v7_linux_image
+      - *arm64_linux_image
 
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  version_template: "{{ incpatch .Version }}-next"
+  version_template: '{{ if eq .Env.IS_PR_BUILD "true" }}{{ .Tag }}{{ else }}{{ incpatch .Version }}-next{{ end }}'
+release:
+  disable: '{{ eq .Env.IS_PR_BUILD "true" }}'
 changelog:
   sort: asc
   filters:

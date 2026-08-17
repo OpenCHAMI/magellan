@@ -36,8 +36,6 @@ func (c *ScanTestClient) PerformScan() []RemoteAsset {
 }
 
 func TestScan(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name      string
 		params    *ScanParams
@@ -118,7 +116,8 @@ func TestScan(t *testing.T) {
 						t.Fatalf("Expected GET request, got: %s", r.Method)
 					}
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(test.RESPONSE_ServiceRoot))
+					_, err := w.Write([]byte(test.RESPONSE_ServiceRoot))
+					assert.NoError(t, err)
 				}))
 				defer mockServer.Close() // Close the server when the test finishes
 				servers = append(servers, mockServer)
@@ -143,8 +142,6 @@ func TestScan(t *testing.T) {
 }
 
 func TestGenerateHostsFromSubnet(t *testing.T) {
-	t.Parallel()
-
 	var (
 		defaultSubnetMask = net.IPMask{255, 255, 255, 0}
 		defaultPorts      = []int{443}
@@ -157,14 +154,20 @@ func TestGenerateHostsFromSubnet(t *testing.T) {
 		ports          []int
 		scheme         string
 		wantTotalHosts int
+		wantPorts      int
 	}
 
-	var getExpectedServiceCount = func(tc TestCase) int {
+	var getExpectedHostCount = func(tc TestCase) int {
+		if net.ParseIP(tc.subnet) == nil {
+			if _, _, err := net.ParseCIDR(tc.subnet); err != nil {
+				return 0
+			}
+		}
 		v, err := strconv.ParseInt(tc.subnetMask.String(), 16, 0)
 		if err != nil {
 			return -1
 		}
-		return ((int(math.Pow(2, 32)) - int(v)) * len(tc.ports)) - 1
+		return (int(math.Pow(2, 32)) - int(v)) - 1
 	}
 
 	cases := []TestCase{
@@ -220,7 +223,8 @@ func TestGenerateHostsFromSubnet(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc.wantTotalHosts = getExpectedServiceCount(tc)
+		tc.wantTotalHosts = getExpectedHostCount(tc)
+		tc.wantPorts = len(tc.ports)
 		hosts := GenerateHostsWithSubnet(
 			tc.subnet,
 			tc.subnetMask,
@@ -229,5 +233,8 @@ func TestGenerateHostsFromSubnet(t *testing.T) {
 		)
 
 		assert.Len(t, hosts, tc.wantTotalHosts)
+		for _, hostPorts := range hosts {
+			assert.Len(t, hostPorts, tc.wantPorts)
+		}
 	}
 }

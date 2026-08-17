@@ -237,11 +237,16 @@ spell: ## Check Markdown spelling and fix detected issues
 	$(MISSPELL) -error -locale=US -w **.md
 
 .PHONY: test
-test: ## Run emulator-backed integration tests
+test: $(NAME) ## Run all tests with the Redfish emulator
 	$(call require-command-shell,$(GO),go)
-	./emulator/setup.sh &
-	sleep 10
-	$(GO) test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... tests/api_test.go tests/compatibility_test.go
+	$(call require-command-shell,$(CONTAINER_PROG),container program "$(CONTAINER_PROG)")
+	@set -eu; \
+	cleanup() { \
+		$(CONTAINER_PROG) compose -f emulator/rf-emulator.yml down --volumes --remove-orphans; \
+	}; \
+	trap cleanup EXIT INT TERM; \
+	./emulator/setup.sh --detach --wait; \
+	$(GO) test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... ./...; \
 	$(GO) tool cover -html=coverage.out -o coverage.html
 
 .PHONY: uninstall

@@ -24,8 +24,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:5000"]
+      test: ["CMD", "curl", "--insecure", "--fail", "--silent", "https://127.0.0.1:5000/redfish/v1/"]
       interval: 5s
       timeout: 10s
       retries: 10
-

@@ -1,8 +1,6 @@
 package magellan
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
@@ -23,7 +21,6 @@ func (c *CollectTestClient) PerformCollect() ([]map[string]any, error) {
 }
 
 func TestCollect(t *testing.T) {
-	t.Parallel()
 	cases := []struct {
 		name   string
 		assets []RemoteAsset
@@ -73,18 +70,6 @@ func TestCollect(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-
-			// create mock Redfish servers
-			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "" {
-
-				}
-
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(""))
-			}))
-			defer mockServer.Close()
-
 			var (
 				collection []map[string]any
 				err        error
@@ -100,7 +85,7 @@ func TestCollect(t *testing.T) {
 
 			collection, err = c.PerformCollect()
 
-			assert.Error(t, nil, err)
+			assert.Error(t, err)
 			assert.Len(t, collection, tc.want)
 
 		})

@@ -1,0 +1,153 @@
+# SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
+name: Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to build
+        required: true
+        type: string
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || inputs.pr_number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-goreleaser:
+    name: Build with GoReleaser
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            binutils-aarch64-linux-gnu \
+            g++ \
+            gcc \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Set PR build metadata
+        env:
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          PR_NUMBER="${INPUT_PR_NUMBER:-${EVENT_PR_NUMBER}}"
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid PR number: ${PR_NUMBER}" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --force --annotate "v0.0.0-pr-${PR_NUMBER}" --message "PR ${PR_NUMBER} build"
+
+          {
+            echo "PR_NUMBER=${PR_NUMBER}"
+            echo "DOCKER_TAG=pr-${PR_NUMBER}"
+            echo "IS_PR_BUILD=true"
+            echo "GIT_STATE=$(if git diff-index --quiet HEAD --; then echo clean; else echo dirty; fi)"
+            echo "GO_VERSION=$(go env GOVERSION)"
+            echo "BUILD_HOST=$(hostname)"
+            echo "BUILD_USER=$(whoami)"
+            echo "CGO_ENABLED=1"
+          } >> "${GITHUB_ENV}"
+
+      - name: Detect whether publishing is allowed
+        env:
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${HEAD_REPOSITORY}" != "${{ github.repository }}" ]]; then
+            echo "PUBLISH_PR_IMAGE=false" >> "${GITHUB_ENV}"
+            echo "::notice title=Fork PR::Containers will be built but not published."
+            echo "SKIP_CONTAINER_PUBLISH=true" >> "${GITHUB_ENV}"
+          else
+            echo "SKIP_CONTAINER_PUBLISH=false" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Log in to GHCR
+        if: env.SKIP_CONTAINER_PUBLISH == 'false'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build with goreleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean --skip=announce,validate,aur${{ env.SKIP_CONTAINER_PUBLISH == 'true' && ',publish' || '' }}
+
+  build-make-binaries:
+    name: Build binaries with Make
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: make
+
+  build-make-container:
+    name: Build multi-stage container
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build container
+        run: make container FQCN=magellan:pr-test
+
+  docs-make:
+    name: Build manual pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install scdoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes scdoc
+
+      - name: Build manual pages
+        run: make man
