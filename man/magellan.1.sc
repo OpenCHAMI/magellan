@@ -93,7 +93,7 @@ The *magellan* command accepts
 
 # ENVIRONMENT VARIABLES
 
-The *magellan* CLI tool allows configuring its flags using environment variables. These are automatically parsed based on the flag names, with dots (".") and hyphens ("-") converted to underscores ("_"), and fully capitalized.
+The *magellan* CLI tool allows configuring its flags using environment variables. These are automatically parsed based on the flag names, with dots and hyphens converted to underscores, and fully capitalized.
 
 *Global Variables*
 - *CONCURRENCY*: Sets the number of concurrent processes
@@ -155,11 +155,11 @@ The *magellan* CLI is a frontend tool for dynamically scanning and collecting
 inventory data from board management controllers (BMCs) through a running Redfish 
 service. Here are some of the command ways to use the tool:
 
-1. Simple Workflow: 	scan -> collect -> send -> *++
-2. Complex Workflow: 	scan -> list -> secrets -> collect -> send -> *++
-3. Recursive Workflow:	scan -> collect -> send -> collect -> send -> *++
-4. Debug Workflow:		crawl -> send -> crawl -> send -> *++
-5. Static Workflow:		send -> *
+1. Simple Workflow: scan -> collect -> send
+2. Complex Workflow: scan -> list -> secrets -> collect -> send
+3. Recursive Workflow: scan -> collect -> send -> collect -> send
+4. Debug Workflow: crawl -> send -> crawl -> send
+5. Static Workflow: send
 
 ## Simple Workflow
 
@@ -301,5 +301,3 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 *magellan-scan*(1), *magellan-collect*(1), *magellan-crawl*(1),
 *magellan-list*(1), *magellan-secrets*(1), *magellan-update*(1)
 *magellan-send*(1)
-
-
