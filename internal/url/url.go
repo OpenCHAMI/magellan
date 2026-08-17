@@ -2,7 +2,9 @@ package url
 
 import (
 	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -65,8 +67,9 @@ func FormatHosts(hosts []string, ports []int, scheme string) [][]string {
 		if uri.Port() == "" {
 			var tmp []string
 			for _, port := range ports {
-				uri.Host += fmt.Sprintf(":%d", port)
-				tmp = append(tmp, uri.String())
+				portURI := *uri
+				portURI.Host = net.JoinHostPort(uri.Hostname(), strconv.Itoa(port))
+				tmp = append(tmp, portURI.String())
 			}
 			formattedHosts = append(formattedHosts, tmp)
 		} else {
@@ -109,8 +112,9 @@ func FormatIPs(ips []string, ports []int, scheme string, verbose bool) [][]strin
 			}
 			var tmp []string
 			for _, port := range ports {
-				uri.Host += fmt.Sprintf(":%d", port)
-				tmp = append(tmp, uri.String())
+				portURI := *uri
+				portURI.Host = net.JoinHostPort(uri.Hostname(), strconv.Itoa(port))
+				tmp = append(tmp, portURI.String())
 			}
 			formattedHosts = append(formattedHosts, tmp)
 		} else {

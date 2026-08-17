@@ -238,3 +238,66 @@ func TestGenerateHostsFromSubnet(t *testing.T) {
 		}
 	}
 }
+
+func TestScanForAssetsInputAndProbeModes(t *testing.T) {
+	requireEmpty := func(t *testing.T, got []RemoteAsset) {
+		t.Helper()
+		assert.Empty(t, got)
+	}
+	requireEmpty(t, ScanForAssets(nil))
+	requireEmpty(t, ScanForAssets(&ScanParams{Concurrency: 1}))
+	requireEmpty(t, ScanForAssets(&ScanParams{Concurrency: 0, TargetHosts: [][]string{{"http://127.0.0.1:1"}}}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/jaws/monitor/outlets", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	got := ScanForAssets(&ScanParams{
+		TargetHosts: [][]string{{server.URL}}, Protocol: "tcp", Concurrency: 2,
+		Timeout: 1, Include: []string{"pdus"},
+	})
+	assert.Len(t, got, 1)
+	assert.Equal(t, PDU, got[0].ServiceType)
+
+	got = ScanForAssets(&ScanParams{
+		TargetHosts: [][]string{{server.URL}}, Protocol: "tcp", Concurrency: 1,
+		Timeout: 1, DisableProbing: true,
+	})
+	assert.Len(t, got, 1)
+	assert.Empty(t, got[0].ServiceType)
+}
+
+func TestRawConnect(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, listener.Close())
+	}()
+	go func() {
+		conn, acceptErr := listener.Accept()
+		if acceptErr == nil {
+			_ = conn.Close()
+		}
+	}()
+
+	assets, err := rawConnect("http://"+listener.Addr().String(), "tcp", 1, true)
+	assert.NoError(t, err)
+	if assert.Len(t, assets, 1) {
+		assert.True(t, assets[0].State)
+		assert.Equal(t, "http://127.0.0.1", assets[0].Host)
+	}
+	_, err = rawConnect("://bad", "tcp", 1, true)
+	assert.Error(t, err)
+	_, err = rawConnect("http://127.0.0.1", "tcp", 1, true)
+	assert.Error(t, err)
+}
+
+func TestRemoteAssetAndDefaults(t *testing.T) {
+	assert.Equal(t, "bmcs", BMC.String())
+	assert.Equal(t, []int{443}, GetDefaultPorts())
+	asset := &RemoteAsset{Host: "https://node", Protocol: "tcp", ServiceType: BMC}
+	assert.Contains(t, asset.String(), "https://node")
+	assert.Nil(t, generateIPsWithSubnet(nil, nil))
+}

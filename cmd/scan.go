@@ -120,10 +120,6 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 		}
 
 		// show the parameters going into the scan
-		combinedTargetHosts := []string{}
-		for _, targetHost := range targetHosts {
-			combinedTargetHosts = append(combinedTargetHosts, targetHost...)
-		}
 		log.Debug().Any("flags", map[string]any{
 			"hosts":           "set '--log-level' to 'trace' to show",
 			"cache":           cachePath,
