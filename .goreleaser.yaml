@@ -75,7 +75,8 @@ nfpms:
 
 
 dockers:
-  - image_templates:
+  - dockerfile: goreleaser.dockerfile
+    image_templates:
       - &amd64_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-amd64
       - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-amd64
       - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-amd64
@@ -93,7 +94,8 @@ dockers:
       - LICENSE
       - CHANGELOG.md
       - README.md
-  - image_templates:
+  - dockerfile: goreleaser.dockerfile
+    image_templates:
       - &arm64v7_linux_image ghcr.io/openchami/{{.ProjectName}}:{{ .Tag }}-arm64
       - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}-arm64
       - ghcr.io/openchami/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-arm64
