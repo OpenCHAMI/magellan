@@ -34,6 +34,9 @@ func GetNextIP(ip *net.IP, inc uint) *net.IP {
 		return &net.IP{}
 	}
 	i := ip.To4()
+	if i == nil {
+		return &net.IP{}
+	}
 	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
 	v += inc
 	v3 := byte(v & 0xFF)
@@ -56,10 +59,9 @@ func GetNextIP(ip *net.IP, inc uint) *net.IP {
 func MakeRequest(client *http.Client, url string, httpMethod string, body HTTPBody, header HTTPHeader) (*http.Response, HTTPBody, error) {
 	// use defaults if no client provided
 	if client == nil {
-		client = http.DefaultClient
-		client.Transport = &http.Transport{
+		client = &http.Client{Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
+		}}
 	}
 	req, err := http.NewRequest(httpMethod, url, bytes.NewBuffer(body))
 	if err != nil {
@@ -73,13 +75,15 @@ func MakeRequest(client *http.Client, url string, httpMethod string, body HTTPBo
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to make request: %v", err)
 	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Warn().Err(err).Msg("could not close response resource")
+		}
+	}()
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	if err := res.Body.Close(); err != nil {
-		log.Warn().Err(err).Msg("could not close response resource")
-	}
 	return res, b, err
 }

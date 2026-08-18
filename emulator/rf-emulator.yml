@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: © 2024-2025 Triad National Security, LLC. All rights reserved.
+# SPDX-FileCopyrightText: © 2025-2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
 networks:
   internal:
 
@@ -19,8 +24,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:5000"]
+      test: ["CMD", "curl", "--insecure", "--fail", "--silent", "https://127.0.0.1:5000/redfish/v1/"]
       interval: 5s
       timeout: 10s
       retries: 10
-

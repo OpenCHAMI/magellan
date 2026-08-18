@@ -60,6 +60,11 @@ func CrawlPDU(config CrawlerConfig) (*pdu.PDUInventory, error) {
 		log.Error().Err(err).Msgf("failed to execute request to JAWS outlets endpoint %s", targetURL)
 		return nil, err
 	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Warn().Err(err).Msg("could not close response resource")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Errorf("received non-200 status code from outlets endpoint: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
@@ -88,10 +93,6 @@ func CrawlPDU(config CrawlerConfig) (*pdu.PDUInventory, error) {
 			SocketType: rawOutlet.SocketType,
 		}
 		inventory.Outlets = append(inventory.Outlets, outlet)
-	}
-
-	if err := resp.Body.Close(); err != nil {
-		log.Warn().Err(err).Msg("could not close response resource")
 	}
 
 	log.Debug().Msgf("successfully collected inventory for %d outlets from %s", len(inventory.Outlets), config.URI)

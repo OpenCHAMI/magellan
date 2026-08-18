@@ -1,0 +1,121 @@
+version = 1
+
+# Default for files created in 2026 and for newly added files that do not yet
+# carry an SPDX header. More specific creation-year annotations follow.
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "© 2026 OpenCHAMI a Series of LF Projects, LLC"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+    ".devcontainer/.env",
+    ".devcontainer/Dockerfile",
+    ".devcontainer/devcontainer.json",
+    ".devcontainer/docker-compose.yml",
+    ".gitignore",
+    ".goreleaser.yaml",
+    "CHANGELOG.md",
+    "Dockerfile",
+    "Makefile",
+    "README.md",
+    "cmd/collect.go",
+    "cmd/list.go",
+    "cmd/root.go",
+    "cmd/scan.go",
+    "cmd/update.go",
+    "example.config.yaml",
+    "go.mod",
+    "go.sum",
+    "goreleaser.dockerfile",
+    "internal/cache/postgresql/postgresql.go",
+    "internal/util/util.go",
+    "main.go",
+    "migrations/probe_states.down.sql",
+    "migrations/probe_states.up.sql",
+    "pkg/client/smd.go",
+    "pkg/collect.go",
+    "pkg/scan.go",
+    "pkg/update.go",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "© 2023-2025 Triad National Security, LLC. All rights reserved.",
+    "© 2025-2026 OpenCHAMI a Series of LF Projects, LLC",
+]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+    ".github/workflows/release.yml",
+    "cmd/crawl.go",
+    "cmd/version.go",
+    "emulator/Dockerfile",
+    "emulator/rf-emulator.yml",
+    "emulator/setup.sh",
+    "internal/cache/cache.go",
+    "internal/cache/sqlite/sqlite.go",
+    "internal/login.go",
+    "internal/url/url.go",
+    "internal/util/error.go",
+    "internal/util/net.go",
+    "internal/util/path.go",
+    "internal/version/version.go",
+    "pkg/auth/auth.go",
+    "pkg/client/client.go",
+    "pkg/client/default.go",
+    "pkg/client/net.go",
+    "pkg/crawler/main.go",
+    "tests/api_test.go",
+    "tests/compatibility_test.go",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "© 2024-2025 Triad National Security, LLC. All rights reserved.",
+    "© 2025-2026 OpenCHAMI a Series of LF Projects, LLC",
+]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+    "build-in-container.sh",
+    "cmd/pdu-collect.go",
+    "cmd/power.go",
+    "cmd/secrets.go",
+    "cmd/send.go",
+    "internal/format/format.go",
+    "internal/log/log.go",
+    "internal/util/bmc.go",
+    "internal/util/slices.go",
+    "man/.gitignore",
+    "man/*.sc",
+    "pkg/bmc/bmc.go",
+    "pkg/collect_test.go",
+    "pkg/crawl_test.go",
+    "pkg/crawler/identify.go",
+    "pkg/idmap/generated_xname.go",
+    "pkg/idmap/idmap.go",
+    "pkg/idmap/user_provided_mapper.go",
+    "pkg/jaws/pdu-crawler.go",
+    "pkg/pdu/README.md",
+    "pkg/pdu/pdu-inventory.go",
+    "pkg/power/power.go",
+    "pkg/scan_test.go",
+    "pkg/secrets/encryption.go",
+    "pkg/secrets/encryption_test.go",
+    "pkg/secrets/example/main.go",
+    "pkg/secrets/localstore.go",
+    "pkg/secrets/localstore_test.go",
+    "pkg/secrets/main.go",
+    "pkg/secrets/staticstore.go",
+    "pkg/test/constants.go",
+    "pkg/test/test.go",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© 2025-2026 OpenCHAMI a Series of LF Projects, LLC"
+SPDX-License-Identifier = "MIT"
+
+# Generated or strictly formatted files are intentionally represented here
+# rather than modified with an SPDX comment header. The lists above include
+# go.sum, JSON configuration, and scdoc manual-page sources.

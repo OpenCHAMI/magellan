@@ -8,6 +8,7 @@ import (
 	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/OpenCHAMI/magellan/pkg/test"
 	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/require"
 )
 
 type CrawlTestClient struct {
@@ -26,8 +27,6 @@ func NewCrawlTestClient() *CrawlTestClient {
 }
 
 func TestCrawl(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name   string
 		config *crawler.CrawlerConfig
@@ -58,10 +57,15 @@ func TestCrawl(t *testing.T) {
 			defer mockServer.Close()
 
 			c := NewCrawlTestClient()
-			c.config = tc.config
+			c.config.URI = mockServer.URL
+			c.config.UseDefault = tc.config.UseDefault
 
-			crawler.CrawlBMCForSystems(*c.config)
-			crawler.CrawlBMCForManagers(*c.config)
+			// The mock only implements a subset of Redfish, so the crawler should
+			// report that the full service cannot be discovered.
+			_, err := crawler.CrawlBMCForSystems(*c.config)
+			require.Error(t, err)
+			_, err = crawler.CrawlBMCForManagers(*c.config)
+			require.Error(t, err)
 		})
 	}
 }

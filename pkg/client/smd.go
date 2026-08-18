@@ -100,6 +100,14 @@ func (c *SmdClient) SetXnameFromJSON(contents []byte, key string) error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal xname: %v", err)
 	}
-	c.Xname = data[key].(string)
+	value, ok := data[key]
+	if !ok {
+		return fmt.Errorf("xname key %q not found", key)
+	}
+	xname, ok := value.(string)
+	if !ok || xname == "" {
+		return fmt.Errorf("xname key %q is not a non-empty string", key)
+	}
+	c.Xname = xname
 	return nil
 }

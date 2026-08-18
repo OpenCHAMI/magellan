@@ -7,6 +7,7 @@ import (
 	magellan "github.com/OpenCHAMI/magellan/pkg"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
 )
 
@@ -33,6 +34,7 @@ func CreateScannedAssetIfNotExists(path string) (*sqlx.DB, error) {
 	}
 	_, err = db.Exec(schema)
 	if err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to create scanned assets cache: %v", err)
 	}
 	return db, nil
@@ -48,15 +50,24 @@ func InsertScannedAssets(path string, assets ...magellan.RemoteAsset) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Warn().Err(err).Str("path", path).Msg("could not close database")
+		}
+	}()
 
 	// insert all probe states into db
-	tx := db.MustBegin()
+	tx, err := db.Beginx()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
 	for _, state := range assets {
 		sql := fmt.Sprintf(`INSERT OR REPLACE INTO %s (host, port, protocol, state, timestamp)
 		VALUES (:host, :port, :protocol, :state, :timestamp);`, TABLE_NAME)
 		_, err := tx.NamedExec(sql, &state)
 		if err != nil {
-			fmt.Printf("failed to execute transaction: %v\n", err)
+			_ = tx.Rollback()
+			return fmt.Errorf("failed to execute transaction: %v", err)
 		}
 	}
 	err = tx.Commit()
@@ -74,12 +85,21 @@ func DeleteScannedAssets(path string, results ...magellan.RemoteAsset) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
-	tx := db.MustBegin()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Warn().Err(err).Str("path", path).Msg("could not close database")
+		}
+	}()
+	tx, err := db.Beginx()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
 	for _, state := range results {
-		sql := fmt.Sprintf(`DELETE FROM %s WHERE host = :host, port = :port;`, TABLE_NAME)
+		sql := fmt.Sprintf(`DELETE FROM %s WHERE host = :host AND port = :port;`, TABLE_NAME)
 		_, err := tx.NamedExec(sql, &state)
 		if err != nil {
-			fmt.Printf("failed to execute transaction: %v\n", err)
+			_ = tx.Rollback()
+			return fmt.Errorf("failed to execute transaction: %v", err)
 		}
 	}
 
@@ -102,6 +122,11 @@ func GetScannedAssets(path string) ([]magellan.RemoteAsset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Warn().Err(err).Str("path", path).Msg("could not close database")
+		}
+	}()
 
 	results := []magellan.RemoteAsset{}
 	err = db.Select(&results, fmt.Sprintf("SELECT * FROM %s ORDER BY host ASC, port ASC;", TABLE_NAME))

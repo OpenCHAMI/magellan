@@ -14,17 +14,18 @@ The 'scan' command output includes just enough data about the BMC host to
 continously run the 'collect' command without having to re-discover existing 
 BMCs on a network. The output must contain the following attributes:
 
-===================================================
-|*host*      | the found BMC host                 |
-|-------------------------------------------------|
-|*port*      | the found BMC port                 |
-|-------------------------------------------------|
-|*protocol*  | TCP or UDP transport layer protocol|
-|-------------------------------------------------|
-|*timestamp* | time when the BMC was found        |
-|-------------------------------------------------|
-|*state*     | current state of the found BMC     |
-===================================================
+[[ *Attribute*
+:< *Description*
+|  *host*
+:  The found BMC host
+|  *port*
+:  The found BMC port
+|  *protocol*
+:  TCP or UDP transport layer protocol
+|  *timestamp*
+:  Time when the BMC was found
+|  *state*
+:  Current state of the found BMC
 
 # EXAMPLES
 

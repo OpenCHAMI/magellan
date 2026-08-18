@@ -455,6 +455,8 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			system.NetworkInterfaces = append(system.NetworkInterfaces, networkInterface)
 		}
 
+		// TrustedModules is retained for compatibility with older Redfish services.
+		//nolint:staticcheck
 		for _, rf_trustedmodule := range rf_computersystem.TrustedModules {
 			system.TrustedModules = append(system.TrustedModules, fmt.Sprintf("%s %s", rf_trustedmodule.InterfaceType, rf_trustedmodule.FirmwareVersion))
 		}
@@ -505,6 +507,8 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 		}
 
 		var supported_serial_console []string
+		// Manager.SerialConsole is retained for compatibility with older services.
+		//nolint:staticcheck
 		for _, console_type := range rf_manager.SerialConsole.ConnectTypesSupported {
 			supported_serial_console = append(supported_serial_console, string(console_type))
 		}

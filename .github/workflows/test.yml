@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit_tests:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run unit tests
+        run: make unit-test
+
+  integration_tests:
+    # Integration tests require a Docker daemon, which is unavailable on the
+    # unprivileged ubuntu-slim runner.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run integration tests
+        run: make integration-test
+
+      - name: Stop test emulator
+        if: always()
+        run: docker compose -f emulator/rf-emulator.yml down --volumes --remove-orphans
