@@ -203,7 +203,12 @@ install-man: $(MANBIN) ## Install manual pages
 	$(INSTALL_DATA) $(MAN1BIN) $(DESTDIR)$(mandir)/man1/
 
 .PHONY: lint
-lint: ## Run golangci-lint and fix detected issues
+lint: ## Check Go code with golangci-lint
+	$(call require-command-shell,$(GOLANGCI_LINT),golangci-lint)
+	$(GOLANGCI_LINT) run
+
+.PHONY: lint-fix
+lint-fix: ## Check Go code with golangci-lint and fix detected issues
 	$(call require-command-shell,$(GOLANGCI_LINT),golangci-lint)
 	$(GOLANGCI_LINT) run --fix
 
