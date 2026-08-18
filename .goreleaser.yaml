@@ -55,7 +55,7 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     files:
-      - LICENSE
+      - LICENSES/MIT.txt
       - CHANGELOG.md
       - README.md
       - magellan.1
@@ -96,7 +96,7 @@ dockers:
     goarch: amd64
     goamd64: v3
     extra_files:
-      - LICENSE
+      - LICENSES/MIT.txt
       - CHANGELOG.md
       - README.md
   - dockerfile: goreleaser.dockerfile
@@ -113,7 +113,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
     extra_files:
-      - LICENSE
+      - LICENSES/MIT.txt
       - CHANGELOG.md
       - README.md
     goarch: arm64
