@@ -15,6 +15,6 @@ func Make(response string) http.HandlerFunc {
 		// 	return
 		// }
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(response))
+		_, _ = w.Write([]byte(response))
 	}
 }

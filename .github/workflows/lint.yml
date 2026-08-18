@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  golangci:
+    name: Run golangci-lint
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+  modules:
+    name: Check Go modules
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Check go.mod and go.sum
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum

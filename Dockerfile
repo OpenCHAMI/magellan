@@ -1,4 +1,23 @@
-FROM chainguard/wolfi-base:latest
+#
+# STAGE 1: Build
+#
+
+FROM golang:1.26.5 AS builder
+ARG CGO_ENABLED=0
+WORKDIR /magellan
+
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+
+RUN make clean
+RUN make
+
+#
+# STAGE 2: Application
+#
+
+FROM --platform=$TARGETPLATFORM chainguard/wolfi-base:latest
 
 # Include curl in the final image for manual checks of the Redfish urls
 RUN set -ex \
@@ -11,7 +30,7 @@ RUN set -ex \
 USER 65534:65534
 
 
-COPY  magellan  /magellan
+COPY --from=builder /magellan/magellan /magellan
 
 
 CMD [ "/magellan" ]

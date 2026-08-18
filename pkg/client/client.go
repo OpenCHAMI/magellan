@@ -33,7 +33,9 @@ func LoadCertificateFromPath(client Client, path string) error {
 		return fmt.Errorf("failed to read certificate at path: %s", path)
 	}
 	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(cacert)
+	if ok := certPool.AppendCertsFromPEM(cacert); !ok {
+		return fmt.Errorf("failed to parse certificate at path: %s", path)
+	}
 	err = LoadCertificateFromPool(client, certPool)
 	if err != nil {
 		return fmt.Errorf("could not initialize certificate from pool: %v", err)

@@ -123,7 +123,5 @@ func init() {
 	updateCmd.Flags().BoolVar(&showStatus, "status", false, "Get the status of the update")
 	updateCmd.Flags().BoolVarP(&Insecure, "insecure", "i", false, "Allow insecure connections to the server")
 
-
-
 	rootCmd.AddCommand(updateCmd)
 }

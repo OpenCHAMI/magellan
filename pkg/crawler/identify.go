@@ -34,7 +34,7 @@ func IsBMC(manager *schemas.Manager) bool {
 		return false
 	}
 
-	return false // Otherwise, it's likely a chassis manager or other device
+	return true
 }
 
 // GetBMCInfo retrieves details of all available BMCs

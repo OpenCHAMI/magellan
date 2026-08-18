@@ -73,27 +73,33 @@ type ScanParams struct {
 //
 // Returns a list of scanned results to be stored in cache (but isn't doing here).
 func ScanForAssets(params *ScanParams) []RemoteAsset {
-	var (
-		results   []RemoteAsset
-		done      = make(chan struct{}, params.Concurrency+1)
-		chanHosts = make(chan []string, params.Concurrency+1)
-	)
-
-	if len(params.TargetHosts) == 0 {
+	if params == nil || params.Concurrency <= 0 || len(params.TargetHosts) == 0 {
 		return []RemoteAsset{}
 	}
+	var (
+		results   []RemoteAsset
+		chanHosts = make(chan []string, params.Concurrency+1)
+		resultsMu sync.Mutex
+	)
 
 	log.Trace().Any("hosts", params.TargetHosts).Msg("starting scan...")
 
 	probesToRun := []struct {
-		Type, Path string
+		Type Scanner
+		Path string
 	}{}
 	for _, item := range params.Include {
 		if item == "bmcs" {
-			probesToRun = append(probesToRun, struct{ Type, Path string }{Type: "Redfish", Path: "/redfish/v1/"})
+			probesToRun = append(probesToRun, struct {
+				Type Scanner
+				Path string
+			}{Type: BMC, Path: "/redfish/v1/"})
 		}
 		if item == "pdus" {
-			probesToRun = append(probesToRun, struct{ Type, Path string }{Type: "JAWS", Path: "/jaws/monitor/outlets"})
+			probesToRun = append(probesToRun, struct {
+				Type Scanner
+				Path string
+			}{Type: PDU, Path: "/jaws/monitor/outlets"})
 		}
 	}
 
@@ -109,10 +115,10 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 	wg.Add(params.Concurrency)
 	for i := 0; i < params.Concurrency; i++ {
 		go func() {
+			defer wg.Done()
 			for {
 				hosts, ok := <-chanHosts
 				if !ok {
-					wg.Done()
 					return
 				}
 				for _, host := range hosts {
@@ -144,7 +150,7 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 											Str("url", probeURL).
 											Msg("could not close response resource")
 									}
-									foundAsset.ServiceType = Scanner(probe.Type)
+									foundAsset.ServiceType = probe.Type
 									assetsToAdd = append(assetsToAdd, foundAsset)
 									log.Debug().
 										Str("host", foundAsset.Host).
@@ -166,12 +172,16 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 								}
 							}
 						}
+						resultsMu.Lock()
 						results = append(results, assetsToAdd...)
+						resultsMu.Unlock()
 					} else {
 						log.Debug().
 							Int("count", len(foundAssets)).
 							Msg("adding found assets to results without probing")
+						resultsMu.Lock()
 						results = append(results, foundAssets...)
+						resultsMu.Unlock()
 					}
 				}
 			}
@@ -181,18 +191,8 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 	for _, hosts := range params.TargetHosts {
 		chanHosts <- hosts
 	}
-	go func() {
-		select {
-		case <-done:
-			wg.Done()
-			break
-		default:
-			time.Sleep(1000)
-		}
-	}()
 	close(chanHosts)
 	wg.Wait()
-	close(done)
 
 	log.Debug().Int("asset_count", len(results)).Msg("scan complete")
 	return results

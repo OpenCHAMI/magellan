@@ -22,7 +22,6 @@ import (
 
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
-	"golang.org/x/exp/slices"
 )
 
 // CollectParams is a collection of common parameters passed to the CLI
@@ -53,26 +52,30 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	if len(*assets) <= 0 {
 		return nil, fmt.Errorf("no assets found for collection (assets <= 0)")
 	}
+	if params == nil {
+		return nil, fmt.Errorf("invalid collection parameters (params == nil)")
+	}
+	if params.Concurrency <= 0 {
+		return nil, fmt.Errorf("invalid concurrency: %d", params.Concurrency)
+	}
 
 	// collect bmc information asynchronously
 	var (
-		wg         sync.WaitGroup
-		collection = make([]map[string]any, 0)
-		found      = make([]string, 0, len(*assets))
-		done       = make(chan struct{}, params.Concurrency+1)
-		chanAssets = make(chan RemoteAsset, params.Concurrency+1)
-		mapper     = idmap.PickIDMapper(params.BMCIDMap, params.OutputFormat)
-		err        error
+		wg           sync.WaitGroup
+		collection   = make([]map[string]any, 0)
+		chanAssets   = make(chan RemoteAsset, params.Concurrency+1)
+		mapper       = idmap.PickIDMapper(params.BMCIDMap, params.OutputFormat)
+		collectionMu sync.Mutex
 	)
 
 	// set the client's params from CLI
 	wg.Add(params.Concurrency)
 	for i := 0; i < params.Concurrency; i++ {
 		go func() {
+			defer wg.Done()
 			for {
 				sr, ok := <-chanAssets
 				if !ok {
-					wg.Done()
 					return
 				}
 
@@ -113,7 +116,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				)
 
 				// crawl for node and BMC information
-				systems, err = crawler.CrawlBMCForSystems(config)
+				systems, err := crawler.CrawlBMCForSystems(config)
 				if err != nil {
 					log.Error().Err(err).Str("uri", uri).Msg("failed to crawl BMC for systems")
 				}
@@ -164,10 +167,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				}
 
 				// add data output to collections
+				collectionMu.Lock()
 				collection = append(collection, data)
-
-				// got host information, so add to list of already probed hosts
-				found = append(found, sr.Host)
+				collectionMu.Unlock()
 			}
 		}()
 	}
@@ -175,27 +177,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	// use the found results to query bmc information
 	for _, ps := range *assets {
 		// skip if found info from host
-		foundHost := slices.Index(found, ps.Host)
-		if !ps.State || foundHost >= 0 {
+		if !ps.State {
 			continue
 		}
 		chanAssets <- ps
 	}
 
-	// handle goroutine paths
-	go func() {
-		select {
-		case <-done:
-			wg.Done()
-			break
-		default:
-			time.Sleep(1000)
-		}
-	}()
-
 	close(chanAssets)
 	wg.Wait()
-	close(done)
 
 	var (
 		output     []byte
@@ -204,7 +193,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 	// format our output to write to file or standard out
 	formatType = format.DataFormatFromFileExt(params.OutputPath, params.OutputFormat)
-	output, err = format.MarshalData(collection, formatType)
+	output, err := format.MarshalData(collection, formatType)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to marshal output to %s", strings.ToUpper(formatType.String()))
 	}

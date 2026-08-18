@@ -172,7 +172,9 @@ func InitializeConfig() {
 		case "timeout":
 			timeout = viper.GetInt(key)
 		case "log-level":
-			logLevel.Set(viper.GetString(key))
+			if err := logLevel.Set(viper.GetString(key)); err != nil {
+				log.Warn().Err(err).Str("key", key).Msg("failed to set flag from config")
+			}
 		case "access-token":
 			accessToken = viper.GetString(key)
 		case "cache":
@@ -222,11 +224,15 @@ func setFlagFromViper(cmd *cobra.Command, f *pflag.Flag, key string) {
 	switch f.Value.Type() {
 	case "stringSlice":
 		if vals := viper.GetStringSlice(key); len(vals) > 0 {
-			cmd.Flags().Set(f.Name, strings.Join(vals, ","))
+			if err := cmd.Flags().Set(f.Name, strings.Join(vals, ",")); err != nil {
+				log.Warn().Err(err).Str("flag", f.Name).Msg("failed to set flag from config")
+			}
 		}
 	default:
 		if s := viper.GetString(key); s != "" && s != f.DefValue {
-			cmd.Flags().Set(f.Name, s)
+			if err := cmd.Flags().Set(f.Name, s); err != nil {
+				log.Warn().Err(err).Str("flag", f.Name).Msg("failed to set flag from config")
+			}
 		}
 	}
 }

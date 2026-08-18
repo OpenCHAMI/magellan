@@ -1,5 +1,10 @@
 # OpenCHAMI Magellan
 
+[![Build](https://github.com/OpenCHAMI/magellan/actions/workflows/build.yml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/build.yml)
+[![Lint](https://github.com/OpenCHAMI/magellan/actions/workflows/lint.yml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/lint.yml)
+[![REUSE compliance](https://github.com/OpenCHAMI/magellan/actions/workflows/reuse.yaml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/reuse.yaml)
+[![Test](https://github.com/OpenCHAMI/magellan/actions/workflows/test.yml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/test.yml)
+
 The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of being used independently of other tools or services.
 
 > [!NOTE]
@@ -15,6 +20,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
 		- [Docker](#docker)
 		- [Arch Linux (AUR)](#arch-linux-aur)
+	- [Local checks before pushing](#local-checks-before-pushing)
 	- [Usage](#usage)
 		- [Checking for Redfish](#checking-for-redfish)
 		- [BMC ID Mapping](#bmc-id-mapping)
@@ -51,7 +57,7 @@ See the [TODO](#todo) section for a list of soon-ish goals planned.
 
 ## Getting Started
 
-[Build](#building) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be run by executing the `emulator/setup.sh` script or running `make emulator`.
+[Build](#building-the-executable) and [run on bare metal](#running-the-tool) or run and test with Docker using the [latest prebuilt image](#running-with-docker). For quick testing, the repository integrates a Redfish emulator that can be run by executing the `emulator/setup.sh` script or running `make emulator`.
 
 ## Documentation
 
@@ -69,25 +75,35 @@ make docs
 
 ## Building the Executable
 
-The `magellan` tool can be built to run on bare metal. Install the required Go tools, clone the repo, and then build the binary in the root directory with the following:
+The `magellan` tool can be built to run on bare metal. Install Go 1.26 or later,
+Git, and Make, clone the repository, and then build the binary in the root
+directory:
 
 ```bash
 git clone https://github.com/OpenCHAMI/magellan
 cd magellan
-go mod tidy && go build
+make
 ```
 
-And that's it. The last line should find and download all of the required dependencies to build the project. Although other versions of Go may work, the project has been tested to work with versions v1.20 and later on MacOS and Linux.
+The default `all` target downloads required Go dependencies as needed and builds
+the `magellan` binary with version metadata. Run `make help` to see all available
+targets and their configurable variables.
+
+To use a specific Go executable, override `GO`:
+
+```console
+$ make GO=/path/to/go
+```
 
 ### Building on Debian 12 (Bookworm)
 
-Getting the `magellan` tool to work with Go 1.21 on Debian 12 may require installing the `golang-1.21` meta-package from `bookworm-backports` through `apt` along with GCC for comping the `go-sqlite3` driver.
+Getting the `magellan` tool to work with Go 1.21 on Debian 12 may require installing the `golang-1.21` meta-package from `bookworm-backports` through `apt` along with GCC for compiling the `go-sqlite3` driver.
 
 ```bash
 apt install gcc golang-1.21/bookworm-backport
 ```
 
-The binary executable for the `golang-1.21` executable can then be found using `dpkg`.v2.0.1
+The binary executable for the `golang-1.21` executable can then be found using `dpkg`.
 
 ```bash
 dpkg -L golang-1.21-go
@@ -105,7 +121,30 @@ This might take some time to complete initially because of the `go-sqlite3` driv
 
 ### Docker
 
-The tool can also run using Docker. To build the Docker container, run `docker build -t magellan:testing .` in the project's directory. This is useful if you to run `magellan` on a different system through Docker desktop without having to install and build with Go (or if you can't do so for some reason). [Prebuilt images](https://github.com/OpenCHAMI/magellan/pkgs/container/magellan) are available as well on `ghcr`. Images can be pulled directly from the repository:
+The tool can also run using Docker. There are two Dockerfiles for different build workflows:
+
+- `Dockerfile` is a multi-stage build for local use. It builds `magellan` from
+  source and copies the resulting binary into the runtime image.
+- `goreleaser.dockerfile` is used by GoReleaser in CI. It expects GoReleaser to
+  provide an already-built `magellan` binary.
+
+Build the local container with Make:
+
+```bash
+make container
+```
+
+The default image is `ghcr.io/openchami/magellan:latest`. The `container` target
+accepts `CONTAINER_PROG`, `CONTAINER_OPTS`, `CONTAINER_TAG`, and `FQCN`. For
+example:
+
+```bash
+make container CONTAINER_PROG=podman FQCN=magellan:testing
+```
+
+This is useful when running `magellan` on a different system without installing
+and building it directly with Go. [Prebuilt images](https://github.com/OpenCHAMI/magellan/pkgs/container/magellan)
+are also available on `ghcr`. Images can be pulled directly from the repository:
 
 ```bash
 docker pull ghcr.io/openchami/magellan:latest
@@ -123,6 +162,28 @@ yay -S magellan-bin
 ```
 > [!NOTE]
 > The AUR package may not always be in sync with the latest release. It is recommended to install `magellan` from source for the latest version.
+
+## Local checks before pushing
+
+Before pushing changes, build the project and run the same primary checks and
+test suites used for pull requests:
+
+```bash
+# Build the executable.
+make
+
+# Run static checks and tests.
+make lint reuse mod unit-test integration-test
+```
+
+The `lint` target requires `golangci-lint`, and `reuse` requires the REUSE CLI.
+Unit tests do not require external services. Integration tests require Docker
+with Compose; the target starts the Redfish emulator, waits for it to become
+healthy, and removes it after the tests finish.
+
+Use `make lint-fix` to apply fixes supported by `golangci-lint`. Run `make help`
+to see additional targets, including manual-page, container, and GoReleaser
+builds.
 
 ## Usage
 

@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
+name: REUSE compliance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  reuse:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check REUSE compliance
+        run: pipx run --backend pip --spec reuse==6.2.0 reuse lint --lines

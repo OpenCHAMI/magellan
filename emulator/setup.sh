@@ -1,12 +1,19 @@
-#/bin/sh
+#!/bin/sh
 
-script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# SPDX-FileCopyrightText: © 2024-2025 Triad National Security, LLC. All rights reserved.
+# SPDX-FileCopyrightText: © 2025-2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+container_prog=${CONTAINER_PROG:-docker}
 
 # clone the CSM redfish emulator if needed
-if [ ! -d ${script_dir}/rf-emulator ]; then
-	git clone https://github.com/Cray-HPE/csm-redfish-interface-emulator ${script_dir}/rf-emulator
+if [ ! -d "${script_dir}/rf-emulator" ]; then
+	git clone https://github.com/Cray-HPE/csm-redfish-interface-emulator "${script_dir}/rf-emulator"
 fi
 
-# build docker image and run with docker compose
-docker build -t openchami-rie:latest -f ${script_dir}/Dockerfile ${script_dir}/rf-emulator
-docker compose -f ${script_dir}/rf-emulator.yml up
+# Run the prebuilt emulator with the requested Docker Compose options.
+"${container_prog}" compose -f "${script_dir}/rf-emulator.yml" up "$@"

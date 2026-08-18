@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
+name: Cleanup PR images
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number whose images should be removed
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Delete PR container versions
+        env:
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE: ${{ github.event.repository.name }}
+        run: |
+          PR_NUMBER="${INPUT_PR_NUMBER:-${EVENT_PR_NUMBER}}"
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid PR number: ${PR_NUMBER}" >&2
+            exit 1
+          fi
+
+          for TAG in "pr-${PR_NUMBER}" "pr-${PR_NUMBER}-amd64" "pr-${PR_NUMBER}-arm64"; do
+            VERSION_IDS=$(gh api --paginate \
+              "/orgs/${OWNER}/packages/container/${PACKAGE}/versions" \
+              --jq ".[] | select(.metadata.container.tags | index(\"${TAG}\")) | .id")
+
+            if [[ -z "${VERSION_IDS}" ]]; then
+              echo "No package version found for ${TAG}"
+              continue
+            fi
+
+            while read -r VERSION_ID; do
+              [[ -z "${VERSION_ID}" ]] && continue
+              gh api --method DELETE \
+                "/orgs/${OWNER}/packages/container/${PACKAGE}/versions/${VERSION_ID}"
+            done <<< "${VERSION_IDS}"
+          done
