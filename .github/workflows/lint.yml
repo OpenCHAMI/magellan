@@ -19,7 +19,7 @@ permissions:
 jobs:
   golangci:
     name: Run golangci-lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -37,7 +37,7 @@ jobs:
 
   modules:
     name: Check Go modules
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     steps:
       - name: Checkout repository

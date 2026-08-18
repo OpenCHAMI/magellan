@@ -23,6 +23,8 @@ permissions:
 
 jobs:
   release:
+    # Releases require QEMU and Docker Buildx, which are unavailable on the
+    # unprivileged ubuntu-slim runner.
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -51,7 +53,7 @@ jobs:
       - name: Install cross-compilation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes \
+          sudo apt-get install --yes --no-install-recommends \
             binutils-aarch64-linux-gnu \
             g++ \
             gcc \

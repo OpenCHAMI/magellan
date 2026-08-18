@@ -18,7 +18,8 @@ permissions:
 
 jobs:
   unit_tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -35,6 +36,8 @@ jobs:
         run: make unit-test
 
   integration_tests:
+    # Integration tests require a Docker daemon, which is unavailable on the
+    # unprivileged ubuntu-slim runner.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
