@@ -12,7 +12,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 	- [Getting Started](#getting-started)
 	- [Documentation](#documentation)
 	- [Building the Executable](#building-the-executable)
-		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+		- [Local checks before pushing](#local-checks-before-pushing)
 		- [Docker](#docker)
 		- [Arch Linux (AUR)](#arch-linux-aur)
 	- [Usage](#usage)
@@ -88,6 +88,28 @@ To use a specific Go executable, override `GO`:
 ```console
 $ make GO=/path/to/go
 ```
+
+### Local checks before pushing
+
+Before pushing changes, build the project and run the same primary checks and
+test suites used for pull requests:
+
+```bash
+# Build the executable.
+make
+
+# Run static checks and tests.
+make lint reuse mod unit-test integration-test
+```
+
+The `lint` target requires `golangci-lint`, and `reuse` requires the REUSE CLI.
+Unit tests do not require external services. Integration tests require Docker
+with Compose; the target starts the Redfish emulator, waits for it to become
+healthy, and removes it after the tests finish.
+
+Use `make lint-fix` to apply fixes supported by `golangci-lint`. Run `make help`
+to see additional targets, including manual-page, container, and GoReleaser
+builds.
 
 ### Docker
 
