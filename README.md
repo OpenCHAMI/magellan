@@ -1,5 +1,10 @@
 # OpenCHAMI Magellan
 
+[![Build](https://github.com/OpenCHAMI/magellan/actions/workflows/build.yml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/build.yml)
+[![Lint](https://github.com/OpenCHAMI/magellan/actions/workflows/lint.yml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/lint.yml)
+[![REUSE compliance](https://github.com/OpenCHAMI/magellan/actions/workflows/reuse.yaml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/reuse.yaml)
+[![Test](https://github.com/OpenCHAMI/magellan/actions/workflows/test.yml/badge.svg)](https://github.com/OpenCHAMI/magellan/actions/workflows/test.yml)
+
 The `magellan` CLI tool is a Redfish-based, board management controller (BMC) discovery tool designed to scan networks and is written in Go. The tool collects information from BMC nodes using the provided Redfish RESTful API with [`gofish`](https://github.com/stmcginnis/gofish) and loads the queried data into an [SMD](https://github.com/OpenCHAMI/smd/) instance. The tool strives to be more flexible by implementing multiple methods of discovery to work for a wider range of systems (WIP) and is capable of being used independently of other tools or services.
 
 > [!NOTE]
