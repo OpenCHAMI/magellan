@@ -17,9 +17,10 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 	- [Getting Started](#getting-started)
 	- [Documentation](#documentation)
 	- [Building the Executable](#building-the-executable)
-		- [Local checks before pushing](#local-checks-before-pushing)
+		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
 		- [Docker](#docker)
 		- [Arch Linux (AUR)](#arch-linux-aur)
+	- [Local checks before pushing](#local-checks-before-pushing)
 	- [Usage](#usage)
 		- [Checking for Redfish](#checking-for-redfish)
 		- [BMC ID Mapping](#bmc-id-mapping)
@@ -94,27 +95,29 @@ To use a specific Go executable, override `GO`:
 $ make GO=/path/to/go
 ```
 
-### Local checks before pushing
+### Building on Debian 12 (Bookworm)
 
-Before pushing changes, build the project and run the same primary checks and
-test suites used for pull requests:
+Getting the `magellan` tool to work with Go 1.21 on Debian 12 may require installing the `golang-1.21` meta-package from `bookworm-backports` through `apt` along with GCC for compiling the `go-sqlite3` driver.
 
 ```bash
-# Build the executable.
-make
-
-# Run static checks and tests.
-make lint reuse mod unit-test integration-test
+apt install gcc golang-1.21/bookworm-backport
 ```
 
-The `lint` target requires `golangci-lint`, and `reuse` requires the REUSE CLI.
-Unit tests do not require external services. Integration tests require Docker
-with Compose; the target starts the Redfish emulator, waits for it to become
-healthy, and removes it after the tests finish.
+The binary executable for the `golang-1.21` executable can then be found using `dpkg`.
 
-Use `make lint-fix` to apply fixes supported by `golangci-lint`. Run `make help`
-to see additional targets, including manual-page, container, and GoReleaser
-builds.
+```bash
+dpkg -L golang-1.21-go
+```
+
+Using the correct binary, set the `CGO_ENABLED` environment variable and build the executable with `cgo` enabled:
+
+```bash
+export GOBIN=/usr/bin/golang-1.21/bin/go
+go env -w CGO_ENABLED=1
+go mod tidy && go build
+```
+
+This might take some time to complete initially because of the `go-sqlite3` driver, but should be much faster for subsequent builds.
 
 ### Docker
 
@@ -159,6 +162,28 @@ yay -S magellan-bin
 ```
 > [!NOTE]
 > The AUR package may not always be in sync with the latest release. It is recommended to install `magellan` from source for the latest version.
+
+## Local checks before pushing
+
+Before pushing changes, build the project and run the same primary checks and
+test suites used for pull requests:
+
+```bash
+# Build the executable.
+make
+
+# Run static checks and tests.
+make lint reuse mod unit-test integration-test
+```
+
+The `lint` target requires `golangci-lint`, and `reuse` requires the REUSE CLI.
+Unit tests do not require external services. Integration tests require Docker
+with Compose; the target starts the Redfish emulator, waits for it to become
+healthy, and removes it after the tests finish.
+
+Use `make lint-fix` to apply fixes supported by `golangci-lint`. Run `make help`
+to see additional targets, including manual-page, container, and GoReleaser
+builds.
 
 ## Usage
 
