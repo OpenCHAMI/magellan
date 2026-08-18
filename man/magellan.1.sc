@@ -155,11 +155,11 @@ The *magellan* CLI is a frontend tool for dynamically scanning and collecting
 inventory data from board management controllers (BMCs) through a running Redfish 
 service. Here are some of the command ways to use the tool:
 
-1. Simple Workflow: scan -> collect -> send
-2. Complex Workflow: scan -> list -> secrets -> collect -> send
-3. Recursive Workflow: scan -> collect -> send -> collect -> send
-4. Debug Workflow: crawl -> send -> crawl -> send
-5. Static Workflow: send
+1. Simple Workflow:    scan  -> collect -> send++
+2. Complex Workflow:   scan  -> list    -> secrets -> collect -> send++
+3. Recursive Workflow: scan  -> collect -> send    -> collect -> send++
+4. Debug Workflow:     crawl -> send    -> crawl   -> send++
+5. Static Workflow:    send
 
 ## Simple Workflow
 
