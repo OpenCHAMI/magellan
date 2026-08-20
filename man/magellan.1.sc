@@ -29,6 +29,8 @@ List of available commands:
 :  Show nodes found from scan
 |  *secrets*
 :  Manage BMC credentials
+|  *settings*
+:  Configure BMC properties through Redfish
 |  *update*
 :  Update firmware through Redfish API
 |  *version*
@@ -138,6 +140,15 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *LIST_RESET_TYPES*: Lists supported Redfish reset types
 - *RESET_TYPE*: Redfish reset type to perform
 - *INVENTORY_FILE*: YAML file containing node inventory
+
+*Settings Variables*
+- *SETTINGS_USERNAME*: Sets the master BMC username
+- *SETTINGS_PASSWORD*: Sets the master BMC password
+- *SETTINGS_SECRETS_FILE*: Sets the secrets file with BMC credentials
+- *SETTINGS_INSECURE*: Skips TLS certificate verification during probe
+- *SETTINGS_CACERT*: Sets the path to CA cert file
+- *SETTINGS_INVENTORY_FILE*: YAML file containing node inventory
+- *SETTINGS_PRESERVE_CONFIG*: Preserve settings during reset
 
 *Update Variables*
 - *UPDATE_SCHEME*: Sets the transfer protocol
@@ -303,6 +314,6 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 
 # SEE ALSO
 
-*magellan-scan*(1), *magellan-collect*(1), *magellan-crawl*(1),
-*magellan-list*(1), *magellan-secrets*(1), *magellan-update*(1)
-*magellan-send*(1)
+*magellan-collect*(1), *magellan-crawl*(1), *magellan-list*(1),
+*magellan-scan*(1), *magellan-secrets*(1), *magellan-send*(1),
+*magellan-settings*(1), *magellan-update*(1)

@@ -29,6 +29,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
     - [Starting the Emulator](#starting-the-emulator)
     - [Updating Firmware](#updating-firmware)
     - [Managing Power](#managing-power)
+    - [Configuring BMC Settings](#configuring-bmc-settings)
     - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
     - [Running with Docker](#running-with-docker)
     - [Environment Variables](#environment-variables)
@@ -48,6 +49,7 @@ The `magellan` tool comes packed with a handleful of features for doing discover
 - Redfish-based inventory collection
 - Redfish-based firmware updating
 - Redfish-based power control
+- Redfish-based BMC configuration
 - Integration with OpenCHAMI SMD
 - Write inventory data to JSON
 - Store and manage BMC secrets
@@ -554,6 +556,40 @@ Once the desired reset type is identified, it can be applied via the `-r/--reset
 All `power` commands demonstrated here can accept additional options and multiple target nodes, for example `magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2`.
 These options are omitted from the examples above for clarity.
 
+### Configuring BMC Settings
+
+The `magellan settings` command provides read and write access to BMC configuration through the Redfish API. Supported configuration categories include network protocols (SSH, HTTPS, IPMI, NTP, etc.), ethernet interfaces (IP addresses, MAC addresses, DHCP), computer system settings (boot order, asset tag), manager properties, and BMC user accounts.
+
+```bash
+# list all available setting categories
+magellan settings list
+
+# list properties in the NetworkProtocol category
+magellan settings list NetworkProtocol
+
+# get SSH protocol settings from a BMC
+magellan settings get 172.16.0.105 NetworkProtocol SSH
+
+# set SSH protocol settings
+magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,"Port":22}'
+
+# get the first ethernet interface
+magellan settings get 172.16.0.105 EthernetInterface 0
+
+# get all BMC user accounts
+magellan settings get 172.16.0.105 Accounts
+
+# factory reset the BMC manager
+magellan settings reset 172.16.0.105
+
+# factory reset preserving network settings
+magellan settings reset 172.16.0.105 --preserve-config PreserveNetwork
+```
+
+The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
+
+See `magellan-settings(1)` for more details.
+
 ### Getting an Access Token (WIP)
 
 The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
@@ -630,6 +666,13 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **power** | `--list-reset-types` | `LIST_RESET_TYPES` | Lists supported Redfish reset types |
 | **power** | `--reset-type` | `RESET_TYPE` | Redfish reset type to perform |
 | **power** | `--inventory-file` | `INVENTORY_FILE` | YAML file containing node inventory |
+| **settings** | `--inventory-file` | `SETTINGS_INVENTORY_FILE` | YAML file containing node inventory |
+| **settings** | `--username` | `SETTINGS_USERNAME` | Sets the master BMC username |
+| **settings** | `--password` | `SETTINGS_PASSWORD` | Sets the master BMC password |
+| **settings** | `--secrets-file` | `SETTINGS_SECRETS_FILE` | Sets the secrets file with BMC credentials |
+| **settings** | `--insecure` | `SETTINGS_INSECURE` | Skips TLS certificate verification during probe |
+| **settings** | `--cacert` | `SETTINGS_CACERT` | Sets the path to CA cert file |
+| **settings** | `--preserve-config` | `SETTINGS_PRESERVE_CONFIG` | Preserve settings during reset |
 | **update** | `--scheme` | `UPDATE_SCHEME` | Sets the transfer protocol |
 | **update** | `--firmware-uri` | `UPDATE_FIRMWARE_URI` | Sets the URI to retrieve the firmware |
 | **update** | `--status` | `UPDATE_STATUS` | Gets the status of the update |
