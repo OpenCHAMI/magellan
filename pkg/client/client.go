@@ -60,10 +60,10 @@ func LoadCertificateFromPool(client Client, certPool *x509.CertPool) error {
 			InsecureSkipVerify: false,
 		},
 		DisableKeepAlives: true,
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout:   120 * time.Second,
 			KeepAlive: 120 * time.Second,
-		}).Dial,
+		}).DialContext,
 		TLSHandshakeTimeout:   120 * time.Second,
 		ResponseHeaderTimeout: 120 * time.Second,
 	}
