@@ -2,9 +2,6 @@ package version
 
 import (
 	"fmt"
-	"time"
-
-	"github.com/ncruces/go-strftime"
 )
 
 // GitCommit stores the latest Git commit hash.
@@ -13,7 +10,7 @@ var GitCommit string = "unknown"
 
 // BuildTime stores the build timestamp in UTC.
 // Set via -ldflags "-X github.com/OpenCHAMI/magellan/internal/version.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-var BuildTime string = strftime.Format("%Y-%m-%dT%H:%M:%SZ", time.Now())
+var BuildTime string = "unknown"
 
 // Version indicates the version of the binary, such as a release number or semantic version.
 // Set via -ldflags "-X github.com/OpenCHAMI/magellan/internal/version.Version=v1.0.0"
@@ -46,15 +43,28 @@ var BuildUser string = "unknown"
 
 // PrintVersionInfo outputs all versioning information for troubleshooting or version checks.
 func PrintVersionInfo() {
-	fmt.Printf("Version: %s\n", Version)
-	fmt.Printf("Git Commit: %s\n", GitCommit)
-	fmt.Printf("Build Time: %s\n", BuildTime)
-	fmt.Printf("Git Branch: %s\n", GitBranch)
-	fmt.Printf("Git Tag: %s\n", GitTag)
-	fmt.Printf("Git State: %s\n", GitState)
-	fmt.Printf("Build Host: %s\n", BuildHost)
-	fmt.Printf("Go Version: %s\n", GoVersion)
-	fmt.Printf("Build User: %s\n", BuildUser)
+	fmt.Print(versionInfoTable())
+}
+
+func versionInfoTable() string {
+	return fmt.Sprintf(`%-11s %s
+%-11s %s
+%-11s %s
+%-11s %s
+%-11s %s
+%-11s %s
+%-11s %s
+%-11s %s
+%-11s %s
+`, "Version:", Version,
+		"Git Commit:", GitCommit,
+		"Build Time:", BuildTime,
+		"Git Branch:", GitBranch,
+		"Git Tag:", GitTag,
+		"Git State:", GitState,
+		"Build Host:", BuildHost,
+		"Go Version:", GoVersion,
+		"Build User:", BuildUser)
 }
 
 func VersionInfo() string {

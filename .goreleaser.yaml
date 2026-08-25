@@ -20,7 +20,7 @@ builds:
     # export BUILD_USER=$(whoami)
     ldflags:
       - "-X github.com/OpenCHAMI/magellan/internal/version.GitCommit={{ .Commit }} \
-        -X github.com/OpenCHAMI/magellan/internal/version.BuildTime={{ .Timestamp }} \
+        -X github.com/OpenCHAMI/magellan/internal/version.BuildTime={{ .Date }} \
         -X github.com/OpenCHAMI/magellan/internal/version.Version={{ .Version }} \
         -X github.com/OpenCHAMI/magellan/internal/version.GitBranch={{ .Branch }} \
         -X github.com/OpenCHAMI/magellan/internal/version.GitTag={{ .Tag }} \

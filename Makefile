@@ -67,6 +67,7 @@ BUILD      ?= $(shell $(GIT) rev-parse --short HEAD)
 GIT_BRANCH ?= $(shell $(GIT) rev-parse --abbrev-ref HEAD)
 GIT_TAG    ?= $(shell $(GIT) describe --tags --abbrev=0 2>/dev/null || echo "unknown")
 GIT_STATE  ?= $(shell if $(GIT) diff-index --quiet HEAD --; then echo 'clean'; else echo 'dirty'; fi)
+BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 BUILD_HOST ?= $(shell $(HOSTCMD))
 GO_VERSION ?= $(shell $(GO) env GOVERSION)
 BUILD_USER ?= $(shell whoami)
@@ -75,7 +76,7 @@ CONTAINER_TAG ?= latest
 FQCN          ?= ghcr.io/openchami/$(NAME):$(CONTAINER_TAG)
 LDFLAGS := -s \
 	   -X $(IMPORT)internal/version.GitCommit=$(BUILD) \
-	   -X $(IMPORT)internal/version.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ) \
+	   -X $(IMPORT)internal/version.BuildTime=$(BUILD_TIME) \
 	   -X $(IMPORT)internal/version.Version=$(VERSION) \
 	   -X $(IMPORT)internal/version.GitBranch=$(GIT_BRANCH) \
 	   -X $(IMPORT)internal/version.GitTag=$(GIT_TAG) \
