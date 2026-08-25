@@ -14,3 +14,20 @@ func TestVersionInfo(t *testing.T) {
 	require.Contains(t, got, "v1.2.3")
 	require.Contains(t, got, "abc123")
 }
+
+func TestBuildTimeDefaultsToUnknown(t *testing.T) {
+	require.Equal(t, "unknown", BuildTime)
+}
+
+func TestVersionInfoTableAlignsValues(t *testing.T) {
+	require.Equal(t, `Version:    unknown
+Git Commit: unknown
+Build Time: unknown
+Git Branch: unknown
+Git Tag:    unknown
+Git State:  unknown
+Build Host: unknown
+Go Version: unknown
+Build User: unknown
+`, versionInfoTable())
+}
