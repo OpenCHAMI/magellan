@@ -41,7 +41,8 @@ used for all commands.
 :	Get a BMC setting value. For *NetworkProtocol*, specify the protocol
 	name (e.g. SSH, HTTPS, IPMI). For *EthernetInterface*, specify the
 	interface index (0, 1, ...). For *ComputerSystem*, *Manager*, or
-	*Accounts*, specify the property name or ID.
+	*Accounts*, specify the property name or account ID. ComputerSystem and
+	Manager operations use the first resource exposed by the BMC.
 
 *set* <node> <category> <property> <value>
 :	Set a BMC setting value. The *value* should be a JSON string for
@@ -57,7 +58,10 @@ See *magellan*(1) for information about global flags and environment variables
 used for all commands.
 
 *-F, --output-format* _format_
-:	Set the output format for *get* and *set* commands (json, yaml).
+:	Set the output format for the *get* command (json, yaml).
+
+*--input-format* _format_
+:	Set the inventory input format (json, yaml). The default is yaml.
 
 *--preserve-config* _level_
 :	(Reset only) Preserve settings during reset. Valid values are
@@ -65,7 +69,7 @@ used for all commands.
 	all settings are reset.
 
 *-f, --inventory-file* _path_
-:	YAML file containing node inventory from a previous *collect*.
+:	File containing node inventory from a previous *collect*.
 
 *-u, --username* _username_
 :	Set the master BMC username.
@@ -108,6 +112,16 @@ magellan settings set 172.16.0.105 NetworkProtocol SSH \
 Get the first ethernet interface:
 ```
 magellan settings get 172.16.0.105 EthernetInterface 0
+```
+
+Update the asset tag on the first computer system:
+```
+magellan settings set 172.16.0.105 ComputerSystem AssetTag rack-12-node-4
+```
+
+Get the firmware version from the first manager:
+```
+magellan settings get 172.16.0.105 Manager FirmwareVersion
 ```
 
 Get all BMC user accounts:

@@ -1,7 +1,11 @@
 package crawler
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 
 	"github.com/openchami/magellan/internal/util"
@@ -15,6 +19,7 @@ import (
 type CrawlerConfig struct {
 	URI             string // URI of the BMC
 	Insecure        bool   // Whether to ignore SSL errors
+	CACertPath      string // Optional path to a trusted CA certificate
 	CredentialStore secrets.SecretStore
 	UseDefault      bool
 }
@@ -137,14 +142,35 @@ func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
 		return nil, err
 	}
 
-	// initialize gofish client
-	client, err := gofish.Connect(gofish.ClientConfig{
+	clientConfig := gofish.ClientConfig{
 		Endpoint:  config.URI,
 		Username:  bmc_creds.Username,
 		Password:  bmc_creds.Password,
 		Insecure:  config.Insecure,
 		BasicAuth: true,
-	})
+	}
+	if config.CACertPath != "" {
+		caCert, readErr := os.ReadFile(config.CACertPath)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read CA certificate %q: %w", config.CACertPath, readErr)
+		}
+		certPool, poolErr := x509.SystemCertPool()
+		if poolErr != nil {
+			certPool = x509.NewCertPool()
+		}
+		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
+			return nil, fmt.Errorf("failed to parse CA certificate %q", config.CACertPath)
+		}
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    certPool,
+		}
+		clientConfig.HTTPClient = &http.Client{Transport: transport}
+	}
+
+	// initialize gofish client
+	client, err := gofish.Connect(clientConfig)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "404:") {
 			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)

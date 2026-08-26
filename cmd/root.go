@@ -211,6 +211,9 @@ func resolveFlagsFromViper(cmd *cobra.Command) {
 		if alias, ok := viperKeyAliases[key]; ok {
 			keys = []string{alias, key}
 		}
+		for parent := cmd.Parent(); parent != nil && parent != rootCmd; parent = parent.Parent() {
+			keys = append(keys, parent.Name()+"."+f.Name)
+		}
 		for _, k := range keys {
 			if viper.IsSet(k) {
 				setFlagFromViper(cmd, f, k)

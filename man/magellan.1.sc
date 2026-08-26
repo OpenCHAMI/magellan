@@ -147,7 +147,8 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *SETTINGS_SECRETS_FILE*: Sets the secrets file with BMC credentials
 - *SETTINGS_INSECURE*: Skips TLS certificate verification during probe
 - *SETTINGS_CACERT*: Sets the path to CA cert file
-- *SETTINGS_INVENTORY_FILE*: YAML file containing node inventory
+- *SETTINGS_INVENTORY_FILE*: File containing node inventory
+- *SETTINGS_INPUT_FORMAT*: Sets the inventory input format (json or yaml)
 - *SETTINGS_PRESERVE_CONFIG*: Preserve settings during reset
 
 *Update Variables*

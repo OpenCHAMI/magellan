@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
@@ -34,31 +35,23 @@ func SetNetworkProtocol(client *gofish.APIClient, protocolName, jsonData string)
 		return err
 	}
 
-	npVal := reflect.ValueOf(np).Elem()
-	field := npVal.FieldByName(protocolName)
-	if !field.IsValid() {
+	field, ok := exportedField(np, protocolName)
+	if !ok {
 		return fmt.Errorf("unknown network protocol %q", protocolName)
 	}
 
-	if !field.CanAddr() {
-		return fmt.Errorf("protocol %q field is not addressable", protocolName)
-	}
-
-	// Decode the JSON into the field to validate it
-	if err := json.Unmarshal([]byte(jsonData), field.Addr().Interface()); err != nil {
-		return fmt.Errorf("failed to parse JSON for protocol %q: %w", protocolName, err)
-	}
-
-	// Build the patch payload with only the protocol name
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(jsonData), &payload); err != nil {
-		return fmt.Errorf("failed to parse JSON payload: %w", err)
+	payload, err := decodePropertyValue(field, jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to parse value for protocol %q: %w", protocolName, err)
 	}
 
 	patchData := map[string]any{
 		protocolName: payload,
 	}
-	return np.Patch(np.ODataID, patchData)
+	if err := np.Patch(np.ODataID, patchData); err != nil {
+		return fmt.Errorf("failed to update network protocol %q: %w", protocolName, err)
+	}
+	return nil
 }
 
 // GetEthernetInterfaces returns all EthernetInterface resources from the first
@@ -102,11 +95,14 @@ func SetEthernetInterface(client *gofish.APIClient, index int, jsonData string) 
 		return fmt.Errorf("ethernet interface index %d out of range (0-%d)", index, len(ifaces)-1)
 	}
 
-	if err := json.Unmarshal([]byte(jsonData), ifaces[index]); err != nil {
+	payload, err := decodeObject(jsonData)
+	if err != nil {
 		return fmt.Errorf("failed to parse JSON for ethernet interface %d: %w", index, err)
 	}
-
-	return ifaces[index].Update()
+	if err := ifaces[index].Patch(ifaces[index].ODataID, payload); err != nil {
+		return fmt.Errorf("failed to update ethernet interface %d: %w", index, err)
+	}
+	return nil
 }
 
 // GetComputerSystem returns the ComputerSystem matching the given systemID.
@@ -124,6 +120,19 @@ func GetComputerSystem(client *gofish.APIClient, systemID string) (*schemas.Comp
 	return nil, fmt.Errorf("computer system %q not found", systemID)
 }
 
+// GetDefaultComputerSystem returns the first ComputerSystem exposed by the BMC.
+func GetDefaultComputerSystem(client *gofish.APIClient) (*schemas.ComputerSystem, error) {
+	service := client.GetService()
+	systems, err := service.Systems()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list systems: %w", err)
+	}
+	if len(systems) == 0 {
+		return nil, fmt.Errorf("no computer systems found on BMC")
+	}
+	return systems[0], nil
+}
+
 // SetComputerSystem applies JSON-encoded properties to the named ComputerSystem.
 func SetComputerSystem(client *gofish.APIClient, systemID, jsonData string) error {
 	sys, err := GetComputerSystem(client, systemID)
@@ -131,11 +140,36 @@ func SetComputerSystem(client *gofish.APIClient, systemID, jsonData string) erro
 		return err
 	}
 
-	if err := json.Unmarshal([]byte(jsonData), sys); err != nil {
+	payload, err := decodeObject(jsonData)
+	if err != nil {
 		return fmt.Errorf("failed to parse JSON for ComputerSystem %q: %w", systemID, err)
 	}
+	if err := sys.Patch(sys.ODataID, payload); err != nil {
+		return fmt.Errorf("failed to update ComputerSystem %q: %w", systemID, err)
+	}
+	return nil
+}
 
-	return sys.Update()
+// SetComputerSystemProperty applies a value to a named property on the first
+// ComputerSystem exposed by the BMC.
+func SetComputerSystemProperty(client *gofish.APIClient, propertyName, value string) error {
+	sys, err := GetDefaultComputerSystem(client)
+	if err != nil {
+		return err
+	}
+
+	field, ok := exportedField(sys, propertyName)
+	if !ok {
+		return fmt.Errorf("unknown property %q on ComputerSystem", propertyName)
+	}
+	payload, err := decodePropertyValue(field, value)
+	if err != nil {
+		return fmt.Errorf("failed to parse value for ComputerSystem.%s: %w", propertyName, err)
+	}
+	if err := sys.Patch(sys.ODataID, map[string]any{propertyName: payload}); err != nil {
+		return fmt.Errorf("failed to update ComputerSystem.%s: %w", propertyName, err)
+	}
+	return nil
 }
 
 // GetManager returns the Manager matching the given name (e.g. "BMC", "1").
@@ -153,6 +187,19 @@ func GetManager(client *gofish.APIClient, name string) (*schemas.Manager, error)
 	return nil, fmt.Errorf("manager %q not found", name)
 }
 
+// GetDefaultManager returns the first Manager exposed by the BMC.
+func GetDefaultManager(client *gofish.APIClient) (*schemas.Manager, error) {
+	service := client.GetService()
+	managers, err := service.Managers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list managers: %w", err)
+	}
+	if len(managers) == 0 {
+		return nil, fmt.Errorf("no managers found on BMC")
+	}
+	return managers[0], nil
+}
+
 // SetManager applies JSON-encoded properties to the named Manager.
 func SetManager(client *gofish.APIClient, name, jsonData string) error {
 	mgr, err := GetManager(client, name)
@@ -160,11 +207,36 @@ func SetManager(client *gofish.APIClient, name, jsonData string) error {
 		return err
 	}
 
-	if err := json.Unmarshal([]byte(jsonData), mgr); err != nil {
+	payload, err := decodeObject(jsonData)
+	if err != nil {
 		return fmt.Errorf("failed to parse JSON for Manager %q: %w", name, err)
 	}
+	if err := mgr.Patch(mgr.ODataID, payload); err != nil {
+		return fmt.Errorf("failed to update Manager %q: %w", name, err)
+	}
+	return nil
+}
 
-	return mgr.Update()
+// SetManagerProperty applies a value to a named property on the first Manager
+// exposed by the BMC.
+func SetManagerProperty(client *gofish.APIClient, propertyName, value string) error {
+	mgr, err := GetDefaultManager(client)
+	if err != nil {
+		return err
+	}
+
+	field, ok := exportedField(mgr, propertyName)
+	if !ok {
+		return fmt.Errorf("unknown property %q on Manager", propertyName)
+	}
+	payload, err := decodePropertyValue(field, value)
+	if err != nil {
+		return fmt.Errorf("failed to parse value for Manager.%s: %w", propertyName, err)
+	}
+	if err := mgr.Patch(mgr.ODataID, map[string]any{propertyName: payload}); err != nil {
+		return fmt.Errorf("failed to update Manager.%s: %w", propertyName, err)
+	}
+	return nil
 }
 
 // ListAccounts returns all ManagerAccount resources from the AccountService.
@@ -193,10 +265,14 @@ func UpdateAccount(client *gofish.APIClient, accountID, jsonData string) error {
 	}
 	for i := range accts {
 		if accts[i].ID == accountID {
-			if err := json.Unmarshal([]byte(jsonData), &accts[i]); err != nil {
+			payload, err := decodeObject(jsonData)
+			if err != nil {
 				return fmt.Errorf("failed to parse JSON for account %q: %w", accountID, err)
 			}
-			return accts[i].Update()
+			if err := accts[i].Patch(accts[i].ODataID, payload); err != nil {
+				return fmt.Errorf("failed to update account %q: %w", accountID, err)
+			}
+			return nil
 		}
 	}
 	return fmt.Errorf("account %q not found", accountID)
@@ -205,6 +281,18 @@ func UpdateAccount(client *gofish.APIClient, accountID, jsonData string) error {
 // ResetManager performs a factory reset on the first manager.
 // preserveConfig can be: "" (reset all), "PreserveNetwork", or "PreserveNetworkAndUsers".
 func ResetManager(client *gofish.APIClient, preserveConfig string) error {
+	var resetType schemas.ResetToDefaultsType
+	switch preserveConfig {
+	case "":
+		resetType = schemas.ResetAllResetToDefaultsType
+	case "PreserveNetwork":
+		resetType = schemas.PreserveNetworkResetToDefaultsType
+	case "PreserveNetworkAndUsers":
+		resetType = schemas.PreserveNetworkAndUsersResetToDefaultsType
+	default:
+		return fmt.Errorf("invalid preserve configuration %q", preserveConfig)
+	}
+
 	service := client.GetService()
 	managers, err := service.Managers()
 	if err != nil {
@@ -212,16 +300,6 @@ func ResetManager(client *gofish.APIClient, preserveConfig string) error {
 	}
 	if len(managers) == 0 {
 		return fmt.Errorf("no managers found on BMC")
-	}
-
-	var resetType schemas.ResetToDefaultsType
-	switch preserveConfig {
-	case "PreserveNetwork":
-		resetType = schemas.PreserveNetworkResetToDefaultsType
-	case "PreserveNetworkAndUsers":
-		resetType = schemas.PreserveNetworkAndUsersResetToDefaultsType
-	default:
-		resetType = schemas.ResetAllResetToDefaultsType
 	}
 
 	log.Info().Msgf("resetting manager %s to defaults (type: %s)", managers[0].ID, resetType)
@@ -251,9 +329,8 @@ func GetProtocolProperties(client *gofish.APIClient, protocolName string) ([]str
 		return nil, err
 	}
 
-	npVal := reflect.ValueOf(np).Elem()
-	field := npVal.FieldByName(protocolName)
-	if !field.IsValid() {
+	field, ok := exportedField(np, protocolName)
+	if !ok {
 		return nil, fmt.Errorf("unknown protocol %q", protocolName)
 	}
 
@@ -263,6 +340,10 @@ func GetProtocolProperties(client *gofish.APIClient, protocolName string) ([]str
 			return nil, nil
 		}
 		field = field.Elem()
+	}
+
+	if field.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("protocol %q does not contain nested properties", protocolName)
 	}
 
 	var props []string
@@ -339,32 +420,58 @@ func GetAccountProperties(client *gofish.APIClient) ([]string, error) {
 	return props, nil
 }
 
-// setStructField sets a field on a gofish struct by name and value.
-// The value is JSON-marshaled and then unmarshaled into the target field
-// to handle type conversions (e.g. string -> int, string -> []string).
-func setStructField(field *reflect.Value, key string, value any) error {
-	switch v := value.(type) {
-	case string:
-		if len(v) > 0 && (v[0] == '{' || v[0] == '[') {
-			jsonBytes := []byte(v)
-			if err := json.Unmarshal(jsonBytes, field.Addr().Interface()); err != nil {
-				return fmt.Errorf("failed to parse value for %q: %w", key, err)
-			}
-		} else {
-			if err := json.Unmarshal([]byte(fmt.Sprintf(`"%s"`, v)), field.Addr().Interface()); err != nil {
-				if err2 := json.Unmarshal([]byte(v), field.Addr().Interface()); err2 != nil {
-					return fmt.Errorf("failed to set %q: %w", key, err)
-				}
-			}
+// decodePropertyValue parses a command-line value and verifies that it can be
+// represented by the corresponding gofish schema field. Bare values are
+// treated as strings, while valid JSON scalars, objects, and arrays retain
+// their JSON types.
+func decodePropertyValue(field reflect.Value, value string) (any, error) {
+	trimmed := strings.TrimSpace(value)
+	var parsed any
+	if field.Kind() == reflect.String && !strings.HasPrefix(trimmed, `"`) {
+		parsed = value
+	} else if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") || strings.HasPrefix(trimmed, `"`) {
+			return nil, err
 		}
-	default:
-		jsonBytes, err := json.Marshal(value)
-		if err != nil {
-			return fmt.Errorf("failed to marshal value for %q: %w", key, err)
-		}
-		if err := json.Unmarshal(jsonBytes, field.Addr().Interface()); err != nil {
-			return fmt.Errorf("failed to set %q: %w", key, err)
-		}
+		parsed = value
 	}
-	return nil
+
+	encoded, err := json.Marshal(parsed)
+	if err != nil {
+		return nil, err
+	}
+	target := reflect.New(field.Type())
+	if err := json.Unmarshal(encoded, target.Interface()); err != nil {
+		return nil, err
+	}
+	return parsed, nil
+}
+
+func decodeObject(value string) (map[string]any, error) {
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(value), &payload); err != nil {
+		return nil, err
+	}
+	if payload == nil {
+		return nil, fmt.Errorf("value must be a JSON object")
+	}
+	return payload, nil
+}
+
+func exportedField(resource any, name string) (reflect.Value, bool) {
+	value := reflect.ValueOf(resource)
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return reflect.Value{}, false
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	fieldType, ok := value.Type().FieldByName(name)
+	if !ok || fieldType.PkgPath != "" || fieldType.Anonymous {
+		return reflect.Value{}, false
+	}
+	return value.FieldByIndex(fieldType.Index), true
 }

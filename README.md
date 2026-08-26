@@ -576,6 +576,12 @@ magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,
 # get the first ethernet interface
 magellan settings get 172.16.0.105 EthernetInterface 0
 
+# update a property on the first computer system
+magellan settings set 172.16.0.105 ComputerSystem AssetTag rack-12-node-4
+
+# get a property from the first manager
+magellan settings get 172.16.0.105 Manager FirmwareVersion
+
 # get all BMC user accounts
 magellan settings get 172.16.0.105 Accounts
 
@@ -586,7 +592,7 @@ magellan settings reset 172.16.0.105
 magellan settings reset 172.16.0.105 --preserve-config PreserveNetwork
 ```
 
-The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
+The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations use the first resource exposed by the BMC. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
 
 See `magellan-settings(1)` for more details.
 
@@ -666,7 +672,8 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **power** | `--list-reset-types` | `LIST_RESET_TYPES` | Lists supported Redfish reset types |
 | **power** | `--reset-type` | `RESET_TYPE` | Redfish reset type to perform |
 | **power** | `--inventory-file` | `INVENTORY_FILE` | YAML file containing node inventory |
-| **settings** | `--inventory-file` | `SETTINGS_INVENTORY_FILE` | YAML file containing node inventory |
+| **settings** | `--inventory-file` | `SETTINGS_INVENTORY_FILE` | File containing node inventory |
+| **settings** | `--input-format` | `SETTINGS_INPUT_FORMAT` | Sets the inventory input format (json, yaml) |
 | **settings** | `--username` | `SETTINGS_USERNAME` | Sets the master BMC username |
 | **settings** | `--password` | `SETTINGS_PASSWORD` | Sets the master BMC password |
 | **settings** | `--secrets-file` | `SETTINGS_SECRETS_FILE` | Sets the secrets file with BMC credentials |
