@@ -49,6 +49,9 @@ func DetectIdentifierType(input string) IdentifierType {
 	if net.ParseIP(input) != nil {
 		return IdentifierIP
 	}
+	if host, _, err := net.SplitHostPort(input); err == nil && net.ParseIP(host) != nil {
+		return IdentifierIP
+	}
 
 	// UUID: RFC 4122 format (8-4-4-4-12 hex digits)
 	uuidRegex := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
