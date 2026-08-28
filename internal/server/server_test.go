@@ -49,7 +49,7 @@ func newMockRedfish(t *testing.T, initial schemas.PowerState) *httptest.Server {
 		mu.Lock()
 		s := state
 		mu.Unlock()
-		w.Write([]byte(systemJSON(s)))
+		_, _ = w.Write([]byte(systemJSON(s)))
 	})
 	mux.HandleFunc("/redfish/v1/Systems/Node0/Actions/ComputerSystem.Reset", func(w http.ResponseWriter, r *http.Request) {
 		var b struct{ ResetType string }

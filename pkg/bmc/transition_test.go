@@ -81,7 +81,7 @@ func newPowerMock(t *testing.T, initial schemas.PowerState, ignoreGraceful bool)
 	mux.HandleFunc("/redfish/v1", test.Make(test.RESPONSE_ServiceRoot))
 	mux.HandleFunc("/redfish/v1/Systems", test.Make(test.RESPONSE_Systems))
 	mux.HandleFunc("/redfish/v1/Systems/Node0", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(pm.systemJSON()))
+		_, _ = w.Write([]byte(pm.systemJSON()))
 	})
 	mux.HandleFunc("/redfish/v1/Systems/Node0/Actions/ComputerSystem.Reset", func(w http.ResponseWriter, r *http.Request) {
 		var body struct{ ResetType string }

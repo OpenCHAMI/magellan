@@ -23,7 +23,6 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish/schemas"
-	"golang.org/x/exp/slices"
 )
 
 // CollectParams is a collection of common parameters passed to the CLI
@@ -173,8 +172,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	// use the found results to query bmc information
 	for _, ps := range *assets {
 		// skip if found info from host
-		foundHost := slices.Index(found, ps.Host)
-		if !ps.State || foundHost >= 0 {
+		foundHost := false
+		for _, host := range found {
+			if host == ps.Host {
+				foundHost = true
+				break
+			}
+		}
+		if !ps.State || foundHost {
 			continue
 		}
 		chanAssets <- ps
