@@ -488,7 +488,7 @@ func init() {
 		c.Flags().Var(&settingsInputFormat, "input-format", "Set the inventory input format (json|yaml).")
 		c.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username.")
 		c.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
-		c.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
+		c.Flags().StringVar(&secretsFile, "secrets-file", "secrets.json", "Set the secrets file with BMC credentials.")
 		c.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
 		c.Flags().StringVar(&settingsCACertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
 	}

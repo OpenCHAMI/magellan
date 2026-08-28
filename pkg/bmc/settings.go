@@ -304,6 +304,9 @@ func ResetManager(client *gofish.APIClient, preserveConfig string) error {
 
 	log.Info().Msgf("resetting manager %s to defaults (type: %s)", managers[0].ID, resetType)
 	_, err = managers[0].ResetToDefaults(resetType)
+	if err != nil && strings.Contains(err.Error(), "no target provided") {
+		return fmt.Errorf("manager %s does not advertise a ResetToDefaults action; this BMC may not support factory reset via Redfish", managers[0].ID)
+	}
 	return err
 }
 

@@ -246,7 +246,7 @@ available environment variables.
 func init() {
 	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username.")
 	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
-	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
+	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "secrets.json", "Set the secrets file with BMC credentials.")
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query.")
 	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file.")
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning.")
