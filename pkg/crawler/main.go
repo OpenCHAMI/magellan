@@ -401,6 +401,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			system.NetworkInterfaces = append(system.NetworkInterfaces, networkInterface)
 		}
 
+		//nolint:staticcheck // Preserve legacy TrustedModules inventory data for existing consumers.
 		for _, rf_trustedmodule := range rf_computersystem.TrustedModules {
 			system.TrustedModules = append(system.TrustedModules, fmt.Sprintf("%s %s", rf_trustedmodule.InterfaceType, rf_trustedmodule.FirmwareVersion))
 		}
@@ -451,6 +452,7 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 		}
 
 		var supported_serial_console []string
+		//nolint:staticcheck // Manager serial-console data remains part of Magellan's manager inventory contract.
 		for _, console_type := range rf_manager.SerialConsole.ConnectTypesSupported {
 			supported_serial_console = append(supported_serial_console, string(console_type))
 		}
