@@ -220,7 +220,6 @@ func findNodeByIdentifier(nodes []bmc.Node, identifier string) (*bmc.Node, error
 				return &nodes[i], nil
 			}
 		}
-
 	case bmc.IdentifierUUID:
 		for i := range nodes {
 			if strings.EqualFold(nodes[i].UUID, identifier) {
