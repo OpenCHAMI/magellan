@@ -11,12 +11,14 @@ func TestDetectIdentifierType(t *testing.T) {
 		// IP addresses - IPv4
 		{"IPv4 standard", "10.0.0.101", IdentifierIP},
 		{"IPv4 localhost", "127.0.0.1", IdentifierIP},
+		{"IPv4 with port", "127.0.0.1:5000", IdentifierIP},
 		{"IPv4 broadcast", "255.255.255.255", IdentifierIP},
 		{"IPv4 zero", "0.0.0.0", IdentifierIP},
 
 		// IP addresses - IPv6
 		{"IPv6 standard", "2001:db8::1", IdentifierIP},
 		{"IPv6 localhost", "::1", IdentifierIP},
+		{"IPv6 with port", "[::1]:5000", IdentifierIP},
 		{"IPv6 full", "2001:0db8:85a3:0000:0000:8a2e:0370:7334", IdentifierIP},
 		{"IPv6 compressed", "2001:db8::8a2e:370:7334", IdentifierIP},
 
