@@ -187,6 +187,20 @@ func ResetOperation(ctx context.Context, node CrawlableNode, op bmc.Operation) (
 	return client.ResetOperation(ctx, node.NodeID, op)
 }
 
+// PowerTransition performs a vendor-neutral power operation and confirms it
+// took effect, polling the BMC until the configured deadline.
+func PowerTransition(ctx context.Context, node CrawlableNode, op bmc.Operation, opts bmc.TransitionOptions) (*bmc.TransitionResult, error) {
+	log.Debug().Msgf("performing confirmed power operation %q on computer system %s", op, node.ClusterID)
+
+	client, err := bmc.DefaultManager.Client(ctx, node.ConnConfig)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Logout()
+
+	return bmc.ResetAndConfirm(ctx, client, node.NodeID, op, opts)
+}
+
 // GetBMCSession returns an already-active gofish BMC client, creating a new one if necessary.
 // This facilitates keeping the clients open for efficiency.
 //
