@@ -33,7 +33,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.0
+          version: v2.13.2
 
   modules:
     name: Check Go modules
