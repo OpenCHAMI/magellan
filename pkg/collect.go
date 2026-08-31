@@ -20,7 +20,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/stmcginnis/gofish"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -47,10 +47,10 @@ type CollectParams struct {
 func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[string]any, error) {
 	// check for available remote assets found from scan
 	if assets == nil {
-		return nil, fmt.Errorf("invalid assets (assets == nil)")
+		return nil, fmt.Errorf("no assets found")
 	}
 	if len(*assets) <= 0 {
-		return nil, fmt.Errorf("no assets found for collection (assets <= 0)")
+		return nil, fmt.Errorf("no assets found")
 	}
 	if params == nil {
 		return nil, fmt.Errorf("invalid collection parameters (params == nil)")
@@ -63,9 +63,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	var (
 		wg           sync.WaitGroup
 		collection   = make([]map[string]any, 0)
+		collectionMu sync.Mutex
 		chanAssets   = make(chan RemoteAsset, params.Concurrency+1)
 		mapper       = idmap.PickIDMapper(params.BMCIDMap, params.OutputFormat)
-		collectionMu sync.Mutex
 	)
 
 	// set the client's params from CLI
@@ -81,13 +81,6 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 				trimmedHost := strings.TrimPrefix(sr.Host, "https://")
 				uri := fmt.Sprintf("%s:%d", sr.Host, sr.Port)
-				// resolve the hostname if it exists
-				if net.ParseIP(trimmedHost) == nil {
-					addrs, err := net.LookupIP(trimmedHost)
-					if err == nil && len(addrs) > 0 {
-						trimmedHost = addrs[0].String()
-					}
-				}
 				keys := &idmap.MapperKeys{
 					IPv4Addr: trimmedHost,
 				}
@@ -174,12 +167,16 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 		}()
 	}
 
-	// use the found results to query bmc information
+	// Queue each active host once. Results are collected concurrently below.
+	queued := make(map[string]struct{}, len(*assets))
 	for _, ps := range *assets {
-		// skip if found info from host
 		if !ps.State {
 			continue
 		}
+		if _, ok := queued[ps.Host]; ok {
+			continue
+		}
+		queued[ps.Host] = struct{}{}
 		chanAssets <- ps
 	}
 
@@ -252,28 +249,9 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 	// gofish (at least for now). If there's a need for grabbing more
 	// manager information in the future, we can move the logic into
 	// the crawler.
-	bmc_creds, err := config.GetUserPass()
+	// Open a session through the shared BMC manager (the single gofish.Connect site).
+	client, err := bmc.DefaultManager.Connect(config)
 	if err != nil {
-		return "", fmt.Errorf("failed to get credentials for URI: %s", config.URI)
-	}
-
-	client, err := gofish.Connect(gofish.ClientConfig{
-		Endpoint:  config.URI,
-		Username:  bmc_creds.Username,
-		Password:  bmc_creds.Password,
-		Insecure:  config.Insecure,
-		BasicAuth: true,
-	})
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "404:") {
-			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
-		}
-		if strings.HasPrefix(err.Error(), "401:") {
-			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
-		}
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to connect to BMC")
 		return "", err
 	}
 	defer client.Logout()
