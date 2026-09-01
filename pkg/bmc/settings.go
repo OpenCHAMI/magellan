@@ -302,6 +302,24 @@ func ResetManager(client *gofish.APIClient, preserveConfig string) error {
 		return fmt.Errorf("no managers found on BMC")
 	}
 
+	supported, err := managers[0].GetSupportedResetToDefaultsTypes()
+	if err != nil {
+		return fmt.Errorf("failed to query reset-to-defaults support: %w", err)
+	}
+	if len(supported) == 0 {
+		return fmt.Errorf("BMC %q does not support resetting to default via Manager.ResetToDefaults", managers[0].ID)
+	}
+	found := false
+	for _, st := range supported {
+		if st == resetType {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("BMC %q does not support reset type %q (supported: %v)", managers[0].ID, resetType, supported)
+	}
+
 	log.Info().Msgf("resetting manager %s to defaults (type: %s)", managers[0].ID, resetType)
 	_, err = managers[0].ResetToDefaults(resetType)
 	return err

@@ -24,11 +24,13 @@ type redfishSettingsFixture struct {
 	server *httptest.Server
 	mu     sync.Mutex
 	writes []capturedRequest
+	routes map[string]string
 }
 
 func newRedfishSettingsFixture(t *testing.T) *redfishSettingsFixture {
 	t.Helper()
 	f := &redfishSettingsFixture{t: t}
+	f.routes = map[string]string{}
 	f.server = httptest.NewServer(http.HandlerFunc(f.serveHTTP))
 	t.Cleanup(f.server.Close)
 	return f
@@ -39,6 +41,20 @@ func (f *redfishSettingsFixture) client() *gofish.APIClient {
 	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: f.server.URL, BasicAuth: true})
 	require.NoError(f.t, err)
 	return client
+}
+
+// addRoute registers or replaces the JSON served for a request path.
+func (f *redfishSettingsFixture) addRoute(path, response string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.routes[path] = response
+}
+
+func (f *redfishSettingsFixture) route(path string) (string, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	response, ok := f.routes[path]
+	return response, ok
 }
 
 func (f *redfishSettingsFixture) capturedWrites() []capturedRequest {
@@ -59,6 +75,11 @@ func (f *redfishSettingsFixture) serveHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if response, ok := f.routes[r.URL.Path]; ok {
+		_, _ = w.Write([]byte(response))
+		return
+	}
+
 	responses := map[string]string{
 		"/redfish/v1/": `{
 			"@odata.id":"/redfish/v1/", "Id":"RootService", "Name":"Root Service",
@@ -76,7 +97,10 @@ func (f *redfishSettingsFixture) serveHTTP(w http.ResponseWriter, r *http.Reques
 			"FirmwareVersion":"1.2.3", "DateTime":"2026-01-01T00:00:00Z",
 			"NetworkProtocol":{"@odata.id":"/redfish/v1/Managers/BMC-A/NetworkProtocol"},
 			"EthernetInterfaces":{"@odata.id":"/redfish/v1/Managers/BMC-A/EthernetInterfaces"},
-			"Actions":{"#Manager.ResetToDefaults":{"target":"/redfish/v1/Managers/BMC-A/Actions/Manager.ResetToDefaults"}}
+			"Actions":{"#Manager.ResetToDefaults":{
+				"target":"/redfish/v1/Managers/BMC-A/Actions/Manager.ResetToDefaults",
+				"ResetType@Redfish.AllowableValues":["ResetAll","PreserveNetwork","PreserveNetworkAndUsers"]
+			}}
 		}`,
 		"/redfish/v1/Managers/BMC-B": `{
 			"@odata.id":"/redfish/v1/Managers/BMC-B", "Id":"BMC-B", "Name":"Secondary BMC",
@@ -250,4 +274,53 @@ func TestResetManagerValidatesPreservationMode(t *testing.T) {
 	f := newRedfishSettingsFixture(t)
 	require.ErrorContains(t, ResetManager(f.client(), "PreserveNetwrok"), "invalid preserve configuration")
 	require.Empty(t, f.capturedWrites())
+}
+
+func TestResetManagerRejectsUnsupportedBMC(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	// Overlay the first manager with a resource that advertises no
+	// ResetToDefaults action at all.
+	f.addRoute("/redfish/v1/Managers/BMC-A", `{
+		"@odata.id":"/redfish/v1/Managers/BMC-A", "Id":"BMC-A", "Name":"Primary BMC",
+		"FirmwareVersion":"1.0.0"
+	}`)
+
+	err := ResetManager(client, "")
+	require.ErrorContains(t, err, `BMC "BMC-A" does not support resetting to default via Manager.ResetToDefaults`)
+	require.Empty(t, f.capturedWrites())
+}
+
+func TestResetManagerRejectsUnsupportedResetType(t *testing.T) {
+	tests := []struct {
+		name     string
+		allowed  string
+		preserve string
+		expected string
+	}{
+		{name: "wrong preserve type", allowed: `["ResetAll"]`, preserve: "PreserveNetwork", expected: "does not support reset type \"PreserveNetwork\" (supported: [ResetAll])"},
+		{name: "plain reset not allowed", allowed: `["PreserveNetwork"]`, preserve: "", expected: "does not support reset type \"ResetAll\" (supported: [PreserveNetwork])"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newRedfishSettingsFixture(t)
+			client := f.client()
+
+			// Overlay a manager fixture whose ResetToDefaults action declares only
+			// the allowed list nominated for this case.
+			f.addRoute("/redfish/v1/Managers/BMC-A", `{
+				"@odata.id":"/redfish/v1/Managers/BMC-A", "Id":"BMC-A", "Name":"Primary BMC",
+				"Actions":{"#Manager.ResetToDefaults":{
+					"target":"/redfish/v1/Managers/BMC-A/Actions/Manager.ResetToDefaults",
+					"ResetType@Redfish.AllowableValues":`+tt.allowed+`
+				}}
+			}`)
+
+			err := ResetManager(client, tt.preserve)
+			require.ErrorContains(t, err, `BMC "BMC-A" does not support reset type`)
+			require.ErrorContains(t, err, tt.expected)
+			require.Empty(t, f.capturedWrites())
+		})
+	}
 }
