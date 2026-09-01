@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"reflect"
@@ -77,83 +78,202 @@ available environment variables.
 }
 
 var SettingsListCmd = &cobra.Command{
-	Use:   "list [category]",
-	Short: "List available setting categories or properties",
-	Long: `List available setting categories or properties within a category.
+	Use:   "list <node> [<category> [<item>]]",
+	Short: "List setting categories, items, or properties available on a BMC",
+	Long: `List setting categories, items, or properties available on a BMC.
 
-When called without arguments, lists all available categories.
-When called with a category name, lists the properties available in that category.`,
-	Example: `  # list all available categories
-  magellan settings list
+When called with just a node, lists the setting categories present on that BMC.
+When called with a category, lists the items present under that category.
+When called with a category and item, lists the properties available on that item.`,
+	Example: `  # list all available categories on a BMC
+  magellan settings list 172.16.0.105
 
-  # list properties in NetworkProtocol
-  magellan settings list NetworkProtocol`,
-	Args: cobra.MaximumNArgs(1),
+  # list the network protocols present on a BMC
+  magellan settings list 172.16.0.105 NetworkProtocol
+
+  # list the properties of the SSH protocol
+  magellan settings list 172.16.0.105 NetworkProtocol SSH`,
+	Args: cobra.RangeArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), "Available setting categories:")
-			fmt.Fprintln(cmd.OutOrStdout())
-			for name, desc := range settingsCategories {
-				fmt.Fprintf(cmd.OutOrStdout(), "  %-20s %s\n", name, desc)
-			}
-			return nil
+		nodeArg := args[0]
+
+		client, err := settingsConnect(nodeArg)
+		if err != nil {
+			return fmt.Errorf("failed to connect to BMC for node %q: %w", nodeArg, err)
 		}
-		category := args[0]
-		if _, ok := settingsCategories[category]; !ok {
-			return fmt.Errorf("unknown category %q; use 'magellan settings list' to see available categories", category)
-		}
+		defer client.Logout()
+
 		out := cmd.OutOrStdout()
+
+		// No category: list the categories present on the BMC.
+		if len(args) == 1 {
+			return listSettingsCategories(client, out)
+		}
+		category := args[1]
+		if _, ok := settingsCategories[category]; !ok {
+			return fmt.Errorf("unknown category %q; use 'magellan settings list <node>' to see available categories", category)
+		}
+
 		fmt.Fprintf(out, "Category: %s\n", category)
 		fmt.Fprintf(out, "Description: %s\n\n", settingsCategories[category])
-		switch category {
-		case "NetworkProtocol":
-			fmt.Fprintln(out, "  DHCP        DHCPv4 protocol settings")
-			fmt.Fprintln(out, "  DHCPv6      DHCPv6 protocol settings")
-			fmt.Fprintln(out, "  FQDN        Fully qualified domain name")
-			fmt.Fprintln(out, "  FTP         File Transfer Protocol settings")
-			fmt.Fprintln(out, "  FTPS        FTP over SSL settings")
-			fmt.Fprintln(out, "  HTTP        HTTP protocol settings")
-			fmt.Fprintln(out, "  HTTPS       HTTPS/SSL protocol settings")
-			fmt.Fprintln(out, "  HostName    Host name without domain")
-			fmt.Fprintln(out, "  IPMI        IPMI over LAN settings")
-			fmt.Fprintln(out, "  KVMIP       KVM-IP settings")
-			fmt.Fprintln(out, "  NTP         NTP protocol settings")
-			fmt.Fprintln(out, "  Proxy       HTTP/HTTPS proxy configuration")
-			fmt.Fprintln(out, "  RDP         Remote Desktop Protocol settings")
-			fmt.Fprintln(out, "  RFB         Remote Frame Buffer settings")
-			fmt.Fprintln(out, "  SFTP        SFTP settings")
-			fmt.Fprintln(out, "  SNMP        SNMP settings")
-			fmt.Fprintln(out, "  SSDP        SSDP settings")
-			fmt.Fprintln(out, "  SSH         Secure Shell settings")
-			fmt.Fprintln(out, "  Telnet      Telnet settings")
-			fmt.Fprintln(out, "  VirtualMedia Virtual Media settings")
-			fmt.Fprintln(out, "  MDNS        Multicast DNS settings")
-		case "EthernetInterface":
-			fmt.Fprintln(out, "  0           First ethernet interface")
-			fmt.Fprintln(out, "  1           Second ethernet interface (if present)")
-			fmt.Fprintln(out, "  ...         Additional interfaces")
-		case "ComputerSystem":
-			fmt.Fprintln(out, "  Boot        Boot settings and order")
-			fmt.Fprintln(out, "  BiosVersion BIOS version string")
-			fmt.Fprintln(out, "  AssetTag    Asset tag identifier")
-			fmt.Fprintln(out, "  Manufacturer Manufacturer name")
-			fmt.Fprintln(out, "  Model       System model")
-			fmt.Fprintln(out, "  SerialNumber Serial number")
-			fmt.Fprintln(out, "  UUID        System UUID")
-		case "Manager":
-			fmt.Fprintln(out, "  ID          Manager identifier")
-			fmt.Fprintln(out, "  Name        Manager name")
-			fmt.Fprintln(out, "  FirmwareVersion Firmware version")
-			fmt.Fprintln(out, "  ManagerType Manager type")
-			fmt.Fprintln(out, "  Model       Manager model")
-			fmt.Fprintln(out, "  SerialNumber Serial number")
-		case "Accounts":
-			fmt.Fprintln(out, "  (use 'get' to query specific accounts)")
-		case "Reset":
-			fmt.Fprintln(out, "  ResetType   ResetAll, PreserveNetwork, or PreserveNetworkAndUsers")
+
+		// Category + no item: list the items present under the category.
+		if len(args) == 2 {
+			return listSettingsItems(client, out, category)
 		}
-		return nil
+
+		// Category + item: list the properties available on the item.
+		return listSettingsProperties(client, out, category, args[2])
 	},
+}
+
+// listSettingsCategories connects to the BMC and prints the categories for
+// which data is actually present.
+func listSettingsCategories(client *gofish.APIClient, out io.Writer) error {
+	var present []string
+	for _, name := range []string{"NetworkProtocol", "EthernetInterface", "ComputerSystem", "Manager", "Accounts"} {
+		var err error
+		switch name {
+		case "NetworkProtocol":
+			_, err = bmc.GetNetworkProtocol(client)
+		case "EthernetInterface":
+			_, err = bmc.GetEthernetInterfaces(client)
+		case "ComputerSystem":
+			_, err = bmc.GetDefaultComputerSystem(client)
+		case "Manager":
+			_, err = bmc.GetDefaultManager(client)
+		case "Accounts":
+			_, err = bmc.ListAccounts(client)
+		}
+		if err != nil {
+			continue
+		}
+		present = append(present, name)
+	}
+
+	fmt.Fprintln(out, "Available setting categories on BMC:")
+	fmt.Fprintln(out)
+	for _, name := range present {
+		fmt.Fprintf(out, "  %-20s %s\n", name, settingsCategories[name])
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Use 'magellan settings list <node> <category>' to inspect items in a category.")
+	return nil
+}
+
+// listSettingsItems prints the items present under a category on the BMC.
+func listSettingsItems(client *gofish.APIClient, out io.Writer, category string) error {
+	switch category {
+	case "NetworkProtocol":
+		names, err := bmc.ListProtocols(client)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "Network protocols:")
+		for _, name := range names {
+			fmt.Fprintf(out, "  %-15s (use 'magellan settings list <node> NetworkProtocol %s' for properties)\n", name, name)
+		}
+	case "EthernetInterface":
+		ifaces, err := bmc.GetEthernetInterfaces(client)
+		if err != nil {
+			return err
+		}
+		if len(ifaces) == 0 {
+			fmt.Fprintln(out, "  (no ethernet interfaces found)")
+			return nil
+		}
+		fmt.Fprintln(out, "Ethernet interfaces:")
+		for i := range ifaces {
+			fmt.Fprintf(out, "  %-3d %-15s %s (use 'magellan settings list <node> EthernetInterface %d' for properties)\n", i, ifaces[i].Name, ifaces[i].ID, i)
+		}
+	case "ComputerSystem":
+		systems, err := client.GetService().Systems()
+		if err != nil {
+			return err
+		}
+		if len(systems) == 0 {
+			fmt.Fprintln(out, "  (no computer systems found)")
+			return nil
+		}
+		fmt.Fprintln(out, "Computer systems:")
+		for _, sys := range systems {
+			fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> ComputerSystem %s' for properties)\n", sys.ID, sys.Name, sys.ID)
+		}
+	case "Manager":
+		managers, err := client.GetService().Managers()
+		if err != nil {
+			return err
+		}
+		if len(managers) == 0 {
+			fmt.Fprintln(out, "  (no managers found)")
+			return nil
+		}
+		fmt.Fprintln(out, "Managers:")
+		for _, mgr := range managers {
+			fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> Manager %s' for properties)\n", mgr.ID, mgr.Name, mgr.ID)
+		}
+	case "Accounts":
+		accts, err := bmc.ListAccounts(client)
+		if err != nil {
+			return err
+		}
+		if len(accts) == 0 {
+			fmt.Fprintln(out, "  (no accounts found)")
+			return nil
+		}
+		fmt.Fprintln(out, "Accounts:")
+		for i := range accts {
+			fmt.Fprintf(out, "  %-10s %-20s enabled=%v role=%s (use 'magellan settings list <node> Accounts %s' for properties)\n", accts[i].ID, accts[i].UserName, accts[i].Enabled, accts[i].RoleID, accts[i].ID)
+		}
+	case "Reset":
+		fmt.Fprintln(out, "  Reset is an action, not a listable resource. Use 'magellan settings reset <node>' to perform a factory reset.")
+	}
+	return nil
+}
+
+// listSettingsProperties prints the property names available on a specific item
+// of a category on the BMC.
+func listSettingsProperties(client *gofish.APIClient, out io.Writer, category, item string) error {
+	var props []string
+	var err error
+	switch category {
+	case "NetworkProtocol":
+		props, err = bmc.GetProtocolProperties(client, item)
+		if err != nil {
+			return err
+		}
+	case "EthernetInterface":
+		idx := 0
+		if _, err := fmt.Sscanf(item, "%d", &idx); err != nil {
+			return fmt.Errorf("invalid interface index %q: %w", item, err)
+		}
+		props, err = bmc.GetEthernetInterfaceProperties(client, idx)
+		if err != nil {
+			return err
+		}
+	case "ComputerSystem":
+		props, err = bmc.GetComputerSystemProperties(client, item)
+		if err != nil {
+			return err
+		}
+	case "Manager":
+		props, err = bmc.GetManagerProperties(client, item)
+		if err != nil {
+			return err
+		}
+	case "Accounts":
+		props, err = bmc.GetAccountProperties(client)
+		if err != nil {
+			return err
+		}
+	case "Reset":
+		return fmt.Errorf("Reset is an action, not a listable resource")
+	}
+	fmt.Fprintf(out, "Properties of %s.%s:\n", category, item)
+	for _, p := range props {
+		fmt.Fprintf(out, "  %s\n", p)
+	}
+	return nil
 }
 
 var SettingsGetCmd = &cobra.Command{
@@ -483,12 +603,12 @@ func init() {
 	SettingsResetCmd.Flags().StringVar(&settingsPreserveConfig, "preserve-config", "", "Preserve settings during reset (PreserveNetwork|PreserveNetworkAndUsers).")
 
 	// Common flags for commands that connect to BMC
-	for _, c := range []*cobra.Command{SettingsGetCmd, SettingsSetCmd, SettingsResetCmd} {
+	for _, c := range []*cobra.Command{SettingsListCmd, SettingsGetCmd, SettingsSetCmd, SettingsResetCmd} {
 		c.Flags().StringVarP(&settingsInventoryFile, "inventory-file", "f", "", "File containing node inventory.")
 		c.Flags().Var(&settingsInputFormat, "input-format", "Set the inventory input format (json|yaml).")
 		c.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username.")
 		c.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
-		c.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
+		c.Flags().StringVar(&secretsFile, "secrets-file", "secrets.json", "Set the secrets file with BMC credentials.")
 		c.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
 		c.Flags().StringVar(&settingsCACertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
 	}

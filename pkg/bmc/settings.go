@@ -307,6 +307,28 @@ func ResetManager(client *gofish.APIClient, preserveConfig string) error {
 	return err
 }
 
+// ListProtocols returns the names of the network protocols present on the
+// ManagerNetworkProtocol of the first manager found on the BMC pointed to by
+// client. Unlike GetProtocolNames, this verifies that a manager and its
+// network protocol resource exist on the live BMC.
+func ListProtocols(client *gofish.APIClient) ([]string, error) {
+	np, err := GetNetworkProtocol(client)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	t := reflect.TypeOf(np).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		// Skip embedded types and non-protocol fields
+		if field.Anonymous || field.Name[0] == 'O' || field.Name == "Status" || field.Name == "HostName" || field.Name == "FQDN" {
+			continue
+		}
+		names = append(names, field.Name)
+	}
+	return names, nil
+}
+
 // GetProtocolNames returns the names of protocol fields on ManagerNetworkProtocol.
 func GetProtocolNames() []string {
 	var names []string

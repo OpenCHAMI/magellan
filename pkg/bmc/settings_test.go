@@ -131,6 +131,12 @@ func TestSettingsGettersUseDefaultResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "bmc-a.example.com", np.FQDN)
 
+	protocols, err := ListProtocols(client)
+	require.NoError(t, err)
+	require.Contains(t, protocols, "SSH")
+	require.NotContains(t, protocols, "FQDN")
+	require.NotContains(t, protocols, "HostName")
+
 	interfaces, err := GetEthernetInterfaces(client)
 	require.NoError(t, err)
 	require.Len(t, interfaces, 1)

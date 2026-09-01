@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/pkg/test"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -83,18 +84,119 @@ func TestSettingsEndpoint(t *testing.T) {
 }
 
 func TestSettingsListCommand(t *testing.T) {
-	var output bytes.Buffer
-	SettingsListCmd.SetOut(&output)
-	t.Cleanup(func() { SettingsListCmd.SetOut(nil) })
+	server := newSettingsMockServer(t)
 
-	require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, nil))
-	require.Contains(t, output.String(), "NetworkProtocol")
-	require.Contains(t, output.String(), "ComputerSystem")
+	resetSettingsTestState(t)
+	username, password = "user", "pass"
 
-	output.Reset()
-	require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{"Manager"}))
-	require.Contains(t, output.String(), "FirmwareVersion")
-	require.ErrorContains(t, SettingsListCmd.RunE(SettingsListCmd, []string{"Unknown"}), "unknown category")
+	t.Run("lists categories present on the BMC", func(t *testing.T) {
+		var output bytes.Buffer
+		SettingsListCmd.SetOut(&output)
+		t.Cleanup(func() { SettingsListCmd.SetOut(nil) })
+
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL}))
+		require.Contains(t, output.String(), "NetworkProtocol")
+		require.Contains(t, output.String(), "EthernetInterface")
+		require.Contains(t, output.String(), "ComputerSystem")
+		require.Contains(t, output.String(), "Manager")
+		require.Contains(t, output.String(), "Accounts")
+	})
+
+	t.Run("lists items in a category", func(t *testing.T) {
+		var output bytes.Buffer
+		SettingsListCmd.SetOut(&output)
+		t.Cleanup(func() { SettingsListCmd.SetOut(nil) })
+
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "NetworkProtocol"}))
+		require.Contains(t, output.String(), "SSH")
+		require.Contains(t, output.String(), "HTTPS")
+		require.Contains(t, output.String(), "IPMI")
+		require.Contains(t, output.String(), "NTP")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "EthernetInterface"}))
+		require.Contains(t, output.String(), "Manager Ethernet Interface")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "ComputerSystem"}))
+		require.Contains(t, output.String(), "Node0")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Manager"}))
+		require.Contains(t, output.String(), "bmc")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Accounts"}))
+		require.Contains(t, output.String(), "admin")
+	})
+
+	t.Run("lists properties of an item", func(t *testing.T) {
+		var output bytes.Buffer
+		SettingsListCmd.SetOut(&output)
+		t.Cleanup(func() { SettingsListCmd.SetOut(nil) })
+
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "NetworkProtocol", "SSH"}))
+		require.Contains(t, output.String(), "ProtocolEnabled")
+		require.Contains(t, output.String(), "Port")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "EthernetInterface", "0"}))
+		require.Contains(t, output.String(), "MACAddress")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "ComputerSystem", "Node0"}))
+		require.Contains(t, output.String(), "Manufacturer")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Manager", "bmc"}))
+		require.Contains(t, output.String(), "FirmwareVersion")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Accounts", "1"}))
+		require.Contains(t, output.String(), "UserName")
+	})
+
+	t.Run("errors on unknown category", func(t *testing.T) {
+		err := SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Unknown"})
+		require.ErrorContains(t, err, "unknown category")
+	})
+
+	t.Run("errors on out of range interface index", func(t *testing.T) {
+		err := SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "EthernetInterface", "9"})
+		require.ErrorContains(t, err, "out of range")
+	})
+}
+
+// newSettingsMockServer spins up a mock Redfish service with the resources
+// required by the settings commands and returns its httptest server.
+func newSettingsMockServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	routes := map[string]string{
+		"/redfish/v1/":                                          test.RESPONSE_ServiceRoot,
+		"/redfish/v1/Managers":                                  test.RESPONSE_Managers,
+		"/redfish/v1/Managers/bmc":                              test.RESPONSE_Manager,
+		"/redfish/v1/Managers/bmc/NetworkProtocol":              test.RESPONSE_ManagerNetworkProtocol,
+		"/redfish/v1/Managers/bmc/EthernetInterfaces":           test.RESPONSE_EthernetInterfaceCollection,
+		"/redfish/v1/Managers/bmc/EthernetInterfaces/1":         test.RESPONSE_ManagerEthernetInterface,
+		"/redfish/v1/Systems":                                   test.RESPONSE_Systems,
+		"/redfish/v1/Systems/Node0":                             test.RESPONSE_EthernetInterface,
+		"/redfish/v1/AccountService":                            test.RESPONSE_AccountService,
+		"/redfish/v1/AccountService/Accounts":                   test.RESPONSE_AccountCollection,
+		"/redfish/v1/AccountService/Accounts/1":                 test.RESPONSE_ManagerAccount,
+	}
+	// Route endpoint base + trailing slash variants so chi matches both.
+	mux := http.NewServeMux()
+	for path, response := range routes {
+		body := response
+		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
+		})
+	}
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	return server
 }
 
 func TestSettingsEnvironmentVariablesUseSettingsPrefix(t *testing.T) {
