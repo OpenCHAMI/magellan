@@ -561,15 +561,26 @@ These options are omitted from the examples above for clarity.
 
 The `magellan settings` command provides read and write access to BMC configuration through the Redfish API. Supported configuration categories include network protocols (SSH, HTTPS, IPMI, NTP, etc.), ethernet interfaces (IP addresses, MAC addresses, DHCP), computer system settings (boot order, asset tag), manager properties, and BMC user accounts.
 
-```bash
-# list all available setting categories
-magellan settings list
+The `list` and `get` subcommands query the BMC directly and let you walk down the settings tree as deeply as the BMC schema allows. `list` shows the categories, items, and properties that are actually present on the BMC; `get` reads the value at a given path.
 
-# list properties in the NetworkProtocol category
-magellan settings list NetworkProtocol
+```bash
+# list the setting categories present on a BMC
+magellan settings list 172.16.0.105
+
+# list the network protocols present on a BMC
+magellan settings list 172.16.0.105 NetworkProtocol
+
+# list the properties of the SSH protocol
+magellan settings list 172.16.0.105 NetworkProtocol SSH
+
+# walk deeper into a nested structure
+magellan settings list 172.16.0.105 ComputerSystem Node0 Boot
 
 # get SSH protocol settings from a BMC
 magellan settings get 172.16.0.105 NetworkProtocol SSH
+
+# get a nested computer system property
+magellan settings get 172.16.0.105 ComputerSystem Boot BootOrder
 
 # set SSH protocol settings
 magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,"Port":22}'
@@ -592,6 +603,8 @@ magellan settings reset 172.16.0.105
 # factory reset preserving network settings
 magellan settings reset 172.16.0.105 --preserve-config PreserveNetwork
 ```
+
+There is no upper limit on the number of property arguments: `list` and `get` walk as deep into nested settings as the BMC exposes (for example, `get <node> ComputerSystem Boot BootOrder`). The `set` command accepts a single property and a value; the `reset` command reports an error if the BMC does not support resetting to defaults via `Manager.ResetToDefaults` or does not support the requested `--preserve-config` type.
 
 The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations use the first resource exposed by the BMC. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
 

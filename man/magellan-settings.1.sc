@@ -7,10 +7,10 @@ magellan-settings - Configure BMC settings through Redfish
 # SYNOPSIS
 
 magellan settings [OPTIONS]++
-magellan settings list [category] [OPTIONS]++
-magellan settings get <node> <category> [property] [OPTIONS]++
+magellan settings list <node> [<category> [<item> [<property>...]]] [OPTIONS]++
+magellan settings get <node> <category> [item] [property...] [OPTIONS]++
 magellan settings set <node> <category> <property> <value> [OPTIONS]++
-magellan settings reset <node> [OPTIONS]++
+magellan settings reset <node> [OPTIONS]
 
 # DESCRIPTION
 
@@ -32,17 +32,23 @@ used for all commands.
 
 # COMMANDS
 
-*list* [category]
-:	When called without arguments, lists all available setting categories.
-	When called with a category name, lists the properties available in
-	that category.
+*list* <node> [<category> [<item> [<property>...]]]
+:	Query the BMC and list the setting categories, items, and properties
+	that are actually present. When called with just a node, lists the
+	setting categories present on that BMC. When called with a category,
+	lists the items under that category. When called with a category and
+	item, lists the properties of that item. Additional property arguments
+	walk deeper into nested structures with no upper bound on depth.
 
-*get* <node> <category> [property]
-:	Get a BMC setting value. For *NetworkProtocol*, specify the protocol
-	name (e.g. SSH, HTTPS, IPMI). For *EthernetInterface*, specify the
-	interface index (0, 1, ...). For *ComputerSystem*, *Manager*, or
-	*Accounts*, specify the property name or account ID. ComputerSystem and
-	Manager operations use the first resource exposed by the BMC.
+*get* <node> <category> [item] [property...]
+:	Get a BMC setting value by category and property path. The path is
+	walked into nested properties as deeply as the BMC schema allows. For
+	*NetworkProtocol*, the first item is the protocol name (e.g. SSH, HTTPS,
+	IPMI). For *EthernetInterface*, the first item is the interface index
+	(0, 1, ...). For *ComputerSystem* and *Manager*, the first item is a
+	property name on the first resource exposed by the BMC. For *Accounts*,
+	the first item is the account ID. Any additional items walk deeper into
+	nested properties.
 
 *set* <node> <category> <property> <value>
 :	Set a BMC setting value. The *value* should be a JSON string for
@@ -50,7 +56,10 @@ used for all commands.
 
 *reset* <node>
 :	Factory reset the BMC manager. By default, resets all settings.
-	Use *--preserve-config* to preserve specific settings during the reset.
+	Use *--preserve-config* to preserve specific settings during the
+	reset. If the BMC does not support resetting to defaults via the
+	Manager.ResetToDefaults action, or does not support the requested
+	preserve type, an error is reported before any reset is attempted.
 
 # FLAGS
 
@@ -88,19 +97,34 @@ used for all commands.
 
 # EXAMPLES
 
-List all available setting categories:
+List the setting categories present on a BMC:
 ```
-magellan settings list
+magellan settings list 172.16.0.105
 ```
 
-List properties in the NetworkProtocol category:
+List the network protocols present on a BMC:
 ```
-magellan settings list NetworkProtocol
+magellan settings list 172.16.0.105 NetworkProtocol
+```
+
+List the properties of the SSH protocol:
+```
+magellan settings list 172.16.0.105 NetworkProtocol SSH
+```
+
+Walk deeper into a nested structure:
+```
+magellan settings list 172.16.0.105 ComputerSystem Node0 Boot
 ```
 
 Get SSH protocol settings from a BMC:
 ```
 magellan settings get 172.16.0.105 NetworkProtocol SSH
+```
+
+Get a nested computer system property:
+```
+magellan settings get 172.16.0.105 ComputerSystem Boot BootOrder
 ```
 
 Set SSH protocol settings:

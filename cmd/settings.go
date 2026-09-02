@@ -37,14 +37,17 @@ var settingsCategories = map[string]string{
 
 var SettingsCmd = &cobra.Command{
 	Use: "settings",
-	Example: `  # list all available setting categories
-  magellan settings list
+	Example: `  # list the setting categories present on a BMC
+  magellan settings list 172.16.0.105
 
-  # list properties in the NetworkProtocol category
-  magellan settings list NetworkProtocol
+  # list the network protocols present on a BMC
+  magellan settings list 172.16.0.105 NetworkProtocol
 
   # get a specific network setting from a BMC
   magellan settings get 172.16.0.105 NetworkProtocol SSH
+
+  # get a nested computer system property
+  magellan settings get 172.16.0.105 ComputerSystem Boot BootOrder
 
   # set a network setting
   magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,"Port":22}'
@@ -335,11 +338,12 @@ var SettingsGetCmd = &cobra.Command{
 	Long: `Get a BMC setting value by category and property path.
 
 The path is walked into nested properties as deeply as the BMC schema allows.
-For NetworkProtocol, the first item is the protocol name (e.g., SSH, HTTPS,
-IPMI, NTP) followed by nested property names. For EthernetInterface, the first
-item is the interface index (0, 1, ...). For ComputerSystem and Manager, the
-first item identifies the resource and the remaining items are property names.
-For Accounts, the first item is the account ID.`,
+The first item after the category selects the setting to read, and any
+additional items walk deeper into nested properties. For NetworkProtocol, the
+first item is the protocol name (e.g., SSH, HTTPS, IPMI, NTP). For
+EthernetInterface, the first item is the interface index (0, 1, ...). For
+ComputerSystem and Manager, the first item is a property name on the first
+resource exposed by the BMC. For Accounts, the first item is the account ID.`,
 	Example: `  # get SSH protocol settings
   magellan settings get 172.16.0.105 NetworkProtocol SSH
 
@@ -569,7 +573,9 @@ var SettingsResetCmd = &cobra.Command{
 	Long: `Factory reset the BMC manager.
 
 By default, this resets all settings. Use --preserve-config to preserve
-specific settings during the reset.`,
+specific settings during the reset. If the BMC does not support resetting to
+defaults via the Manager.ResetToDefaults action, or does not support the
+requested preserve type, an error is reported before any reset is attempted.`,
 	Example: `  # factory reset all settings
   magellan settings reset 172.16.0.105
 
