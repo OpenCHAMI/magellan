@@ -156,6 +156,23 @@ func TestSettingsListCommand(t *testing.T) {
 		require.Contains(t, output.String(), "UserName")
 	})
 
+	t.Run("walks deeper into nested properties", func(t *testing.T) {
+		var output bytes.Buffer
+		SettingsListCmd.SetOut(&output)
+		t.Cleanup(func() { SettingsListCmd.SetOut(nil) })
+
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "ComputerSystem", "Node0", "Boot"}))
+		require.Contains(t, output.String(), "BootOrder")
+		require.Contains(t, output.String(), "BootSourceOverrideEnabled")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "ComputerSystem", "Node0", "Boot", "BootOrder"}))
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "NetworkProtocol", "SSH", "ProtocolEnabled"}))
+		require.Contains(t, output.String(), "is a bool")
+	})
+
 	t.Run("errors on unknown category", func(t *testing.T) {
 		err := SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Unknown"})
 		require.ErrorContains(t, err, "unknown category")
@@ -167,22 +184,80 @@ func TestSettingsListCommand(t *testing.T) {
 	})
 }
 
+func TestSettingsGetCommand(t *testing.T) {
+	server := newSettingsMockServer(t)
+
+	resetSettingsTestState(t)
+	username, password = "user", "pass"
+
+	run := func(t *testing.T, args ...string) string {
+		t.Helper()
+		var output bytes.Buffer
+		SettingsGetCmd.SetOut(&output)
+		t.Cleanup(func() { SettingsGetCmd.SetOut(nil) })
+		require.NoError(t, SettingsGetCmd.RunE(SettingsGetCmd, args))
+		return output.String()
+	}
+
+	t.Run("gets a whole category", func(t *testing.T) {
+		out := run(t, server.URL, "NetworkProtocol")
+		require.Contains(t, out, "SSH")
+	})
+
+	t.Run("gets a named protocol", func(t *testing.T) {
+		out := run(t, server.URL, "NetworkProtocol", "SSH")
+		require.Contains(t, out, "ProtocolEnabled")
+		require.Contains(t, out, "Port")
+	})
+
+	t.Run("walks into a nested property", func(t *testing.T) {
+		out := run(t, server.URL, "ComputerSystem", "Boot", "BootOrder")
+		require.Contains(t, out, "ME0-PXE-IP4")
+	})
+
+	t.Run("gets an ethernet interface by index", func(t *testing.T) {
+		out := run(t, server.URL, "EthernetInterface", "0", "MACAddress")
+		require.Contains(t, out, "02:00:00:00:00:01")
+	})
+
+	t.Run("gets a specific account", func(t *testing.T) {
+		out := run(t, server.URL, "Accounts", "1")
+		require.Contains(t, out, "admin")
+	})
+
+	t.Run("errors on unknown category", func(t *testing.T) {
+		var output bytes.Buffer
+		SettingsGetCmd.SetOut(&output)
+		t.Cleanup(func() { SettingsGetCmd.SetOut(nil) })
+		err := SettingsGetCmd.RunE(SettingsGetCmd, []string{server.URL, "Unknown"})
+		require.ErrorContains(t, err, "unknown category")
+	})
+
+	t.Run("errors on unknown nested property", func(t *testing.T) {
+		var output bytes.Buffer
+		SettingsGetCmd.SetOut(&output)
+		t.Cleanup(func() { SettingsGetCmd.SetOut(nil) })
+		err := SettingsGetCmd.RunE(SettingsGetCmd, []string{server.URL, "ComputerSystem", "Boot", "NotARealField"})
+		require.ErrorContains(t, err, "unknown property \"NotARealField\"")
+	})
+}
+
 // newSettingsMockServer spins up a mock Redfish service with the resources
 // required by the settings commands and returns its httptest server.
 func newSettingsMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	routes := map[string]string{
-		"/redfish/v1/":                                          test.RESPONSE_ServiceRoot,
-		"/redfish/v1/Managers":                                  test.RESPONSE_Managers,
-		"/redfish/v1/Managers/bmc":                              test.RESPONSE_Manager,
-		"/redfish/v1/Managers/bmc/NetworkProtocol":              test.RESPONSE_ManagerNetworkProtocol,
-		"/redfish/v1/Managers/bmc/EthernetInterfaces":           test.RESPONSE_EthernetInterfaceCollection,
-		"/redfish/v1/Managers/bmc/EthernetInterfaces/1":         test.RESPONSE_ManagerEthernetInterface,
-		"/redfish/v1/Systems":                                   test.RESPONSE_Systems,
-		"/redfish/v1/Systems/Node0":                             test.RESPONSE_EthernetInterface,
-		"/redfish/v1/AccountService":                            test.RESPONSE_AccountService,
-		"/redfish/v1/AccountService/Accounts":                   test.RESPONSE_AccountCollection,
-		"/redfish/v1/AccountService/Accounts/1":                 test.RESPONSE_ManagerAccount,
+		"/redfish/v1/":                                  test.RESPONSE_ServiceRoot,
+		"/redfish/v1/Managers":                          test.RESPONSE_Managers,
+		"/redfish/v1/Managers/bmc":                      test.RESPONSE_Manager,
+		"/redfish/v1/Managers/bmc/NetworkProtocol":      test.RESPONSE_ManagerNetworkProtocol,
+		"/redfish/v1/Managers/bmc/EthernetInterfaces":   test.RESPONSE_EthernetInterfaceCollection,
+		"/redfish/v1/Managers/bmc/EthernetInterfaces/1": test.RESPONSE_ManagerEthernetInterface,
+		"/redfish/v1/Systems":                           test.RESPONSE_Systems,
+		"/redfish/v1/Systems/Node0":                     test.RESPONSE_EthernetInterface,
+		"/redfish/v1/AccountService":                    test.RESPONSE_AccountService,
+		"/redfish/v1/AccountService/Accounts":           test.RESPONSE_AccountCollection,
+		"/redfish/v1/AccountService/Accounts/1":         test.RESPONSE_ManagerAccount,
 	}
 	// Route endpoint base + trailing slash variants so chi matches both.
 	mux := http.NewServeMux()

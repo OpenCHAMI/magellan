@@ -78,13 +78,14 @@ available environment variables.
 }
 
 var SettingsListCmd = &cobra.Command{
-	Use:   "list <node> [<category> [<item>]]",
+	Use:   "list <node> [<category> [<item> [<property>...]]]",
 	Short: "List setting categories, items, or properties available on a BMC",
 	Long: `List setting categories, items, or properties available on a BMC.
 
 When called with just a node, lists the setting categories present on that BMC.
 When called with a category, lists the items present under that category.
-When called with a category and item, lists the properties available on that item.`,
+When called with a category and item, lists the properties available on that item.
+Additional property arguments walk deeper into nested structures.`,
 	Example: `  # list all available categories on a BMC
   magellan settings list 172.16.0.105
 
@@ -92,8 +93,11 @@ When called with a category and item, lists the properties available on that ite
   magellan settings list 172.16.0.105 NetworkProtocol
 
   # list the properties of the SSH protocol
-  magellan settings list 172.16.0.105 NetworkProtocol SSH`,
-	Args: cobra.RangeArgs(1, 3),
+  magellan settings list 172.16.0.105 NetworkProtocol SSH
+
+  # walk deeper into a nested structure
+  magellan settings list 172.16.0.105 ComputerSystem Node0 Boot`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		nodeArg := args[0]
 
@@ -122,8 +126,9 @@ When called with a category and item, lists the properties available on that ite
 			return listSettingsItems(client, out, category)
 		}
 
-		// Category + item: list the properties available on the item.
-		return listSettingsProperties(client, out, category, args[2])
+		// Category + item (+ optional property path): list the properties
+		// available at the resolved item/path.
+		return listSettingsProperties(client, out, category, args[2], args[3:])
 	},
 }
 
@@ -231,76 +236,125 @@ func listSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 	return nil
 }
 
-// listSettingsProperties prints the property names available on a specific item
-// of a category on the BMC.
-func listSettingsProperties(client *gofish.APIClient, out io.Writer, category, item string) error {
-	var props []string
-	var err error
-	switch category {
-	case "NetworkProtocol":
-		props, err = bmc.GetProtocolProperties(client, item)
-		if err != nil {
-			return err
-		}
-	case "EthernetInterface":
-		idx := 0
-		if _, err := fmt.Sscanf(item, "%d", &idx); err != nil {
-			return fmt.Errorf("invalid interface index %q: %w", item, err)
-		}
-		props, err = bmc.GetEthernetInterfaceProperties(client, idx)
-		if err != nil {
-			return err
-		}
-	case "ComputerSystem":
-		props, err = bmc.GetComputerSystemProperties(client, item)
-		if err != nil {
-			return err
-		}
-	case "Manager":
-		props, err = bmc.GetManagerProperties(client, item)
-		if err != nil {
-			return err
-		}
-	case "Accounts":
-		props, err = bmc.GetAccountProperties(client)
-		if err != nil {
-			return err
-		}
-	case "Reset":
-		return fmt.Errorf("Reset is an action, not a listable resource")
+// listSettingsProperties prints the property names available at the resolved
+// item/path of a category on the BMC. When the resolved value is a struct, its
+// exported fields are listed; otherwise a message directs the user to 'get'.
+func listSettingsProperties(client *gofish.APIClient, out io.Writer, category, item string, path []string) error {
+	resolved, err := resolveListItem(client, category, item)
+	if err != nil {
+		return err
 	}
-	fmt.Fprintf(out, "Properties of %s.%s:\n", category, item)
-	for _, p := range props {
-		fmt.Fprintf(out, "  %s\n", p)
+
+	final, err := resolveSettingsPath(resolved, path)
+	if err != nil {
+		return err
+	}
+
+	value := final
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			fmt.Fprintln(out, "  (value is nil)")
+			return nil
+		}
+		value = value.Elem()
+	}
+
+	if value.Kind() != reflect.Struct {
+		fmt.Fprintf(out, "  %s is a %s; use 'magellan settings get' to read it\n", item, value.Kind())
+		return nil
+	}
+
+	fmt.Fprintf(out, "Properties of %s.%s:", category, item)
+	for _, name := range path {
+		fmt.Fprintf(out, ".%s", name)
+	}
+	fmt.Fprintln(out)
+	t := value.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.PkgPath != "" || f.Anonymous {
+			continue
+		}
+		fmt.Fprintf(out, "  %s\n", f.Name)
 	}
 	return nil
 }
 
-var SettingsGetCmd = &cobra.Command{
-	Use:   "get <node> <category> [property]",
-	Short: "Get a BMC setting value",
-	Long: `Get a BMC setting value by category and property.
+// resolveListItem resolves the list item for a category using list semantics:
+// ComputerSystem and Manager items are identified by resource ID/name.
+func resolveListItem(client *gofish.APIClient, category, item string) (any, error) {
+	switch category {
+	case "NetworkProtocol":
+		np, err := bmc.GetNetworkProtocol(client)
+		if err != nil {
+			return nil, err
+		}
+		field, ok := settingsField(np, item)
+		if !ok {
+			return nil, fmt.Errorf("unknown protocol %q", item)
+		}
+		return field.Interface(), nil
+	case "EthernetInterface":
+		ifaces, err := bmc.GetEthernetInterfaces(client)
+		if err != nil {
+			return nil, err
+		}
+		idx := 0
+		if _, err := fmt.Sscanf(item, "%d", &idx); err != nil {
+			return nil, fmt.Errorf("invalid interface index %q: %w", item, err)
+		}
+		if idx < 0 || idx >= len(ifaces) {
+			return nil, fmt.Errorf("interface index %d out of range (0-%d)", idx, len(ifaces)-1)
+		}
+		return ifaces[idx], nil
+	case "ComputerSystem":
+		return bmc.GetComputerSystem(client, item)
+	case "Manager":
+		return bmc.GetManager(client, item)
+	case "Accounts":
+		accts, err := bmc.ListAccounts(client)
+		if err != nil {
+			return nil, err
+		}
+		for i := range accts {
+			if accts[i].ID == item {
+				return accts[i], nil
+			}
+		}
+		return nil, fmt.Errorf("account %q not found", item)
+	case "Reset":
+		return nil, fmt.Errorf("Reset is an action, not a listable resource")
+	default:
+		return nil, fmt.Errorf("unknown category %q", category)
+	}
+}
 
-For NetworkProtocol, specify the protocol name (e.g., SSH, HTTPS, IPMI, NTP).
-For EthernetInterface, specify the interface index (0, 1, ...).
-For ComputerSystem, specify the property name.
-For Manager, specify the property name.
-For Accounts, specify the account ID.`,
+var SettingsGetCmd = &cobra.Command{
+	Use:   "get <node> <category> [item] [property...]",
+	Short: "Get a BMC setting value",
+	Long: `Get a BMC setting value by category and property path.
+
+The path is walked into nested properties as deeply as the BMC schema allows.
+For NetworkProtocol, the first item is the protocol name (e.g., SSH, HTTPS,
+IPMI, NTP) followed by nested property names. For EthernetInterface, the first
+item is the interface index (0, 1, ...). For ComputerSystem and Manager, the
+first item identifies the resource and the remaining items are property names.
+For Accounts, the first item is the account ID.`,
 	Example: `  # get SSH protocol settings
   magellan settings get 172.16.0.105 NetworkProtocol SSH
 
-  # get the first ethernet interface
-  magellan settings get 172.16.0.105 EthernetInterface 0
+  # get the first ethernet interface's IPv4 address
+  magellan settings get 172.16.0.105 EthernetInterface 0 IPv4Addresses
 
-  # get boot settings
-  magellan settings get 172.16.0.105 ComputerSystem Boot
+  # get a nested boot property
+  magellan settings get 172.16.0.105 ComputerSystem Node0 Boot BootOrder
 
   # get all accounts
   magellan settings get 172.16.0.105 Accounts
 
   # get a specific account
   magellan settings get 172.16.0.105 Accounts 1`,
-	Args: cobra.RangeArgs(2, 3),
+	Args: cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		nodeArg := args[0]
 		category := args[1]
@@ -311,90 +365,30 @@ For Accounts, specify the account ID.`,
 		}
 		defer client.Logout()
 
-		var result any
-		switch category {
-		case "NetworkProtocol":
-			np, err := bmc.GetNetworkProtocol(client)
-			if err != nil {
-				return fmt.Errorf("failed to get network protocol: %w", err)
-			}
-			if len(args) > 2 {
-				proto := args[2]
-				field, ok := settingsField(np, proto)
-				if !ok {
-					return fmt.Errorf("unknown protocol %q", proto)
-				}
-				result = field.Interface()
-			} else {
-				result = np
-			}
-		case "EthernetInterface":
-			ifaces, err := bmc.GetEthernetInterfaces(client)
-			if err != nil {
-				return fmt.Errorf("failed to get ethernet interfaces: %w", err)
-			}
-			if len(args) > 2 {
-				idx := 0
-				if _, err := fmt.Sscanf(args[2], "%d", &idx); err != nil {
-					return fmt.Errorf("invalid interface index %q: %w", args[2], err)
-				}
-				if idx < 0 || idx >= len(ifaces) {
-					return fmt.Errorf("interface index %d out of range (0-%d)", idx, len(ifaces)-1)
-				}
-				result = ifaces[idx]
-			} else {
-				result = ifaces
-			}
-		case "ComputerSystem":
-			sys, err := bmc.GetDefaultComputerSystem(client)
-			if err != nil {
-				return fmt.Errorf("failed to get computer system: %w", err)
-			}
-			if len(args) > 2 {
-				field, ok := settingsField(sys, args[2])
-				if !ok {
-					return fmt.Errorf("unknown property %q on ComputerSystem", args[2])
-				}
-				result = field.Interface()
-			} else {
-				result = sys
-			}
-		case "Manager":
-			mgr, err := bmc.GetDefaultManager(client)
-			if err != nil {
-				return fmt.Errorf("failed to get manager: %w", err)
-			}
-			if len(args) > 2 {
-				field, ok := settingsField(mgr, args[2])
-				if !ok {
-					return fmt.Errorf("unknown property %q on Manager", args[2])
-				}
-				result = field.Interface()
-			} else {
-				result = mgr
-			}
-		case "Accounts":
-			accts, err := bmc.ListAccounts(client)
-			if err != nil {
-				return fmt.Errorf("failed to list accounts: %w", err)
-			}
-			if len(args) > 2 {
-				found := false
-				for _, acct := range accts {
-					if acct.ID == args[2] {
-						result = acct
-						found = true
-						break
-					}
-				}
-				if !found {
-					return fmt.Errorf("account %q not found", args[2])
-				}
-			} else {
-				result = accts
-			}
-		default:
+		if _, ok := settingsCategories[category]; !ok {
 			return fmt.Errorf("unknown category %q; use 'magellan settings list' to see available categories", category)
+		}
+
+		var result any
+		if len(args) == 2 {
+			// No item: return the whole category resource(s).
+			result, err = resolveCategoryCollection(client, category)
+		} else {
+			item, rErr := resolveCategoryItem(client, category, args[2])
+			if rErr != nil {
+				return rErr
+			}
+			result = item
+			if len(args) > 3 {
+				final, wErr := resolveSettingsPath(item, args[3:])
+				if wErr != nil {
+					return wErr
+				}
+				result = final.Interface()
+			}
+		}
+		if err != nil {
+			return err
 		}
 
 		output, err := format.MarshalData(result, settingsFormat)
@@ -404,6 +398,108 @@ For Accounts, specify the account ID.`,
 		fmt.Fprintln(cmd.OutOrStdout(), string(output))
 		return nil
 	},
+}
+
+// resolveCategoryCollection returns the full set of resources for a category
+// (used when no item is specified).
+func resolveCategoryCollection(client *gofish.APIClient, category string) (any, error) {
+	switch category {
+	case "NetworkProtocol":
+		np, err := bmc.GetNetworkProtocol(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get network protocol: %w", err)
+		}
+		return np, nil
+	case "EthernetInterface":
+		ifaces, err := bmc.GetEthernetInterfaces(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ethernet interfaces: %w", err)
+		}
+		return ifaces, nil
+	case "ComputerSystem":
+		sys, err := bmc.GetDefaultComputerSystem(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get computer system: %w", err)
+		}
+		return sys, nil
+	case "Manager":
+		mgr, err := bmc.GetDefaultManager(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get manager: %w", err)
+		}
+		return mgr, nil
+	case "Accounts":
+		accts, err := bmc.ListAccounts(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list accounts: %w", err)
+		}
+		return accts, nil
+	default:
+		return nil, fmt.Errorf("unknown category %q", category)
+	}
+}
+
+// resolveCategoryItem resolves the category-level item into a resource value,
+// following the same per-category semantics used to identify an item.
+func resolveCategoryItem(client *gofish.APIClient, category, item string) (any, error) {
+	switch category {
+	case "NetworkProtocol":
+		np, err := bmc.GetNetworkProtocol(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get network protocol: %w", err)
+		}
+		field, ok := settingsField(np, item)
+		if !ok {
+			return nil, fmt.Errorf("unknown protocol %q", item)
+		}
+		return field.Interface(), nil
+	case "EthernetInterface":
+		ifaces, err := bmc.GetEthernetInterfaces(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ethernet interfaces: %w", err)
+		}
+		idx := 0
+		if _, err := fmt.Sscanf(item, "%d", &idx); err != nil {
+			return nil, fmt.Errorf("invalid interface index %q: %w", item, err)
+		}
+		if idx < 0 || idx >= len(ifaces) {
+			return nil, fmt.Errorf("interface index %d out of range (0-%d)", idx, len(ifaces)-1)
+		}
+		return ifaces[idx], nil
+	case "ComputerSystem":
+		sys, err := bmc.GetDefaultComputerSystem(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get computer system: %w", err)
+		}
+		field, ok := settingsField(sys, item)
+		if !ok {
+			return nil, fmt.Errorf("unknown property %q on ComputerSystem", item)
+		}
+		return field.Interface(), nil
+	case "Manager":
+		mgr, err := bmc.GetDefaultManager(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get manager: %w", err)
+		}
+		field, ok := settingsField(mgr, item)
+		if !ok {
+			return nil, fmt.Errorf("unknown property %q on Manager", item)
+		}
+		return field.Interface(), nil
+	case "Accounts":
+		accts, err := bmc.ListAccounts(client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list accounts: %w", err)
+		}
+		for i := range accts {
+			if accts[i].ID == item {
+				return accts[i], nil
+			}
+		}
+		return nil, fmt.Errorf("account %q not found", item)
+	default:
+		return nil, fmt.Errorf("unknown category %q", category)
+	}
 }
 
 var SettingsSetCmd = &cobra.Command{
@@ -596,6 +692,40 @@ func settingsField(resource any, name string) (reflect.Value, bool) {
 		return reflect.Value{}, false
 	}
 	return value.FieldByIndex(fieldType.Index), true
+}
+
+// settingsFieldByName walks into a struct (handling pointers) and returns the
+// exported field matching the given name.
+func settingsFieldByName(value reflect.Value, name string) (reflect.Value, bool) {
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return reflect.Value{}, false
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	fieldType, ok := value.Type().FieldByName(name)
+	if !ok || fieldType.PkgPath != "" || fieldType.Anonymous {
+		return reflect.Value{}, false
+	}
+	return value.FieldByIndex(fieldType.Index), true
+}
+
+// resolveSettingsPath walks a starting value down a sequence of field names,
+// returning the final value. Returns an error if any segment is not a valid
+// exported field on the current struct.
+func resolveSettingsPath(start any, path []string) (reflect.Value, error) {
+	current := reflect.ValueOf(start)
+	for _, name := range path {
+		field, ok := settingsFieldByName(current, name)
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("unknown property %q", name)
+		}
+		current = field
+	}
+	return current, nil
 }
 
 func init() {
