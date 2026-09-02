@@ -22,7 +22,7 @@ magellan list [OPTIONS]
 	- _json_
 	- _yaml_
 
-See *magellan*(1) for information about global flags used for all commands.
+See *magellan*(1) for information about global flags and environment variables used for all commands.
 
 # AUTHOR
 

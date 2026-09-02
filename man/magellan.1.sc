@@ -29,6 +29,8 @@ List of available commands:
 :  Show nodes found from scan
 |  *secrets*
 :  Manage BMC credentials
+|  *settings*
+:  Configure BMC properties through Redfish
 |  *update*
 :  Update firmware through Redfish API
 |  *version*
@@ -112,21 +114,25 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *SCAN_DISABLE_PROBING*: Disables probing found assets for Redfish services
 - *SCAN_DISABLE_CACHE*: Disables saving found assets to cache
 - *SCAN_INSECURE*: Skips TLS certificate verification during probe
+- *SCAN_OUTPUT_FORMAT*: Sets the output format (json, yaml)
+- *SCAN_OUTPUT*: Sets the output file path (for json/yaml formats)
 
 *Collect Variables*
-- *COLLECT_PROTOCOL* (or *PROTOCOL*): Sets the protocol used to query
-- *COLLECT_OUTPUT_FILE* (or *OUTPUT_FILE*): Sets the path to store collection data
-- *COLLECT_OUTPUT_DIR* (or *OUTPUT_DIR*): Sets the path to store collection data using HIVE
-- *COLLECT_USERNAME* (or *USERNAME*): Sets the master BMC username
-- *COLLECT_PASSWORD* (or *PASSWORD*): Sets the master BMC password
+- *COLLECT_PROTOCOL*: Sets the protocol used to query
+- *COLLECT_OUTPUT_FILE*: Sets the path to store collection data
+- *COLLECT_OUTPUT_DIR*: Sets the path to store collection data using HIVE
+- *COLLECT_USERNAME*: Sets the master BMC username
+- *COLLECT_PASSWORD*: Sets the master BMC password
 - *COLLECT_SECRETS_FILE*: Sets path to the node secrets file
 - *COLLECT_INSECURE*: Skips TLS certificate verification for Redfish requests
 - *COLLECT_SHOW_OUTPUT*: Shows the output of a collect run
+- *COLLECT_INPUT_FORMAT*: Sets the default input data format
 - *COLLECT_OUTPUT_FORMAT*: Sets the default output data format
 - *COLLECT_BMC_ID_MAP*: Sets the BMC ID mapping
 
 *Crawl Variables*
 - *CRAWL_INSECURE*: Skip TLS certificate verification for Redfish request
+- *CRAWL_SHOW_OUTPUT*: Show the hardware inventory found from BMC
 
 *Power Variables*
 - *POWER_CACERT* (or *CACERT*): Sets the path to CA cert file
@@ -135,6 +141,16 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *RESET_TYPE*: Redfish reset type to perform
 - *INVENTORY_FILE*: YAML file containing node inventory
 
+*Settings Variables*
+- *SETTINGS_USERNAME*: Sets the master BMC username
+- *SETTINGS_PASSWORD*: Sets the master BMC password
+- *SETTINGS_SECRETS_FILE*: Sets the secrets file with BMC credentials
+- *SETTINGS_INSECURE*: Skips TLS certificate verification during probe
+- *SETTINGS_CACERT*: Sets the path to CA cert file
+- *SETTINGS_INVENTORY_FILE*: File containing node inventory
+- *SETTINGS_INPUT_FORMAT*: Sets the inventory input format (json or yaml)
+- *SETTINGS_PRESERVE_CONFIG*: Preserve settings during reset
+
 *Update Variables*
 - *UPDATE_SCHEME*: Sets the transfer protocol
 - *UPDATE_FIRMWARE_URI*: Sets the URI to retrieve the firmware
@@ -142,12 +158,13 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *UPDATE_INSECURE*: Allows insecure connections to the server
 
 *Secrets Variables*
-- *FILE*: Sets the secrets file with BMC credentials
+- *SECRETS_FILE*: Sets the secrets file with BMC credentials
 - *FORMAT*: Sets the input format for the secrets file
 - *INPUT_FILE*: Sets the file to read as input
 - *MASTER_KEY*: Set the generated key for the secrets file
 
-Note: Environment variables that take multiple arguments (like `SCAN_SUBNETS` or `SCAN_PORTS`) should have their values delimited by a comma `,` (e.g., `SCAN_PORTS=5000,5001`).
+Note: Environment variables that take multiple arguments (like `SCAN_SUBNETS` or
+`SCAN_PORTS`) should have their values delimited by a comma `,` (e.g., `SCAN_PORTS=5000,5001`).
 
 # GETTING STARTED
 
@@ -298,6 +315,6 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 
 # SEE ALSO
 
-*magellan-scan*(1), *magellan-collect*(1), *magellan-crawl*(1),
-*magellan-list*(1), *magellan-secrets*(1), *magellan-update*(1)
-*magellan-send*(1)
+*magellan-collect*(1), *magellan-crawl*(1), *magellan-list*(1),
+*magellan-scan*(1), *magellan-secrets*(1), *magellan-send*(1),
+*magellan-settings*(1), *magellan-update*(1)

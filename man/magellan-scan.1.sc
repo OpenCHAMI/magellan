@@ -164,7 +164,7 @@ SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure
 	*--subnet* flag that does not use CIDR notation. If no subnet mask is specified,
 	the default is *255.255.255.0*.
 
-See *magellan*(1) for information about global flags used for all commands.
+See *magellan*(1) for information about global flags and environment variables used for all commands.
 
 # AUTHOR
 
@@ -172,7 +172,7 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 
 # SEE ALSO
 
-*magellan*(1)
+*magellan*(1), *magellan-list*(1), *magellan-collect*(1)
 
 ; Vim modeline settings
 ; vim: set tw=80 noet sts=4 ts=4 sw=4 syntax=scdoc:

@@ -6,25 +6,25 @@ import (
 	"os"
 	"path"
 
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/format"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
+	"github.com/openchami/magellan/internal/cache/sqlite"
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
 	"github.com/rs/zerolog/log"
 
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
 	"github.com/cznic/mathutil"
+	urlx "github.com/openchami/magellan/internal/url"
 	"github.com/spf13/cobra"
 )
 
 var (
-	scheme         string
-	subnets        []string
-	subnetMask     net.IPMask
-	targetHosts    [][]string
-	include        []string
-	disableProbing bool
-	disableCache   bool
-	scanFormat     format.DataFormat
+	scheme           string
+	subnets          []string
+	subnetMask       net.IPMask
+	targetHosts      [][]string
+	include          []string
+	disableProbing   bool
+	disableCache     bool
+	scanOutputFormat format.DataFormat
 )
 
 // The `scan` command is usually the first step to using the CLI tool.
@@ -65,9 +65,14 @@ var ScanCmd = &cobra.Command{
   magellan secrets store default $username:$password -f secrets.json
   magellan scan --subnet 172.18.0.0/24 --port 5000 -i -F yaml | magellan collect -i -f yaml --secrets-file secrets.json
   
-  // perform scan by setting environment variables
-  SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure`,
-	Short: "Perform network scan to discover BMC nodes",
+  // perform scan to find emulator BMCS by setting environment variables
+  make emulator
+  SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure
+  
+  // perform scan to find emulator BMCs using environment variables
+  SCAN_`,
+
+	Short: "Perform network scan to discover BMC nodes.",
 	Long: `Perform a network scan by attempting to connect to each host and port specified 
 and getting a response. Each host is passed *with a full URL* including the 
 protocol and port. Additional subnets can be added by using the '--subnet' flag 
@@ -161,17 +166,17 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 			return
 		}
 
-		if scanFormat != "" {
-			switch scanFormat {
+		if scanOutputFormat != "" {
+			switch scanOutputFormat {
 			case format.FORMAT_JSON, format.FORMAT_YAML:
 				var (
 					output []byte
 					err    error
 				)
 
-				output, err = format.MarshalData(foundAssets, scanFormat)
+				output, err = format.MarshalData(foundAssets, scanOutputFormat)
 				if err != nil {
-					log.Error().Err(err).Msgf("failed to marshal output to %s", scanFormat)
+					log.Error().Err(err).Msgf("failed to marshal output to %s", scanOutputFormat)
 					return
 				}
 				if outputPath != "" {
@@ -186,7 +191,7 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 				}
 
 			default:
-				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanFormat)
+				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanOutputFormat)
 			}
 		}
 
@@ -211,12 +216,12 @@ func init() {
 	ScanCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the default protocol to use in scan.")
 	ScanCmd.Flags().StringSliceVar(&subnets, "subnet", nil, "Add additional hosts from specified subnets to scan.")
 	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
-	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes")
-	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag")
-	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
-	ScanCmd.Flags().VarP(&scanFormat, "output-format", "F", "Output format (json, yaml)")
-	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (for json/yaml formats)")
-	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus)")
+	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes.")
+	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag.")
+	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	ScanCmd.Flags().VarP(&scanOutputFormat, "output-format", "F", "Sets the output format (json, yaml).")
+	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Sets the output file path (for json/yaml formats).")
+	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus).")
 
 	rootCmd.AddCommand(ScanCmd)
 }

@@ -3,7 +3,7 @@ package magellan
 import (
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
+	"github.com/openchami/magellan/internal/format"
 	"github.com/stretchr/testify/require"
 )
 

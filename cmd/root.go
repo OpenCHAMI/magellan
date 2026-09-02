@@ -20,9 +20,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	logger "github.com/OpenCHAMI/magellan/internal/log"
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/openchami/magellan/internal/format"
+	logger "github.com/openchami/magellan/internal/log"
+	"github.com/openchami/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -210,6 +210,9 @@ func resolveFlagsFromViper(cmd *cobra.Command) {
 		keys := []string{key}
 		if alias, ok := viperKeyAliases[key]; ok {
 			keys = []string{alias, key}
+		}
+		for parent := cmd.Parent(); parent != nil && parent != rootCmd; parent = parent.Parent() {
+			keys = append(keys, parent.Name()+"."+f.Name)
 		}
 		for _, k := range keys {
 			if viper.IsSet(k) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/pkg/pdu"
+	"github.com/openchami/magellan/pkg/pdu"
 	"github.com/stretchr/testify/require"
 )
 

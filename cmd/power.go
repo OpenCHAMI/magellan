@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
-	"github.com/OpenCHAMI/magellan/pkg/power"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
+	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/power"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -28,20 +28,26 @@ var (
 // The `power` command gets and sets power states for a collection of BMC nodes.
 // This command should be run after `collect`, as it requires an existing node inventory.
 var PowerCmd = &cobra.Command{
-	Use: "power <node-id>...",
-	Example: `  // get power state
-  magellan power x1000c0s0b3n0
-  // perform a particular type of reset
-  magellan power x1000c0s0b3n0 -r On
-  magellan power x1000c0s0b3n0 -r PowerCycle
-  // list supported reset types
-  magellan power x1000c0s0b3n0 -l
-  // more realistic usage
-  magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2
-  // inventory from stdin
-  magellan collect -v ... | magellan power -f - x1000c0s0b3n0`,
+	Use: "power <node-{serial|ipaddr|serial|mac}> -o <{on|off}>",
+	Example: `  # show all actions given the node's serial number
+  magellan power N0D3S3R14L --list-reset-types -i --inventory-file nodes.json
+  
+  # turn off node using its IP address (no inventory file required)
+  magellan power 172.16.0.105 -o off -i
+  
+  # turn on/off a node with it's UUID (will error if attempting to turn on/off if already in state)
+  magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o on --inventory-file nodes.json -i
+  magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o off --inventory-file nodes.json -i`,
 	Short: "Get and set node power states",
-	Long:  "Determine and control the power states of nodes found by a previous inventory crawl.\nSee the 'scan' and 'crawl' commands for further details.",
+	Long: `Determine and control the power states of nodes found by a previous 
+inventory crawl.
+
+See 'magellan scan --help' for dynamic scanning to find BMCs. 
+See 'magellan crawl --help' to query BMC hardware inventory information.
+
+See 'magellan-power(1)' for more details. See 'magellan(1)' for a list of 
+available environment variables.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Read node inventory from CLI flag, or default `collect` YAML output
 		var datafile string
@@ -240,18 +246,18 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 
 func init() {
 	// Alternative actions from the default power-state query
-	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "l", false, "List supported Redfish reset types")
-	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Redfish reset type to perform")
+	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "L", false, "List supported Redfish reset types.")
+	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Set the Redfish reset type to perform.")
 	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
 
 	// Normal config options
-	PowerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory")
-	PowerCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
-	PowerCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
-	PowerCmd.Flags().String("secrets-file", "", "Set path to the node secrets file")
-	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore SSL errors")
-	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank)")
-	PowerCmd.Flags().VarP(&powerFormat, "output-format", "F", "Set the output format (json|yaml)")
+	PowerCmd.Flags().StringP("inventory-file", "f", "", "YAML file containing node inventory.")
+	PowerCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username.")
+	PowerCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
+	PowerCmd.Flags().String("secrets-file", "", "Set the secrets file with BMC credentials.")
+	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
+	PowerCmd.Flags().VarP(&powerFormat, "output-format", "F", "Set the output format (json|yaml).")
 
 	checkRegisterFlagCompletionError(PowerCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 

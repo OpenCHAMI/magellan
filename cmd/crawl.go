@@ -6,11 +6,11 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/openchami/magellan/internal/format"
+	urlx "github.com/openchami/magellan/internal/url"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +34,12 @@ var CrawlCmd = &cobra.Command{
   magellan crawl --secrets-file secrets.json
   `,
 	Short: "Crawl a single BMC for inventory information",
-	Long:  "Crawl a single BMC for inventory information with URI.\n\n NOTE: This command does not scan subnets, store scan information in cache, nor make a request to a specified host. It is used only to retrieve inventory data directly. Otherwise, use 'scan' and 'collect' instead.",
+	Long: `Crawl a single BMC for inventory information with URI. This command
+bypasses the scan and the cache. It is used only to retrieve inventory data
+directly. Otherwise, use 'scan' and 'collect' instead.
+	
+See 'magellan-crawl(1)' for more details. See 'magellan(1)' for a list of 
+available environment variables.`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Validate that the only argument is a valid URI
 		var err error
@@ -154,12 +159,12 @@ var CrawlCmd = &cobra.Command{
 }
 
 func init() {
-	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC")
-	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC")
-	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification for Redfish request")
-	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set path to the node secrets file")
-	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
-	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml)")
+	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC.")
+	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC.")
+	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification for Redfish request.")
+	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
+	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the hardware inventory found from BMC.")
+	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml).")
 
 	checkRegisterFlagCompletionError(CrawlCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
 

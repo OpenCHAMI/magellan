@@ -13,29 +13,30 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [OpenCHAMI Magellan](#openchami-magellan)
-	- [Main Features](#main-features)
-	- [Getting Started](#getting-started)
-	- [Documentation](#documentation)
-	- [Building the Executable](#building-the-executable)
-		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
-		- [Docker](#docker)
-		- [Arch Linux (AUR)](#arch-linux-aur)
-	- [Local checks before pushing](#local-checks-before-pushing)
-	- [Usage](#usage)
-		- [Checking for Redfish](#checking-for-redfish)
-		- [BMC ID Mapping](#bmc-id-mapping)
-		- [Running the Tool](#running-the-tool)
-			- [Modular Workflows](#modular-workflows)
-		- [PDU Inventory Collection](#pdu-inventory-collection)
-		- [Starting the Emulator](#starting-the-emulator)
-		- [Updating Firmware](#updating-firmware)
-		- [Managing Power](#managing-power)
-		- [Getting an Access Token (WIP)](#getting-an-access-token-wip)
-		- [Running with Docker](#running-with-docker)
-		- [Environment Variables](#environment-variables)
-	- [How It Works](#how-it-works)
-	- [TODO](#todo)
-	- [Copyright](#copyright)
+  - [Main Features](#main-features)
+  - [Getting Started](#getting-started)
+  - [Documentation](#documentation)
+  - [Building the Executable](#building-the-executable)
+    - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+    - [Docker](#docker)
+    - [Arch Linux (AUR)](#arch-linux-aur)
+  - [Local checks before pushing](#local-checks-before-pushing)
+  - [Usage](#usage)
+    - [Checking for Redfish](#checking-for-redfish)
+    - [BMC ID Mapping](#bmc-id-mapping)
+    - [Running the Tool](#running-the-tool)
+      - [Modular Workflows](#modular-workflows)
+    - [PDU Inventory Collection](#pdu-inventory-collection)
+    - [Starting the Emulator](#starting-the-emulator)
+    - [Updating Firmware](#updating-firmware)
+    - [Managing Power](#managing-power)
+    - [Configuring BMC Settings](#configuring-bmc-settings)
+    - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+    - [Running with Docker](#running-with-docker)
+    - [Environment Variables](#environment-variables)
+  - [How It Works](#how-it-works)
+  - [TODO](#todo)
+  - [Copyright](#copyright)
 
 <!-- TOC end -->
 
@@ -49,6 +50,7 @@ The `magellan` tool comes packed with a handleful of features for doing discover
 - Redfish-based inventory collection
 - Redfish-based firmware updating
 - Redfish-based power control
+- Redfish-based BMC configuration
 - Integration with OpenCHAMI SMD
 - Write inventory data to JSON
 - Store and manage BMC secrets
@@ -80,7 +82,7 @@ Git, and Make, clone the repository, and then build the binary in the root
 directory:
 
 ```bash
-git clone https://github.com/OpenCHAMI/magellan
+git clone https://github.com/openchami/magellan
 cd magellan
 make
 ```
@@ -152,7 +154,6 @@ docker pull ghcr.io/openchami/magellan:latest
 
 See the ["Running with Docker"](#running-with-docker) section below about running with the Docker container.
 
-
 ### Arch Linux (AUR)
 
 The `magellan` tool is in the AUR as a binary package and can be installed via your favorite AUR helper.
@@ -160,6 +161,7 @@ The `magellan` tool is in the AUR as a binary package and can be installed via y
 ```bash
 yay -S magellan-bin
 ```
+
 > [!NOTE]
 > The AUR package may not always be in sync with the latest release. It is recommended to install `magellan` from source for the latest version.
 
@@ -277,7 +279,7 @@ If you are using `magellan` in an application that is not OpenCHAMI and have a n
 There are three main commands to use with the tool: `scan`, `list`, and `collect`. To see all of the available commands, run `magellan` with the `help` subcommand which will print this output:
 
 ```bash
-magellan help     
+magellan help
 Redfish-based BMC discovery tool with dynamic discovery features.
 
 Usage:
@@ -395,7 +397,7 @@ This maintains the original behavior of passing the `--host` flag to `collect` w
 
 #### Modular Workflows
 
-The `magellan` CLI commands can be ran in a single command or broken up to run different parts of the workflow without needing to write to the filesystem. 
+The `magellan` CLI commands can be ran in a single command or broken up to run different parts of the workflow without needing to write to the filesystem.
 
 For example, the `scan`, `collect`, and `send` can be done in a single command.
 
@@ -477,7 +479,7 @@ If you pass arguments with the `--username/--password` flags, the arguments will
 
 > [!TIP]
 > You can set default fallback credentials by storing a secret with the `secretID` of "default". This is used if no `secretID` is found in the local store for the specified host. This is useful when you want to set a username and password that is the same for all BMCs with the exception of the ones specified.
-> 
+>
 > ```bash
 > magellan secrets default $username:$password
 > ```
@@ -555,6 +557,59 @@ Once the desired reset type is identified, it can be applied via the `-r/--reset
 All `power` commands demonstrated here can accept additional options and multiple target nodes, for example `magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2`.
 These options are omitted from the examples above for clarity.
 
+### Configuring BMC Settings
+
+The `magellan settings` command provides read and write access to BMC configuration through the Redfish API. Supported configuration categories include network protocols (SSH, HTTPS, IPMI, NTP, etc.), ethernet interfaces (IP addresses, MAC addresses, DHCP), computer system settings (boot order, asset tag), manager properties, and BMC user accounts.
+
+The `list` and `get` subcommands query the BMC directly and let you walk down the settings tree as deeply as the BMC schema allows. `list` shows the categories, items, and properties that are actually present on the BMC; `get` reads the value at a given path.
+
+```bash
+# list the setting categories present on a BMC
+magellan settings list 172.16.0.105
+
+# list the network protocols present on a BMC
+magellan settings list 172.16.0.105 NetworkProtocol
+
+# list the properties of the SSH protocol
+magellan settings list 172.16.0.105 NetworkProtocol SSH
+
+# walk deeper into a nested structure
+magellan settings list 172.16.0.105 ComputerSystem Node0 Boot
+
+# get SSH protocol settings from a BMC
+magellan settings get 172.16.0.105 NetworkProtocol SSH
+
+# get a nested computer system property
+magellan settings get 172.16.0.105 ComputerSystem Boot BootOrder
+
+# set SSH protocol settings
+magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,"Port":22}'
+
+# get the first ethernet interface
+magellan settings get 172.16.0.105 EthernetInterface 0
+
+# update a property on the first computer system
+magellan settings set 172.16.0.105 ComputerSystem AssetTag rack-12-node-4
+
+# get a property from the first manager
+magellan settings get 172.16.0.105 Manager FirmwareVersion
+
+# get all BMC user accounts
+magellan settings get 172.16.0.105 Accounts
+
+# factory reset the BMC manager
+magellan settings reset 172.16.0.105
+
+# factory reset preserving network settings
+magellan settings reset 172.16.0.105 --preserve-config PreserveNetwork
+```
+
+There is no upper limit on the number of property arguments: `list` and `get` walk as deep into nested settings as the BMC exposes (for example, `get <node> ComputerSystem Boot BootOrder`). The `set` command accepts a single property and a value; the `reset` command reports an error if the BMC does not support resetting to defaults via `Manager.ResetToDefaults` or does not support the requested `--preserve-config` type.
+
+The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations use the first resource exposed by the BMC. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
+
+See `magellan-settings(1)` for more details.
+
 ### Getting an Access Token (WIP)
 
 The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
@@ -608,32 +663,44 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **scan** | `--protocol` | `SCAN_PROTOCOL` | Sets the default protocol to use (e.g., tcp) |
 | **scan** | `--subnet` | `SCAN_SUBNETS` | Adds subnets to scan |
 | **scan** | `--subnet-mask` | `SCAN_SUBNET_MASKS` | Sets the default subnet mask |
-| **scan** | `--disable-probing`| `SCAN_DISABLE_PROBING` | Disables probing found assets for Redfish services |
-| **scan** | `--disable-cache`| `SCAN_DISABLE_CACHE` | Disables saving found assets to cache |
+| **scan** | `--disable-probing` | `SCAN_DISABLE_PROBING` | Disables probing found assets for Redfish services |
+| **scan** | `--disable-cache` | `SCAN_DISABLE_CACHE` | Disables saving found assets to cache |
 | **scan** | `--insecure`, `-i` | `SCAN_INSECURE` | Skips TLS certificate verification during probe |
+| **scan** | `--output-format`, `-F` | `SCAN_OUTPUT_FORMAT` | Sets the output format (json, yaml) |
+| **scan** | `--output`, `-o` | `SCAN_OUTPUT` | Sets the output file path (for json/yaml formats) |
 | **collect** | `--protocol` | `COLLECT_PROTOCOL` | Sets the protocol used to query |
-| **collect** | `--output-file`| `COLLECT_OUTPUT_FILE` | Sets the path to store collection data in a single file |
+| **collect** | `--output-file` | `COLLECT_OUTPUT_FILE` | Sets the path to store collection data in a single file |
 | **collect** | `--output-dir` | `COLLECT_OUTPUT_DIR` | Sets the path to store collection data using HIVE partitioning |
-| **collect** | `--username` | `COLLECT_USERNAME` / `USERNAME` | Sets the master BMC username |
-| **collect** | `--password` | `COLLECT_PASSWORD` / `PASSWORD` | Sets the master BMC password |
-| **collect** | `--secrets-file`| `SECRETS_FILE` | Sets path to the node secrets file |
+| **collect** | `--username` | `COLLECT_USERNAME` | Sets the master BMC username |
+| **collect** | `--password` | `COLLECT_PASSWORD` | Sets the master BMC password |
+| **collect** | `--secrets-file` | `COLLECT_SECRETS_FILE` | Sets path to the node secrets file |
 | **collect** | `--insecure` | `COLLECT_INSECURE` | Skips TLS certificate verification during probe |
-| **collect** | `--show` | `SHOW` | Shows the output of a collect run |
-| **collect** | `--format` | `FORMAT` | Sets the default output data format |
-| **collect** | `--bmc-id-map` | `BMC_ID_MAP` | Sets the BMC ID mapping |
+| **collect** | `--show-output` | `COLLECT_SHOW_OUTPUT` | Shows the output of a collect run |
+| **collect** | `--input-format` | `COLLECT_INPUT_FORMAT` | Sets the default input data format |
+| **collect** | `--output-format` | `COLLECT_OUTPUT_FORMAT` | Sets the default output data format |
+| **collect** | `--bmc-id-map` | `COLLECT_BMC_ID_MAP` | Sets the BMC ID mapping |
 | **crawl** | `--insecure` | `CRAWL_INSECURE` | Ignores SSL errors |
+| **crawl** | `--show-output` | `CRAWL_SHOW_OUTPUT` | Show the hardware inventory found from BMC |
 | **power** | `--cacert` | `POWER_CACERT` / `CACERT` | Sets the path to CA cert file |
 | **power** | `--format` | `POWER_FORMAT` / `FORMAT` | Sets the output format |
-| **power** | `--list-reset-types`| `LIST_RESET_TYPES` | Lists supported Redfish reset types |
+| **power** | `--list-reset-types` | `LIST_RESET_TYPES` | Lists supported Redfish reset types |
 | **power** | `--reset-type` | `RESET_TYPE` | Redfish reset type to perform |
-| **power** | `--inventory-file`| `INVENTORY_FILE` | YAML file containing node inventory |
+| **power** | `--inventory-file` | `INVENTORY_FILE` | YAML file containing node inventory |
+| **settings** | `--inventory-file` | `SETTINGS_INVENTORY_FILE` | File containing node inventory |
+| **settings** | `--input-format` | `SETTINGS_INPUT_FORMAT` | Sets the inventory input format (json, yaml) |
+| **settings** | `--username` | `SETTINGS_USERNAME` | Sets the master BMC username |
+| **settings** | `--password` | `SETTINGS_PASSWORD` | Sets the master BMC password |
+| **settings** | `--secrets-file` | `SETTINGS_SECRETS_FILE` | Sets the secrets file with BMC credentials |
+| **settings** | `--insecure` | `SETTINGS_INSECURE` | Skips TLS certificate verification during probe |
+| **settings** | `--cacert` | `SETTINGS_CACERT` | Sets the path to CA cert file |
+| **settings** | `--preserve-config` | `SETTINGS_PRESERVE_CONFIG` | Preserve settings during reset |
 | **update** | `--scheme` | `UPDATE_SCHEME` | Sets the transfer protocol |
 | **update** | `--firmware-uri` | `UPDATE_FIRMWARE_URI` | Sets the URI to retrieve the firmware |
 | **update** | `--status` | `UPDATE_STATUS` | Gets the status of the update |
 | **update** | `--insecure` | `UPDATE_INSECURE` | Allows insecure connections to the server |
-| **secrets**| `--file` | `FILE` | Sets the secrets file with BMC credentials |
-| **secrets**| `--format` | `FORMAT` | Sets the input format for the secrets file |
-| **secrets**| `--input-file` | `INPUT_FILE` | Sets the file to read as input |
+| **secrets** | `--file` | `SECRETS_FILE` | Sets the secrets file with BMC credentials |
+| **secrets** | `--input-format` | `SECRETS_INPUT_FORMAT` | Sets the input format for the secrets file |
+| **secrets** | `--input-file` | `SECRETS_INPUT_FILE` | Sets the file to read as input |
 
 > [!NOTE]
 > Due to how configuration defaults and bindings are resolved in `magellan`, some flags accept both a global variable and a command-specific variable (e.g. `--password` under `collect` accepts both `PASSWORD` and `COLLECT_PASSWORD`).
@@ -661,7 +728,7 @@ In summary, `magellan` needs at minimum the following configured to work on each
 
 ## TODO
 
-See the [issue list](https://github.com/OpenCHAMI/magellan/issues) for plans for `magellan`. Here is a list of other features left to add, fix, or do (and some ideas!):
+See the [issue list](https://github.com/openchami/magellan/issues) for plans for `magellan`. Here is a list of other features left to add, fix, or do (and some ideas!):
 
 * [X] Confirm loading different components into SMD
 * [X] Add ability to set subnet mask for scanning
