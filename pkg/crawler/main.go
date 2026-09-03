@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
@@ -529,25 +530,38 @@ func merge(systems map[string]*InventoryDetail, newSystems []InventoryDetail) ma
 	return systems
 }
 
-// firstIPAddress returns the interface's first non-empty address, preferring
-// IPv4. BMCs commonly present an IPv6-only management NIC, and some pad the
-// address arrays with blank entries, so neither array length nor index 0 is a
-// reliable indicator on its own.
+// firstIPAddress returns the interface's first usable address, preferring IPv4.
+// BMCs pad these arrays with placeholders — blank strings, "0.0.0.0", or the
+// IPv6 unspecified address — so neither array length nor index 0 indicates a
+// real address.
 func firstIPAddress(iface *schemas.EthernetInterface) string {
 	if iface == nil {
 		return ""
 	}
 	for _, addr := range iface.IPv4Addresses {
-		if v := strings.TrimSpace(addr.Address); v != "" {
+		if v := usableAddress(addr.Address); v != "" {
 			return v
 		}
 	}
 	for _, addr := range iface.IPv6Addresses {
-		if v := strings.TrimSpace(addr.Address); v != "" {
+		if v := usableAddress(addr.Address); v != "" {
 			return v
 		}
 	}
 	return ""
+}
+
+// usableAddress returns the address unless it is empty or an unspecified
+// placeholder that carries no routing information.
+func usableAddress(address string) string {
+	v := strings.TrimSpace(address)
+	if v == "" {
+		return ""
+	}
+	if ip := net.ParseIP(v); ip == nil || ip.IsUnspecified() {
+		return ""
+	}
+	return v
 }
 
 // derefUint dereferences an optional *uint Redfish field to an int, yielding 0
