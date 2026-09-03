@@ -16,6 +16,19 @@ type ConnConfig struct {
 	Insecure        bool                // Whether to ignore TLS verification errors
 	CredentialStore secrets.SecretStore // Source of BMC credentials
 	UseDefault      bool                // Retained for compatibility with existing callers
+	// SecretID overrides the secret-store key used to look up credentials.
+	// Callers that key credentials by something other than the BMC URI (e.g. an
+	// inventory system's own identifier) set this instead.
+	SecretID string
+}
+
+// credentialID is the secret-store key used to resolve this connection's
+// credentials: the explicit SecretID when set, otherwise the BMC URI.
+func (c ConnConfig) credentialID() string {
+	if c.SecretID != "" {
+		return c.SecretID
+	}
+	return c.URI
 }
 
 // GetUserPass resolves the BMC credentials for this connection from the
@@ -26,7 +39,7 @@ func (c ConnConfig) GetUserPass() (BMCCredentials, error) {
 	if c.CredentialStore == nil {
 		return BMCCredentials{}, fmt.Errorf("credential store is invalid")
 	}
-	creds := GetBMCCredentialsOrDefault(c.CredentialStore, c.URI)
+	creds := GetBMCCredentialsOrDefault(c.CredentialStore, c.credentialID())
 	if creds == (BMCCredentials{}) {
 		return creds, fmt.Errorf("%s: credentials blank for BMC", c.URI)
 	}

@@ -42,11 +42,18 @@ func New(store secrets.SecretStore) *Service {
 // connConfig builds a connection config for a BMC URI using the service's
 // credential store and TLS settings.
 func (s *Service) connConfig(uri string) crawler.CrawlerConfig {
+	return s.connConfigFor(uri, "")
+}
+
+// connConfigFor builds a connection config that resolves credentials under
+// secretID. An empty secretID falls back to keying credentials by BMC URI.
+func (s *Service) connConfigFor(uri, secretID string) crawler.CrawlerConfig {
 	return crawler.CrawlerConfig{
 		URI:             uri,
 		Insecure:        s.Insecure,
 		CredentialStore: s.Secrets,
 		UseDefault:      true,
+		SecretID:        secretID,
 	}
 }
 
@@ -66,7 +73,15 @@ func (s *Service) Collect(assets []magellan.RemoteAsset, params *magellan.Collec
 
 // Inventory returns the Redfish systems and managers for a single BMC.
 func (s *Service) Inventory(uri string) ([]crawler.InventoryDetail, []crawler.Manager, error) {
-	cfg := s.connConfig(uri)
+	return s.InventoryWithSecret(uri, "")
+}
+
+// InventoryWithSecret is Inventory with the credentials resolved under an
+// explicit secret-store ID rather than the BMC URI. It lets callers that key
+// BMC credentials by their own identifier (e.g. an xname or FRU secret ID)
+// delegate inventory to magellan without sending credentials over the wire.
+func (s *Service) InventoryWithSecret(uri, secretID string) ([]crawler.InventoryDetail, []crawler.Manager, error) {
+	cfg := s.connConfigFor(uri, secretID)
 	systems, err := crawler.CrawlBMCForSystems(cfg)
 	if err != nil {
 		return systems, nil, err

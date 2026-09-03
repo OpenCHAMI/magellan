@@ -78,17 +78,20 @@ func (m *Manager) Client(ctx context.Context, cfg ConnConfig) (Client, error) {
 }
 
 // CachedClient returns a vendor-aware Client for the BMC, creating and caching a
-// new session keyed by URI if one does not already exist. Cached sessions are
-// kept open for efficiency and released together by LogoutAll.
+// new session if one does not already exist. Cached sessions are kept open for
+// efficiency and released together by LogoutAll.
 //
 // Note: ctx scopes the session only when a new one is opened; a cache hit
 // returns a session bound to the context it was originally connected with. For
 // per-request cancellation across many callers (e.g. the daemon), prefer Client
 // to obtain an uncached, request-scoped session.
 func (m *Manager) CachedClient(ctx context.Context, cfg ConnConfig) (Client, error) {
+	// The key includes the credential identity so two callers targeting the same
+	// BMC under different credentials never share a session.
+	key := cfg.URI + "\x00" + cfg.credentialID()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if c, ok := m.cache[cfg.URI]; ok {
+	if c, ok := m.cache[key]; ok {
 		log.Debug().Msgf("found existing client for %s", cfg.URI)
 		return c, nil
 	}
@@ -97,7 +100,7 @@ func (m *Manager) CachedClient(ctx context.Context, cfg ConnConfig) (Client, err
 		return nil, err
 	}
 	c := clientFor(api)
-	m.cache[cfg.URI] = c
+	m.cache[key] = c
 	log.Debug().Msgf("created new client for %s", cfg.URI)
 	return c, nil
 }
@@ -107,9 +110,9 @@ func (m *Manager) CachedClient(ctx context.Context, cfg ConnConfig) (Client, err
 func (m *Manager) LogoutAll() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for uri, c := range m.cache {
-		log.Debug().Msgf("logging out client for %s", uri)
+	for key, c := range m.cache {
+		log.Debug().Msgf("logging out client for %s", key)
 		c.Logout()
-		delete(m.cache, uri)
+		delete(m.cache, key)
 	}
 }

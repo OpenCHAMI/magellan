@@ -33,7 +33,8 @@ var ServeCmd = &cobra.Command{
 		"until it receives SIGINT or SIGTERM, then drains in-flight requests.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Resolve BMC credentials from the local secret store, matching the
-		// other subcommands. Per-request credentials are a later enhancement.
+		// other subcommands. Requests may name a specific store entry via
+		// "secretID"; credentials themselves are never accepted over the API.
 		store, err := secrets.OpenStore(secretsFile)
 		if err != nil {
 			log.Warn().Err(err).Str("path", secretsFile).Msg("failed to open secrets store; BMC operations will fail until credentials are available")

@@ -19,10 +19,16 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleInventory crawls a single BMC for its systems and managers.
-// Request body: {"bmc": "https://..."}.
+// Request body: {"bmc": "https://...", "secretID": "optional-store-key"}.
+//
+// secretID lets a caller that keys BMC credentials by its own identifier (e.g.
+// an xname or FRU secret ID) select the credentials magellan uses, so callers
+// never have to send credentials over the wire. When omitted, credentials are
+// resolved by BMC URI, then by the store's default entry.
 func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		BMC string `json:"bmc"`
+		BMC      string `json:"bmc"`
+		SecretID string `json:"secretID"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -31,7 +37,7 @@ func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "field 'bmc' is required")
 		return
 	}
-	systems, managers, err := s.svc.Inventory(req.BMC)
+	systems, managers, err := s.svc.InventoryWithSecret(req.BMC, req.SecretID)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return

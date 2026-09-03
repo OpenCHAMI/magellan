@@ -36,4 +36,23 @@ func TestGetUserPass(t *testing.T) {
 			t.Fatalf("GetUserPass creds = %+v, want {alice s3cret}", creds)
 		}
 	})
+
+	t.Run("secret ID selects the store entry", func(t *testing.T) {
+		store, err := secrets.NewLocalSecretStore(strings.Repeat("ab", 32), t.TempDir()+"/secrets.json", true)
+		if err != nil {
+			t.Fatalf("NewLocalSecretStore: %v", err)
+		}
+		if err := store.StoreSecretByID("bmc-x0c0s1b0", `{"username":"bob","password":"hunter2"}`); err != nil {
+			t.Fatalf("StoreSecretByID: %v", err)
+		}
+
+		cfg := ConnConfig{URI: "https://bmc.example", SecretID: "bmc-x0c0s1b0", CredentialStore: store}
+		creds, err := cfg.GetUserPass()
+		if err != nil {
+			t.Fatalf("GetUserPass unexpected error: %v", err)
+		}
+		if creds.Username != "bob" || creds.Password != "hunter2" {
+			t.Fatalf("GetUserPass creds = %+v, want {bob hunter2}", creds)
+		}
+	})
 }
