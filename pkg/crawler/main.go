@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/OpenCHAMI/magellan/pkg/bmc"
 	"github.com/rs/zerolog/log"
@@ -359,9 +360,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				Name:        rf_ethernetinterface.Name,
 				Description: rf_ethernetinterface.Description,
 				Enabled:     rf_ethernetinterface.InterfaceEnabled,
-			}
-			if len(rf_ethernetinterface.IPv4Addresses) > 0 {
-				ethernetinterface.IP = rf_ethernetinterface.IPv4Addresses[0].Address
+				IP:          firstIPAddress(rf_ethernetinterface),
 			}
 			system.EthernetInterfaces = append(system.EthernetInterfaces, ethernetinterface)
 		}
@@ -438,7 +437,8 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 		}
 		var ethernet_interfaces []EthernetInterface
 		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
-			if len(rf_ethernetinterface.IPv4Addresses) <= 0 {
+			ip := firstIPAddress(rf_ethernetinterface)
+			if ip == "" {
 				continue
 			}
 			ethernet_interfaces = append(ethernet_interfaces, EthernetInterface{
@@ -527,6 +527,27 @@ func merge(systems map[string]*InventoryDetail, newSystems []InventoryDetail) ma
 		systems[system.URI] = &system
 	}
 	return systems
+}
+
+// firstIPAddress returns the interface's first non-empty address, preferring
+// IPv4. BMCs commonly present an IPv6-only management NIC, and some pad the
+// address arrays with blank entries, so neither array length nor index 0 is a
+// reliable indicator on its own.
+func firstIPAddress(iface *schemas.EthernetInterface) string {
+	if iface == nil {
+		return ""
+	}
+	for _, addr := range iface.IPv4Addresses {
+		if v := strings.TrimSpace(addr.Address); v != "" {
+			return v
+		}
+	}
+	for _, addr := range iface.IPv6Addresses {
+		if v := strings.TrimSpace(addr.Address); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // derefUint dereferences an optional *uint Redfish field to an int, yielding 0
