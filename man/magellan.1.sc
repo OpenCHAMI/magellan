@@ -163,8 +163,8 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *INPUT_FILE*: Sets the file to read as input
 - *MASTER_KEY*: Set the generated key for the secrets file
 
-Note: Environment variables that take multiple arguments (like `SCAN_SUBNETS` or
-`SCAN_PORTS`) should have their values delimited by a comma `,` (e.g., `SCAN_PORTS=5000,5001`).
+Note: Environment variables that take multiple arguments (like *SCAN_SUBNETS* or
+*SCAN_PORTS*) should have their values delimited by a comma *,* (e.g., *SCAN_PORTS=5000,5001*).
 
 # GETTING STARTED
 
