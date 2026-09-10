@@ -240,7 +240,7 @@ func concurrent_helper(concurrency int, targets []power.CrawlableNode, runner fu
 
 func init() {
 	// Alternative actions from the default power-state query
-	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "l", false, "List supported Redfish reset types")
+	PowerCmd.Flags().BoolVarP(&list_reset_types, "list-reset-types", "L", false, "List supported Redfish reset types")
 	PowerCmd.Flags().StringVarP(&reset_type, "reset-type", "r", "", "Redfish reset type to perform")
 	PowerCmd.MarkFlagsMutuallyExclusive("reset-type", "list-reset-types")
 
