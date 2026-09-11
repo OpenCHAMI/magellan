@@ -31,6 +31,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
     - [Updating Firmware](#updating-firmware)
     - [Managing Power](#managing-power)
     - [Configuring BMC Settings](#configuring-bmc-settings)
+    - [Daemon Mode](#daemon-mode)
     - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
     - [Running with Docker](#running-with-docker)
     - [Environment Variables](#environment-variables)
@@ -609,6 +610,36 @@ There is no upper limit on the number of property arguments: `list` and `get` wa
 The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations accept a resource ID or name, or `default` to select the first resource. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
 
 See `magellan-settings(1)` for more details.
+
+### Daemon Mode
+
+The `magellan` tool can operate as a long-lived REST service, allowing other OpenCHAMI components to delegate discovery, inventory, and power operations to it without needing to implement their own BMC connection logic.
+
+To start the daemon, use the `serve` subcommand:
+
+```bash
+magellan serve --port 8443 --secrets-file /path/to/secrets.json
+
+```
+
+By default, the server binds to all interfaces. You can secure the API by providing TLS certificates and requiring a static bearer token:
+
+```bash
+magellan serve \
+    --port 8443 \
+    --tls-cert cert.pem \
+    --tls-key key.pem \
+    --auth-token "your-secure-token"
+
+```
+
+Once running, the API accepts standard HTTP requests. For example, to retrieve the power state of a BMC:
+
+```bash
+curl -H "Authorization: Bearer your-secure-token" \
+     "https://localhost:8443/v1/power?bmc=https://172.16.0.10&system=Node0"
+
+```
 
 ### Getting an Access Token (WIP)
 
