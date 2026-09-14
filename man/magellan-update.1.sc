@@ -40,7 +40,7 @@ magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status
 *-u, --username* _value_
 	Set the username for basic authentication for requests to the BMC node.
 
-See *magellan*(1) for information about global flags used for all commands.
+See *magellan*(1) for information about global flags and environment variables used for all commands.
 
 # AUTHOR
 

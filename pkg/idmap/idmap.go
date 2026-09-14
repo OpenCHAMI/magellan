@@ -2,7 +2,7 @@
 package idmap
 
 import (
-	"github.com/OpenCHAMI/magellan/internal/format"
+	"github.com/openchami/magellan/internal/format"
 	"github.com/rs/zerolog/log"
 )
 

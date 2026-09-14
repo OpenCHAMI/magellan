@@ -6,12 +6,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/format"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
 	"github.com/cznic/mathutil"
+	"github.com/openchami/magellan/internal/cache/sqlite"
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -56,13 +56,20 @@ var CollectCmd = &cobra.Command{
   SHOW_OUTPUT=true LOG_LEVEL=debug magellan collect -i -d@assets.json
   `,
 	Short: "Collect hardware inventory by interrogating BMC nodes using scan data",
-	Long: `	Collect hardware inventory by interrogating BMC nodes using scan data. This command send request(s) to a collection of hosts running Redfish services found stored from the 'scan' in cache, provided through stdin, or provided using the '-d/--data' flag. 
-	
-	See the 'scan' command on how to perform a scan to create. 
-	
-	The path to BMC ID mappings can be specified using the '--bmc-id-mappings' flag. This will convert any hosts found  
-	
-	See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of available environment variables.
+	Long: `Collect hardware inventory by interrogating BMC nodes using scan 
+data. This command send request(s) to a collection of hosts running Redfish 
+services found stored from the 'scan' in cache, provided through stdin, or 
+provided using the '-d/--data' flag. 
+
+See 'magellan scan --help' on how to perform a scan to create. 
+See 'magellan send --help' on how to send the inventory to a remote host.
+
+The path to BMC ID mappings can be specified using the '--bmc-id-mappings' flag. 
+This will convert any hosts found in the mappings file to the each value 
+specified.
+
+See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of 
+available environment variables.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get probe states stored in db from scan
@@ -237,18 +244,18 @@ var CollectCmd = &cobra.Command{
 }
 
 func init() {
-	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username")
-	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password")
-	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set path to the node secrets file")
-	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query")
-	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file")
-	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning")
-	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe")
-	CollectCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run")
-	CollectCmd.Flags().VarP(&collectInputFormat, "input-format", "f", "Set the default input data format (json|yaml)")
-	CollectCmd.Flags().VarP(&collectOutputFormat, "output-format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions)")
-	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input)")
-	CollectCmd.Flags().StringArrayVarP(&collectDataArgs, "data", "d", []string{}, "Set the data as input for collect (prepend @ for files)")
+	CollectCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username.")
+	CollectCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
+	CollectCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
+	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query.")
+	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file.")
+	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning.")
+	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	CollectCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run.")
+	CollectCmd.Flags().VarP(&collectInputFormat, "input-format", "f", "Set the default input data format (json|yaml).")
+	CollectCmd.Flags().VarP(&collectOutputFormat, "output-format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions).")
+	CollectCmd.Flags().StringVarP(&idMap, "bmc-id-map", "m", "", "Set the BMC ID mapping from raw json data or use @<path> to specify a file path (json or yaml input).")
+	CollectCmd.Flags().StringArrayVarP(&collectDataArgs, "data", "d", []string{}, "Set the data as input for collect (prepend @ for files).")
 
 	// set mutually exclusive flags
 	CollectCmd.MarkFlagsMutuallyExclusive("output-file", "output-dir")
