@@ -1,18 +1,12 @@
 package crawler
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"net/http"
-	"os"
-	"strings"
 
-	"github.com/openchami/magellan/internal/util"
 	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/models"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
-	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -24,179 +18,17 @@ type CrawlerConfig struct {
 	UseDefault      bool
 }
 
-func (cc *CrawlerConfig) GetUserPass() (bmc.BMCCredentials, error) {
-	return loadBMCCreds(*cc)
-}
-
-type EthernetInterface struct {
-	URI         string `json:"uri,omitempty"`         // URI of the interface
-	MAC         string `json:"mac,omitempty"`         // MAC address of the interface
-	IP          string `json:"ip,omitempty"`          // IP address of the interface
-	Name        string `json:"name,omitempty"`        // Name of the interface
-	Description string `json:"description,omitempty"` // Description of the interface
-	Enabled     bool   `json:"enabled,omitempty"`     // Enabled interface
-}
-
-type NetworkAdapter struct {
-	URI          string `json:"uri,omitempty"`          // URI of the adapter
-	Manufacturer string `json:"manufacturer,omitempty"` // Manufacturer of the adapter
-	Name         string `json:"name,omitempty"`         // Name of the adapter
-	Model        string `json:"model,omitempty"`        // Model of the adapter
-	Serial       string `json:"serial,omitempty"`       // Serial number of the adapter
-	Description  string `json:"description,omitempty"`  // Description of the adapter
-}
-
-type NetworkInterface struct {
-	URI         string         `json:"uri,omitempty"`         // URI of the interface
-	Name        string         `json:"name,omitempty"`        // Name of the interface
-	Description string         `json:"description,omitempty"` // Description of the interface
-	Adapter     NetworkAdapter `json:"adapter,omitempty"`     // Adapter of the interface
-}
-
-type Manager struct {
-	URI                    string              `json:"uri,omitempty"`
-	UUID                   string              `json:"uuid,omitempty"`
-	Name                   string              `json:"name,omitempty"`
-	Description            string              `json:"description,omitempty"`
-	Model                  string              `json:"model,omitempty"`
-	Type                   string              `json:"type,omitempty"`
-	FirmwareVersion        string              `json:"firmware_version,omitempty"`
-	EthernetInterfaces     []EthernetInterface `json:"ethernet_interfaces,omitempty"`
-	SerialConsoleSupported []string            `json:"serial_console"`
-	CommandShellSupported  []string            `json:"command_shell"`
-}
-
-type Links struct {
-	Chassis  []string `json:"chassis,omitempty"`
-	Managers []string `json:"managers,omitempty"`
-}
-
-type Power struct {
-	State           string   `json:"state,omitempty"`
-	Mode            string   `json:"mode,omitempty"`
-	RestorePolicy   string   `json:"restore_policy,omitempty"`
-	PowerControlIDs []string `json:"power_control_ids,omitempty"`
-}
-
-type SerialConsoleConfig struct {
-	Port    uint `json:"port,omitempty"`
-	Enabled bool `json:"enabled,omitempty"`
-}
-
-type SerialConsole struct {
-	IPMI   SerialConsoleConfig `json:"impi,omitempty"`
-	Telnet SerialConsoleConfig `json:"telnet,omitempty"`
-	SSH    SerialConsoleConfig `json:"ssh,omitempty"`
-}
-
-type InventoryDetail struct {
-	URI                  string              `json:"uri,omitempty"`                  // URI of the BMC
-	UUID                 string              `json:"uuid,omitempty"`                 // UUID of Node
-	Manufacturer         string              `json:"manufacturer,omitempty"`         // Manufacturer of the Node
-	SystemType           string              `json:"system_type,omitempty"`          // System type of the Node
-	Name                 string              `json:"name,omitempty"`                 // Name of the Node
-	ModelNumber          string              `json:"model,omitempty"`                // Model of the Node
-	SerialNumber         string              `json:"serial,omitempty"`               // Serial number of the Node
-	SerialConsole        SerialConsole       `json:"serial_console,omitempty"`       // Supported serial console types of the Node
-	BiosVersion          string              `json:"bios_version,omitempty"`         // Version of the BIOS
-	EthernetInterfaces   []EthernetInterface `json:"ethernet_interfaces,omitempty"`  // Ethernet interfaces of the Node
-	NetworkInterfaces    []NetworkInterface  `json:"network_interfaces,omitempty"`   // Network interfaces of the Node
-	Actions              []string            `json:"actions,omitempty"`              // Available actions for Node
-	Power                Power               `json:"power,omitempty"`                // Power related settings of Node
-	ProcessorCount       uint                `json:"processor_count,omitempty"`      // Processors of the Node
-	ProcessorType        string              `json:"processor_type,omitempty"`       // Processor type of the Node
-	MemoryTotal          float64             `json:"memory_total,omitempty"`         // Total memory of the Node in Gigabytes
-	TrustedModules       []string            `json:"trusted_modules,omitempty"`      // Trusted modules of the Node
-	TrustedComponents    []string            `json:"trusted_components,omitempty"`   // Trusted components of the Chassis
-	Chassis_SKU          string              `json:"chassis_sku,omitempty"`          // SKU of the Chassis
-	Chassis_Serial       string              `json:"chassis_serial,omitempty"`       // Serial number of the Chassis
-	Chassis_AssetTag     string              `json:"chassis_asset_tag,omitempty"`    // Asset tag of the Chassis
-	Chassis_Manufacturer string              `json:"chassis_manufacturer,omitempty"` // Manufacturer of the Chassis
-	Chassis_Model        string              `json:"chassis_model,omitempty"`        // Model of the Chassis
-	Links                Links               `json:"links,omitempty"`                // Links to specific resources
-	NodeID               string              `json:"node_id,omitempty"`              // Node ID within the BMC, e.g. /redfish/v1/Systems/<ID>
-}
-
-// GetBMCClient connects to a BMC (Baseboard Management Controller) using the provided configuration,
-// and returns the active client.
-//
-// Parameters:
-//   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
-//
-// Returns:
-//   - *gofish.APIClient: The active client for the BMC.
-//   - error: An error object if any error occurs during the connection or retrieval process.
-//
-// The function performs the following steps:
-//  1. Initializes a gofish client with the provided configuration.
-//  2. Attempts to connect to the BMC using the gofish client.
-//  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
-//  4. Returns the active gofish client.
-func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
-	// get username and password from secret store
-	bmc_creds, err := loadBMCCreds(config)
-	if err != nil {
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to load BMC credentials")
-		return nil, err
-	}
-
-	clientConfig := gofish.ClientConfig{
-		Endpoint:  config.URI,
-		Username:  bmc_creds.Username,
-		Password:  bmc_creds.Password,
-		Insecure:  config.Insecure,
-		BasicAuth: true,
-	}
-	if config.CACertPath != "" {
-		caCert, readErr := os.ReadFile(config.CACertPath)
-		if readErr != nil {
-			return nil, fmt.Errorf("failed to read CA certificate %q: %w", config.CACertPath, readErr)
-		}
-		certPool, poolErr := x509.SystemCertPool()
-		if poolErr != nil {
-			certPool = x509.NewCertPool()
-		}
-		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
-			return nil, fmt.Errorf("failed to parse CA certificate %q", config.CACertPath)
-		}
-		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.TLSClientConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			RootCAs:    certPool,
-		}
-		clientConfig.HTTPClient = &http.Client{Transport: transport}
-	}
-
-	// initialize gofish client
-	client, err := gofish.Connect(clientConfig)
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "404:") {
-			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
-		}
-		if strings.HasPrefix(err.Error(), "401:") {
-			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
-		}
-		event := log.Error()
-		event.Err(err)
-		event.Msg("failed to connect to BMC")
-		return nil, err
-	}
-	return client, nil
-}
-
 // CrawlBMCForSystems pulls all pertinent information from a BMC.
 // It accepts a CrawlerConfig and returns a list of InventoryDetail structs.
-func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
+func CrawlBMCForSystems(config CrawlerConfig) ([]models.InventoryDetail, error) {
 	var (
-		systems    = make(map[string]*InventoryDetail)
+		systems    = make(map[string]*models.InventoryDetail)
 		rf_systems []*schemas.ComputerSystem
 	)
 
-	client, err := GetBMCClient(config)
+	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
 	if err != nil {
-		return []InventoryDetail{}, err
+		return []models.InventoryDetail{}, err
 	}
 	defer client.Logout()
 
@@ -264,9 +96,9 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]InventoryDetail, error) {
 //  3. Retrieves the ServiceRoot from the connected BMC.
 //  4. Fetches the list of managers from the ServiceRoot.
 //  5. Returns the list of managers and any error encountered during the process.
-func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
-	var managers []Manager
-	client, err := GetBMCClient(config)
+func CrawlBMCForManagers(config CrawlerConfig) ([]models.Manager, error) {
+	var managers []models.Manager
+	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
 	if err != nil {
 		return managers, err
 	}
@@ -307,8 +139,8 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]Manager, error) {
 //  6. Processes trusted modules for each computer system, adding them to the TrustedModules field of the InventoryDetail object.
 //  7. Appends the populated InventoryDetail object to the systems slice.
 //  8. Returns the systems slice and any error encountered during processing.
-func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chassis, baseURI string) ([]InventoryDetail, error) {
-	systems := []InventoryDetail{}
+func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chassis, baseURI string) ([]models.InventoryDetail, error) {
+	systems := []models.InventoryDetail{}
 	for _, rf_computersystem := range rf_systems {
 		var (
 			managerLinks    []string
@@ -366,7 +198,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		}
 
 		// get all of the links to the chassis
-		system := InventoryDetail{
+		system := models.InventoryDetail{
 			URI:          baseURI + "/redfish/v1/Systems/" + rf_computersystem.ID,
 			UUID:         rf_computersystem.UUID,
 			Name:         rf_computersystem.Name,
@@ -374,23 +206,23 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			SystemType:   string(rf_computersystem.SystemType),
 			ModelNumber:  rf_computersystem.Model,
 			SerialNumber: rf_computersystem.SerialNumber,
-			SerialConsole: SerialConsole{
-				IPMI: SerialConsoleConfig{
+			SerialConsole: models.SerialConsole{
+				IPMI: models.SerialConsoleConfig{
 					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
 				},
-				SSH: SerialConsoleConfig{
+				SSH: models.SerialConsoleConfig{
 					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
 				},
-				Telnet: SerialConsoleConfig{
+				Telnet: models.SerialConsoleConfig{
 					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
 				},
 			},
 			BiosVersion: rf_computersystem.BiosVersion,
-			Links: Links{
+			Links: models.Links{
 				Managers: managerLinks,
 				Chassis:  chassisLinks,
 			},
-			Power: Power{
+			Power: models.Power{
 				Mode:            string(rf_computersystem.PowerMode),
 				State:           string(rf_computersystem.PowerState),
 				RestorePolicy:   string(rf_computersystem.PowerRestorePolicy),
@@ -433,7 +265,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			return systems, err
 		}
 		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
-			ethernetinterface := EthernetInterface{
+			ethernetinterface := models.EthernetInterface{
 				URI:         baseURI + rf_ethernetinterface.ODataID,
 				MAC:         rf_ethernetinterface.MACAddress,
 				Name:        rf_ethernetinterface.Name,
@@ -460,9 +292,9 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				return systems, err
 			}
 
-			var networkAdapter NetworkAdapter
+			var networkAdapter models.NetworkAdapter
 			if rf_networkAdapter != nil {
-				networkAdapter = NetworkAdapter{
+				networkAdapter = models.NetworkAdapter{
 					URI:          baseURI + rf_networkAdapter.ODataID,
 					Name:         rf_networkAdapter.Name,
 					Manufacturer: rf_networkAdapter.Manufacturer,
@@ -472,7 +304,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				}
 			}
 
-			networkInterface := NetworkInterface{
+			networkInterface := models.NetworkInterface{
 				URI:         baseURI + rf_networkInterface.ODataID,
 				Name:        rf_networkInterface.Name,
 				Description: rf_networkInterface.Description,
@@ -509,20 +341,20 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 // and constructs a Manager object with the relevant details, including Ethernet interface information.
 // If an error occurs while retrieving Ethernet interfaces, the function logs the error and returns the managers
 // collected so far along with the error.
-func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, error) {
-	var managers []Manager
+func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]models.Manager, error) {
+	var managers []models.Manager
 	for _, rf_manager := range rf_managers {
 		rf_ethernetinterfaces, err := rf_manager.EthernetInterfaces()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to get ethernet interfaces from manager")
 			return managers, err
 		}
-		var ethernet_interfaces []EthernetInterface
+		var ethernet_interfaces []models.EthernetInterface
 		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
 			if len(rf_ethernetinterface.IPv4Addresses) <= 0 {
 				continue
 			}
-			ethernet_interfaces = append(ethernet_interfaces, EthernetInterface{
+			ethernet_interfaces = append(ethernet_interfaces, models.EthernetInterface{
 				URI:         baseURI + rf_ethernetinterface.ODataID,
 				MAC:         rf_ethernetinterface.MACAddress,
 				Name:        rf_ethernetinterface.Name,
@@ -543,7 +375,7 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 			supported_command_shell = append(supported_command_shell, string(shell_type))
 		}
 
-		managers = append(managers, Manager{
+		managers = append(managers, models.Manager{
 			URI:                    baseURI + "/redfish/v1/Managers/" + rf_manager.ID,
 			UUID:                   rf_manager.UUID,
 			Name:                   rf_manager.Name,
@@ -559,18 +391,6 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 	return managers, nil
 }
 
-func loadBMCCreds(config CrawlerConfig) (bmc.BMCCredentials, error) {
-	// NOTE: it is possible for the SecretStore to be nil, so we need a check
-	if config.CredentialStore == nil {
-		return bmc.BMCCredentials{}, fmt.Errorf("credential store is invalid")
-	}
-	if creds := util.GetBMCCredentials(config.CredentialStore, config.URI); creds == (bmc.BMCCredentials{}) {
-		return creds, fmt.Errorf("%s: credentials blank for BMC", config.URI)
-	} else {
-		return creds, nil
-	}
-}
-
 func extractPtrMapValues[T any](m map[string]*T) []T {
 	slice := make([]T, 0, len(m))
 	for i := range m {
@@ -579,7 +399,7 @@ func extractPtrMapValues[T any](m map[string]*T) []T {
 	return slice
 }
 
-func merge(systems map[string]*InventoryDetail, newSystems []InventoryDetail) map[string]*InventoryDetail {
+func merge(systems map[string]*models.InventoryDetail, newSystems []models.InventoryDetail) map[string]*models.InventoryDetail {
 	// add and replace values in systems with values from newSystems
 	for _, system := range newSystems {
 		systems[system.URI] = &system
