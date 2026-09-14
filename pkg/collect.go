@@ -16,11 +16,11 @@ import (
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/crawler"
 	"github.com/openchami/magellan/pkg/idmap"
+	"github.com/openchami/magellan/pkg/models"
 	"github.com/openchami/magellan/pkg/secrets"
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -105,8 +105,8 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 				// crawl BMC node to fetch inventory data via Redfish
 				var (
-					systems  []crawler.InventoryDetail
-					managers []crawler.Manager
+					systems  []models.InventoryDetail
+					managers []models.Manager
 					config   = crawler.CrawlerConfig{
 						URI:             uri,
 						CredentialStore: params.SecretStore,
@@ -252,25 +252,8 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 	// gofish (at least for now). If there's a need for grabbing more
 	// manager information in the future, we can move the logic into
 	// the crawler.
-	bmc_creds, err := config.GetUserPass()
+	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to get credentials for URI: %s", config.URI)
-	}
-
-	client, err := gofish.Connect(gofish.ClientConfig{
-		Endpoint:  config.URI,
-		Username:  bmc_creds.Username,
-		Password:  bmc_creds.Password,
-		Insecure:  config.Insecure,
-		BasicAuth: true,
-	})
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "404:") {
-			err = fmt.Errorf("no ServiceRoot found.  This is probably not a BMC: %s", config.URI)
-		}
-		if strings.HasPrefix(err.Error(), "401:") {
-			err = fmt.Errorf("authentication failed.  Check your username and password: %s", config.URI)
-		}
 		event := log.Error()
 		event.Err(err)
 		event.Msg("failed to connect to BMC")
