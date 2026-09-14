@@ -261,7 +261,11 @@ var secretsListCmd = &cobra.Command{
 
 		switch secretsListFormat {
 		case format.FORMAT_JSON, format.FORMAT_YAML:
-			format.MarshalData(secrets, secretsListFormat)
+			output, err := format.MarshalData(secrets, secretsListFormat)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal credential data")
+			}
+			fmt.Println(output)
 		case format.FORMAT_LIST:
 			fallthrough
 		default:
