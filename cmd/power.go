@@ -58,7 +58,7 @@ available environment variables.
 			log.Info().Msgf("parsing default inventory file from 'collect': %s", datafile)
 		}
 		// Parse node inventory
-		nodes, err := power.ParseInventory(datafile, powerFormat)
+		nodes, err := bmc.ParseInventory(datafile, powerFormat)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("failed to parse inventory file %s", datafile)
 			// log.Fatal().Msg() does os.Exit(1) for us

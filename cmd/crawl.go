@@ -10,6 +10,7 @@ import (
 	urlx "github.com/openchami/magellan/internal/url"
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/models"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
 )
@@ -124,8 +125,8 @@ available environment variables.`,
 		}
 
 		var (
-			systems  []crawler.InventoryDetail
-			managers []crawler.Manager
+			systems  []models.InventoryDetail
+			managers []models.Manager
 			config   = crawler.CrawlerConfig{
 				URI:             uri,
 				CredentialStore: store,
