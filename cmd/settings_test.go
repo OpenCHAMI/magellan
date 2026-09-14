@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/test"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,16 +20,16 @@ import (
 
 func resetSettingsTestState(t *testing.T) {
 	t.Helper()
-	oldUsername, oldPassword := username, password
-	oldSecretsFile, oldInsecure := secretsFile, insecure
+	oldUsername, oldPassword := bmc.SettingsUsername, bmc.SettingsPassword
+	oldSecretsFile, oldInsecure := bmc.SettingsSecretsFile, bmc.SettingsInsecure
 	oldFormat, oldInputFormat := settingsFormat, settingsInputFormat
-	oldInventory, oldCACert := settingsInventoryFile, settingsCACertPath
+	oldInventory, oldCACert := settingsInventoryFile, bmc.SettingsCACertPath
 	oldPreserve := settingsPreserveConfig
 	t.Cleanup(func() {
-		username, password = oldUsername, oldPassword
-		secretsFile, insecure = oldSecretsFile, oldInsecure
+		bmc.SettingsUsername, bmc.SettingsPassword = oldUsername, oldPassword
+		bmc.SettingsSecretsFile, bmc.SettingsInsecure = oldSecretsFile, oldInsecure
 		settingsFormat, settingsInputFormat = oldFormat, oldInputFormat
-		settingsInventoryFile, settingsCACertPath = oldInventory, oldCACert
+		settingsInventoryFile, bmc.SettingsCACertPath = oldInventory, oldCACert
 		settingsPreserveConfig = oldPreserve
 		viper.Reset()
 		for _, command := range []commandFlagsForTest{
@@ -43,11 +44,11 @@ func resetSettingsTestState(t *testing.T) {
 			}
 		}
 	})
-	username, password, secretsFile = "", "", ""
-	insecure = false
+	bmc.SettingsUsername, bmc.SettingsPassword, bmc.SettingsSecretsFile = "", "", ""
+	bmc.SettingsInsecure = false
 	settingsFormat = format.FORMAT_JSON
 	settingsInputFormat = format.FORMAT_YAML
-	settingsInventoryFile, settingsCACertPath, settingsPreserveConfig = "", "", ""
+	settingsInventoryFile, bmc.SettingsCACertPath, settingsPreserveConfig = "", "", ""
 }
 
 type commandFlagsForTest struct {
@@ -72,7 +73,7 @@ func TestSettingsEndpoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := settingsEndpoint(tt.address)
+			got, err := bmc.SettingsEndpoint(tt.address)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
@@ -87,7 +88,7 @@ func TestSettingsListCommand(t *testing.T) {
 	server := newSettingsMockServer(t)
 
 	resetSettingsTestState(t)
-	username, password = "user", "pass"
+	bmc.SettingsUsername, bmc.SettingsPassword = "user", "pass"
 
 	t.Run("lists categories present on the BMC", func(t *testing.T) {
 		var output bytes.Buffer
@@ -188,7 +189,7 @@ func TestSettingsGetCommand(t *testing.T) {
 	server := newSettingsMockServer(t)
 
 	resetSettingsTestState(t)
-	username, password = "user", "pass"
+	bmc.SettingsUsername, bmc.SettingsPassword = "user", "pass"
 
 	run := func(t *testing.T, args ...string) string {
 		t.Helper()
@@ -286,8 +287,8 @@ func TestSettingsEnvironmentVariablesUseSettingsPrefix(t *testing.T) {
 	t.Setenv("SETTINGS_PRESERVE_CONFIG", "PreserveNetwork")
 
 	resolveFlagsFromViper(SettingsGetCmd)
-	require.Equal(t, "env-user", username)
-	require.Equal(t, "env-pass", password)
+	require.Equal(t, "env-user", bmc.SettingsUsername)
+	require.Equal(t, "env-pass", bmc.SettingsPassword)
 	require.Equal(t, "/tmp/nodes.yaml", settingsInventoryFile)
 	require.Equal(t, format.FORMAT_YAML, settingsInputFormat)
 
@@ -301,10 +302,10 @@ func TestSettingsFieldRejectsInternalFields(t *testing.T) {
 		hidden  string
 	}
 	value := &resource{Visible: "value", hidden: "secret"}
-	field, ok := settingsField(value, "Visible")
+	field, ok := bmc.SettingsField(value, "Visible")
 	require.True(t, ok)
 	require.Equal(t, "value", field.String())
-	_, ok = settingsField(value, "hidden")
+	_, ok = bmc.SettingsField(value, "hidden")
 	require.False(t, ok)
 }
 
@@ -342,9 +343,9 @@ func TestSettingsConnectReadsJSONAndYAMLInventory(t *testing.T) {
 			require.NoError(t, os.WriteFile(path, []byte(tt.contents), 0o600))
 			settingsInventoryFile = path
 			settingsInputFormat = tt.dataFormat
-			username, password = "user", "pass"
+			bmc.SettingsUsername, bmc.SettingsPassword = "user", "pass"
 
-			client, err := settingsConnect("x1000c0s0b0n0")
+			client, err := bmc.Connect("x1000c0s0b0n0", path, tt.dataFormat)
 			require.NoError(t, err)
 			require.NotNil(t, client)
 		})
@@ -353,6 +354,6 @@ func TestSettingsConnectReadsJSONAndYAMLInventory(t *testing.T) {
 
 func TestSettingsConnectRequiresCredentials(t *testing.T) {
 	resetSettingsTestState(t)
-	_, err := settingsConnect("bmc01")
+	_, err := bmc.Connect("bmc01", "", format.FORMAT_JSON)
 	require.ErrorContains(t, err, "BMC credentials are required")
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,19 +23,19 @@ func TestParseInventory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			path := filepath.Join(dir, tt.name)
 			require.NoError(t, os.WriteFile(path, []byte(tt.contents), 0o600))
-			nodes, err := ParseInventory(path, tt.dataFormat)
+			nodes, err := bmc.ParseInventory(path, tt.dataFormat)
 			require.NoError(t, err)
 			require.Equal(t, "x0c0s0b0n0", nodes[0].ClusterID)
 			require.Equal(t, "bmc.example", nodes[0].BmcIP)
 			require.Equal(t, "Node0", nodes[0].NodeID)
 		})
 	}
-	_, err := ParseInventory(filepath.Join(dir, "missing"), format.FORMAT_JSON)
+	_, err := bmc.ParseInventory(filepath.Join(dir, "missing"), format.FORMAT_JSON)
 	require.Error(t, err)
 	bad := filepath.Join(dir, "bad")
 	require.NoError(t, os.WriteFile(bad, []byte("{"), 0o600))
-	_, err = ParseInventory(bad, format.FORMAT_JSON)
+	_, err = bmc.ParseInventory(bad, format.FORMAT_JSON)
 	require.Error(t, err)
-	_, err = ParseInventory(bad, format.FORMAT_LIST)
+	_, err = bmc.ParseInventory(bad, format.FORMAT_LIST)
 	require.Error(t, err)
 }
