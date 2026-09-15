@@ -6,7 +6,7 @@ magellan-power - Power a node using Redfish actions
 
 # SYNOPSIS
 
-magellan power <node-{serial-number|ipaddr|uuid|mac}> [OPTIONS]++
+magellan power <node-{serial-number|ipaddr|uuid|mac}> [OPTIONS]
 
 # EXAMPLES
 
