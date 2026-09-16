@@ -405,7 +405,7 @@ func GetProtocolProperties(client *gofish.APIClient, protocolName string) ([]str
 	}
 
 	// Handle pointer types
-	if field.Kind() == reflect.Ptr {
+	if field.Kind() == reflect.Pointer {
 		if field.IsNil() {
 			return nil, nil
 		}
@@ -530,7 +530,7 @@ func decodeObject(value string) (map[string]any, error) {
 
 func exportedField(resource any, name string) (reflect.Value, bool) {
 	value := reflect.ValueOf(resource)
-	if value.Kind() == reflect.Ptr {
+	if value.Kind() == reflect.Pointer {
 		if value.IsNil() {
 			return reflect.Value{}, false
 		}
@@ -570,13 +570,13 @@ func ListSettingsCategories(client *gofish.APIClient, out io.Writer) error {
 		present = append(present, name)
 	}
 
-	fmt.Fprintln(out, "Available setting categories on BMC:")
-	fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "Available setting categories on BMC:")
+	_, _ = fmt.Fprintln(out)
 	for _, name := range present {
-		fmt.Fprintf(out, "  %-20s %s\n", name, SettingsCategories[name])
+		_, _ = fmt.Fprintf(out, "  %-20s %s\n", name, SettingsCategories[name])
 	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Use 'magellan settings list <node> <category>' to inspect items in a category.")
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "Use 'magellan settings list <node> <category>' to inspect items in a category.")
 	return nil
 }
 
@@ -588,9 +588,9 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(out, "Network protocols:")
+		_, _ = fmt.Fprintln(out, "Network protocols:")
 		for _, name := range names {
-			fmt.Fprintf(out, "  %-15s (use 'magellan settings list <node> NetworkProtocol %s' for properties)\n", name, name)
+			_, _ = fmt.Fprintf(out, "  %-15s (use 'magellan settings list <node> NetworkProtocol %s' for properties)\n", name, name)
 		}
 	case "EthernetInterface":
 		ifaces, err := GetEthernetInterfaces(client)
@@ -598,12 +598,12 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 			return err
 		}
 		if len(ifaces) == 0 {
-			fmt.Fprintln(out, "  (no ethernet interfaces found)")
+			_, _ = fmt.Fprintln(out, "  (no ethernet interfaces found)")
 			return nil
 		}
-		fmt.Fprintln(out, "Ethernet interfaces:")
+		_, _ = fmt.Fprintln(out, "Ethernet interfaces:")
 		for i := range ifaces {
-			fmt.Fprintf(out, "  %-3d %-15s %s (use 'magellan settings list <node> EthernetInterface %d' for properties)\n", i, ifaces[i].Name, ifaces[i].ID, i)
+			_, _ = fmt.Fprintf(out, "  %-3d %-15s %s (use 'magellan settings list <node> EthernetInterface %d' for properties)\n", i, ifaces[i].Name, ifaces[i].ID, i)
 		}
 	case "ComputerSystem":
 		systems, err := client.GetService().Systems()
@@ -611,12 +611,12 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 			return err
 		}
 		if len(systems) == 0 {
-			fmt.Fprintln(out, "  (no computer systems found)")
+			_, _ = fmt.Fprintln(out, "  (no computer systems found)")
 			return nil
 		}
-		fmt.Fprintln(out, "Computer systems:")
+		_, _ = fmt.Fprintln(out, "Computer systems:")
 		for _, sys := range systems {
-			fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> ComputerSystem %s' for properties)\n", sys.ID, sys.Name, sys.ID)
+			_, _ = fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> ComputerSystem %s' for properties)\n", sys.ID, sys.Name, sys.ID)
 		}
 	case "Manager":
 		managers, err := client.GetService().Managers()
@@ -624,12 +624,12 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 			return err
 		}
 		if len(managers) == 0 {
-			fmt.Fprintln(out, "  (no managers found)")
+			_, _ = fmt.Fprintln(out, "  (no managers found)")
 			return nil
 		}
-		fmt.Fprintln(out, "Managers:")
+		_, _ = fmt.Fprintln(out, "Managers:")
 		for _, mgr := range managers {
-			fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> Manager %s' for properties)\n", mgr.ID, mgr.Name, mgr.ID)
+			_, _ = fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> Manager %s' for properties)\n", mgr.ID, mgr.Name, mgr.ID)
 		}
 	case "Accounts":
 		accts, err := ListAccounts(client)
@@ -637,15 +637,15 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 			return err
 		}
 		if len(accts) == 0 {
-			fmt.Fprintln(out, "  (no accounts found)")
+			_, _ = fmt.Fprintln(out, "  (no accounts found)")
 			return nil
 		}
-		fmt.Fprintln(out, "Accounts:")
+		_, _ = fmt.Fprintln(out, "Accounts:")
 		for i := range accts {
-			fmt.Fprintf(out, "  %-10s %-20s enabled=%v role=%s (use 'magellan settings list <node> Accounts %s' for properties)\n", accts[i].ID, accts[i].UserName, accts[i].Enabled, accts[i].RoleID, accts[i].ID)
+			_, _ = fmt.Fprintf(out, "  %-10s %-20s enabled=%v role=%s (use 'magellan settings list <node> Accounts %s' for properties)\n", accts[i].ID, accts[i].UserName, accts[i].Enabled, accts[i].RoleID, accts[i].ID)
 		}
 	case "Reset":
-		fmt.Fprintln(out, "  Reset is an action, not a listable resource. Use 'magellan settings reset <node>' to perform a factory reset.")
+		_, _ = fmt.Fprintln(out, "  Reset is an action, not a listable resource. Use 'magellan settings reset <node>' to perform a factory reset.")
 	}
 	return nil
 }
@@ -665,31 +665,31 @@ func ListSettingsProperties(client *gofish.APIClient, out io.Writer, category, i
 	}
 
 	value := final
-	if value.Kind() == reflect.Ptr {
+	if value.Kind() == reflect.Pointer {
 		if value.IsNil() {
-			fmt.Fprintln(out, "  (value is nil)")
+			_, _ = fmt.Fprintln(out, "  (value is nil)")
 			return nil
 		}
 		value = value.Elem()
 	}
 
 	if value.Kind() != reflect.Struct {
-		fmt.Fprintf(out, "  %s is a %s; use 'magellan settings get' to read it\n", item, value.Kind())
+		_, _ = fmt.Fprintf(out, "  %s is a %s; use 'magellan settings get' to read it\n", item, value.Kind())
 		return nil
 	}
 
-	fmt.Fprintf(out, "Properties of %s.%s:", category, item)
+	_, _ = fmt.Fprintf(out, "Properties of %s.%s:", category, item)
 	for _, name := range path {
-		fmt.Fprintf(out, ".%s", name)
+		_, _ = fmt.Fprintf(out, ".%s", name)
 	}
-	fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out)
 	t := value.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		if f.PkgPath != "" || f.Anonymous {
 			continue
 		}
-		fmt.Fprintf(out, "  %s\n", f.Name)
+		_, _ = fmt.Fprintf(out, "  %s\n", f.Name)
 	}
 	return nil
 }
@@ -737,7 +737,7 @@ func ResolveListItem(client *gofish.APIClient, category, item string) (any, erro
 		}
 		return nil, fmt.Errorf("account %q not found", item)
 	case "Reset":
-		return nil, fmt.Errorf("Reset is an action, not a listable resource")
+		return nil, fmt.Errorf("reset is an action, not a listable resource")
 	default:
 		return nil, fmt.Errorf("unknown category %q", category)
 	}
@@ -982,7 +982,7 @@ func SettingsEndpoint(address string) (string, error) {
 
 func SettingsField(resource any, name string) (reflect.Value, bool) {
 	value := reflect.ValueOf(resource)
-	if value.Kind() == reflect.Ptr {
+	if value.Kind() == reflect.Pointer {
 		if value.IsNil() {
 			return reflect.Value{}, false
 		}
@@ -1001,7 +1001,7 @@ func SettingsField(resource any, name string) (reflect.Value, bool) {
 // settingsFieldByName walks into a struct (handling pointers) and returns the
 // exported field matching the given name.
 func SettingsFieldByName(value reflect.Value, name string) (reflect.Value, bool) {
-	if value.Kind() == reflect.Ptr {
+	if value.Kind() == reflect.Pointer {
 		if value.IsNil() {
 			return reflect.Value{}, false
 		}

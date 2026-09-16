@@ -185,7 +185,7 @@ resource exposed by the BMC. For Accounts, the first item is the account ID.`,
 		if err != nil {
 			return fmt.Errorf("failed to marshal result: %w", err)
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(output))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(output))
 		return nil
 	},
 }
@@ -244,7 +244,7 @@ scalar values.`,
 			return fmt.Errorf("unknown category %q; use 'magellan settings list' to see available categories", category)
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "Successfully set %s.%s\n", category, property)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Successfully set %s.%s\n", category, property)
 		return nil
 	},
 }
@@ -279,7 +279,7 @@ requested preserve type, an error is reported before any reset is attempted.`,
 		if err := bmc.ResetManager(client, settingsPreserveConfig); err != nil {
 			return fmt.Errorf("failed to reset manager: %w", err)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Manager reset initiated (preserve-config: %s)\n", settingsPreserveConfig)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Manager reset initiated (preserve-config: %s)\n", settingsPreserveConfig)
 		return nil
 	},
 }

@@ -265,7 +265,7 @@ var secretsListCmd = &cobra.Command{
 			if err != nil {
 				log.Error().Err(err).Msg("failed to marshal credential data")
 			}
-			fmt.Println(output)
+			fmt.Println(string(output))
 		case format.FORMAT_LIST:
 			fallthrough
 		default:
