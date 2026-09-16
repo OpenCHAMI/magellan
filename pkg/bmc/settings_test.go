@@ -50,13 +50,6 @@ func (f *redfishSettingsFixture) addRoute(path, response string) {
 	f.routes[path] = response
 }
 
-func (f *redfishSettingsFixture) route(path string) (string, bool) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	response, ok := f.routes[path]
-	return response, ok
-}
-
 func (f *redfishSettingsFixture) capturedWrites() []capturedRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
