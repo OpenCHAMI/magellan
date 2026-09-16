@@ -36,19 +36,19 @@ magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o off --inventory-file node
 *-L, --list-reset-types*
 	List supported Redfish reset types.
 
-*-F, --output-format _format_
+*-F, --output-format* _format_
 	Set the output format (json|yaml). (default json)
 
-*-p, --password _value_
+*-p, --password* _value_
 	Set the password to _value_ used for basic authentication to the BMC node.
 	When this flag is set, the value overrides all of the values loaded from the
 	secrets file.
 
-*-r, --reset-type _type_
+*-r, --reset-type* _type_
 	Set the Redfish reset type to perform. The supported values can be found via
 	the '--list-reset-types'. 
 
-*--secrets-file _path_
+*--secrets-file* _path_
 	Set path to a secrets file.
 
 	Requires the *MASTER_KEY* environment variable to be set. This can be set by
@@ -59,7 +59,7 @@ magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o off --inventory-file node
 
 	See *magellan-secrets*(1) for more details.
 
-*-u, --username _value_
+*-u, --username* _value_
 	Set the username to _value_ used for basic authentication to the BMC node.
 	When this flag is set, the value overrides all of the values loaded from the
 	secrets file.
