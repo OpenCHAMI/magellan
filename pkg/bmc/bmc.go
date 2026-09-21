@@ -10,7 +10,7 @@ import (
 	"github.com/openchami/magellan/pkg/models"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/assert/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 type BMCCredentials struct {
