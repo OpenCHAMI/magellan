@@ -580,7 +580,7 @@ magellan settings list 172.16.0.105 ComputerSystem Node0 Boot
 magellan settings get 172.16.0.105 NetworkProtocol SSH
 
 # get a nested computer system property
-magellan settings get 172.16.0.105 ComputerSystem Boot BootOrder
+magellan settings get 172.16.0.105 ComputerSystem Node0 Boot BootOrder
 
 # set SSH protocol settings
 magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,"Port":22}'
