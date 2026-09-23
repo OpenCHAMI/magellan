@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- `collect` now honors an explicitly set `--cache` even when standard input is
+  a pipe, so the command behaves the same with and without a TTY (#189)
+- `collect` reports a failure to read an explicitly requested `--cache` as an
+  error instead of falling through to the generic "no input" message (#189)
+- `IsStdinEmpty` treats an empty file redirected to stdin as providing no
+  input, instead of reporting data that is not there (#189)
+
 ## 0.5.2
 
 - Fixed issue with secrets file being closed too early

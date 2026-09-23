@@ -601,7 +601,7 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **Global** | `--timeout` | `TIMEOUT` | Sets the timeout for requests in seconds |
 | **Global** | `--log-level` | `LOG_LEVEL` | Sets the logger log-level (debug, info, warn, etc.) |
 | **Global** | `--access-token` | `ACCESS_TOKEN` | Sets the access token |
-| **Global** | `--cache` | `CACHE` | Sets the scanning result cache path |
+| **Global** | `--cache` | `CACHE` | Sets the scanning result cache path (takes precedence over stdin when set) |
 | **Global** | `--config`, `-c` | `CONFIG` | Sets the config file path |
 | **scan** | `--port` | `SCAN_PORTS` | Adds additional ports to scan |
 | **scan** | `--scheme` | `SCAN_SCHEME` | Sets the default scheme to use (e.g., https) |
