@@ -30,6 +30,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 		- [Starting the Emulator](#starting-the-emulator)
 		- [Updating Firmware](#updating-firmware)
 		- [Managing Power](#managing-power)
+		- [Daemon Mode](#daemon-mode)
 		- [Getting an Access Token (WIP)](#getting-an-access-token-wip)
 		- [Running with Docker](#running-with-docker)
 		- [Environment Variables](#environment-variables)
@@ -554,6 +555,36 @@ Once the desired reset type is identified, it can be applied via the `-r/--reset
 
 All `power` commands demonstrated here can accept additional options and multiple target nodes, for example `magellan power -u USER -p PASS -f collect.json x1000c0s0b3n0 x1000c0s0b3n1 x1000c0s0b3n2`.
 These options are omitted from the examples above for clarity.
+
+### Daemon Mode
+
+The `magellan` tool can operate as a long-lived REST service, allowing other OpenCHAMI components to delegate discovery, inventory, and power operations to it without needing to implement their own BMC connection logic.
+
+To start the daemon, use the `serve` subcommand:
+
+```bash
+magellan serve --port 8443 --secrets-file /path/to/secrets.json
+
+```
+
+By default, the server binds to all interfaces. You can secure the API by providing TLS certificates and requiring a static bearer token:
+
+```bash
+magellan serve \
+    --port 8443 \
+    --tls-cert cert.pem \
+    --tls-key key.pem \
+    --auth-token "your-secure-token"
+
+```
+
+Once running, the API accepts standard HTTP requests. For example, to retrieve the power state of a BMC:
+
+```bash
+curl -H "Authorization: Bearer your-secure-token" \
+     "https://localhost:8443/v1/power?bmc=https://172.16.0.10&system=Node0"
+
+```
 
 ### Getting an Access Token (WIP)
 

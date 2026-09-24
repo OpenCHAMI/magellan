@@ -12,9 +12,12 @@ type BMCCredentials struct {
 	Password string `json:"password"`
 }
 type Node struct {
-	ClusterID string `yaml:"cluster_id"`
-	BmcIP     string `yaml:"bmc_ip"`
-	NodeID    string `yaml:"node_id"`
+	ClusterID    string   `yaml:"cluster_id"`
+	BmcIP        string   `yaml:"bmc_ip"`
+	NodeID       string   `yaml:"node_id"`
+	UUID         string   `yaml:"uuid,omitempty"`
+	SerialNumber string   `yaml:"serial_number,omitempty"`
+	MACAddresses []string `yaml:"mac_addresses,omitempty"`
 }
 
 func GetBMCCredentialsDefault(store secrets.SecretStore) (BMCCredentials, error) {
