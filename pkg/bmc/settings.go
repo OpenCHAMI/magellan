@@ -10,14 +10,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/openchami/magellan/internal/format"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/schemas"
 )
 
 // Connection configuration for the settings commands. These are populated from
@@ -41,478 +41,159 @@ var SettingsCategories = map[string]string{
 	"Reset":             "Factory reset the BMC manager",
 }
 
-// GetNetworkProtocol returns the ManagerNetworkProtocol from the first manager
-// found on the BMC pointed to by client.
-func GetNetworkProtocol(client *gofish.APIClient) (*schemas.ManagerNetworkProtocol, error) {
-	service := client.GetService()
-	managers, err := service.Managers()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list managers: %w", err)
-	}
-	if len(managers) == 0 {
-		return nil, fmt.Errorf("no managers found on BMC")
-	}
-	return managers[0].NetworkProtocol()
+// nonProtocolProperties lists top-level ManagerNetworkProtocol keys that may
+// hold JSON objects but are not individually manageable network protocols.
+var nonProtocolProperties = map[string]bool{
+	"Status":  true,
+	"Oem":     true,
+	"Links":   true,
+	"Actions": true,
 }
 
-// SetNetworkProtocol applies JSON-encoded properties to a named network protocol
-// (e.g., "SSH", "HTTPS", "IPMI") on the first manager. Since ManagerNetworkProtocol
-// does not expose an Update() method, this builds a patch payload and sends it
-// directly via the Entity Patch method.
-func SetNetworkProtocol(client *gofish.APIClient, protocolName, jsonData string) error {
-	np, err := GetNetworkProtocol(client)
+// redfishResource fetches a Redfish resource and decodes it into generic JSON
+// so the settings feature operates on the exact payload the BMC returned,
+// rather than on gofish Go structs.
+func redfishResource(client *gofish.APIClient, path string) (map[string]any, error) {
+	resp, err := client.Get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %s for %s", resp.Status, path)
+	}
+	var doc map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return nil, fmt.Errorf("failed to decode %s: %w", path, err)
+	}
+	return doc, nil
+}
+
+// redfishCollection fetches a Redfish collection resource and resolves each
+// member reference into its full resource document.
+func redfishCollection(client *gofish.APIClient, path string) ([]map[string]any, error) {
+	doc, err := redfishResource(client, path)
+	if err != nil {
+		return nil, err
+	}
+	var members []map[string]any
+	for _, ref := range asSlice(doc["Members"]) {
+		uri := oDataID(ref)
+		if uri == "" {
+			continue
+		}
+		member, err := redfishResource(client, uri)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, member)
+	}
+	return members, nil
+}
+
+// patchResource sends a PATCH request with the given JSON payload to a
+// Redfish resource URI. URIs come from the BMC's own payload (@odata.id), so
+// requests always target the resource the data was read from.
+func patchResource(client *gofish.APIClient, uri string, payload map[string]any) error {
+	resp, err := client.Patch(uri, payload)
 	if err != nil {
 		return err
 	}
-
-	field, ok := exportedField(np, protocolName)
-	if !ok {
-		return fmt.Errorf("unknown network protocol %q", protocolName)
-	}
-
-	payload, err := decodePropertyValue(field, jsonData)
-	if err != nil {
-		return fmt.Errorf("failed to parse value for protocol %q: %w", protocolName, err)
-	}
-
-	patchData := map[string]any{
-		protocolName: payload,
-	}
-	if err := np.Patch(np.ODataID, patchData); err != nil {
-		return fmt.Errorf("failed to update network protocol %q: %w", protocolName, err)
+	if err := resp.Body.Close(); err != nil {
+		return err
 	}
 	return nil
 }
 
-// GetEthernetInterfaces returns all EthernetInterface resources from the first
-// manager on the BMC.
-func GetEthernetInterfaces(client *gofish.APIClient) ([]schemas.EthernetInterface, error) {
-	service := client.GetService()
-	managers, err := service.Managers()
+// managerMembers returns the raw JSON of every Manager resource advertised by
+// the service root.
+func managerMembers(client *gofish.APIClient) ([]map[string]any, error) {
+	root, err := redfishResource(client, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch service root: %w", err)
+	}
+	managersPath := redfishLink(root, "Managers")
+	if managersPath == "" {
+		return nil, fmt.Errorf("service root does not expose a Managers collection")
+	}
+	managers, err := redfishCollection(client, managersPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list managers: %w", err)
 	}
-	if len(managers) == 0 {
-		return nil, fmt.Errorf("no managers found on BMC")
-	}
-	ifaces, err := managers[0].EthernetInterfaces()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ethernet interfaces: %w", err)
-	}
-	result := make([]schemas.EthernetInterface, len(ifaces))
-	for i := range ifaces {
-		result[i] = *ifaces[i]
-	}
-	return result, nil
+	return managers, nil
 }
 
-// SetEthernetInterface applies JSON-encoded properties to the Nth ethernet
-// interface (0-indexed) of the first manager.
-func SetEthernetInterface(client *gofish.APIClient, index int, jsonData string) error {
-	service := client.GetService()
-	managers, err := service.Managers()
+// systemMembers returns the raw JSON of every ComputerSystem resource
+// advertised by the service root.
+func systemMembers(client *gofish.APIClient) ([]map[string]any, error) {
+	root, err := redfishResource(client, "")
 	if err != nil {
-		return fmt.Errorf("failed to list managers: %w", err)
+		return nil, fmt.Errorf("failed to fetch service root: %w", err)
 	}
-	if len(managers) == 0 {
-		return fmt.Errorf("no managers found on BMC")
+	systemsPath := redfishLink(root, "Systems")
+	if systemsPath == "" {
+		return nil, fmt.Errorf("service root does not expose a Systems collection")
 	}
-	ifaces, err := managers[0].EthernetInterfaces()
-	if err != nil {
-		return fmt.Errorf("failed to get ethernet interfaces: %w", err)
-	}
-	if index < 0 || index >= len(ifaces) {
-		return fmt.Errorf("ethernet interface index %d out of range (0-%d)", index, len(ifaces)-1)
-	}
-
-	payload, err := decodeObject(jsonData)
-	if err != nil {
-		return fmt.Errorf("failed to parse JSON for ethernet interface %d: %w", index, err)
-	}
-	if err := ifaces[index].Patch(ifaces[index].ODataID, payload); err != nil {
-		return fmt.Errorf("failed to update ethernet interface %d: %w", index, err)
-	}
-	return nil
-}
-
-// GetComputerSystem returns the ComputerSystem matching the given systemID.
-func GetComputerSystem(client *gofish.APIClient, systemID string) (*schemas.ComputerSystem, error) {
-	service := client.GetService()
-	systems, err := service.Systems()
+	systems, err := redfishCollection(client, systemsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list systems: %w", err)
 	}
-	for _, sys := range systems {
-		if sys.ID == systemID {
-			return sys, nil
-		}
-	}
-	return nil, fmt.Errorf("computer system %q not found", systemID)
+	return systems, nil
 }
 
-// GetDefaultComputerSystem returns the first ComputerSystem exposed by the BMC.
-func GetDefaultComputerSystem(client *gofish.APIClient) (*schemas.ComputerSystem, error) {
-	service := client.GetService()
-	systems, err := service.Systems()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list systems: %w", err)
-	}
-	if len(systems) == 0 {
-		return nil, fmt.Errorf("no computer systems found on BMC")
-	}
-	return systems[0], nil
-}
-
-// SetComputerSystem applies JSON-encoded properties to the named ComputerSystem.
-func SetComputerSystem(client *gofish.APIClient, systemID, jsonData string) error {
-	sys, err := GetComputerSystem(client, systemID)
-	if err != nil {
-		return err
-	}
-
-	payload, err := decodeObject(jsonData)
-	if err != nil {
-		return fmt.Errorf("failed to parse JSON for ComputerSystem %q: %w", systemID, err)
-	}
-	if err := sys.Patch(sys.ODataID, payload); err != nil {
-		return fmt.Errorf("failed to update ComputerSystem %q: %w", systemID, err)
+// asMap type-asserts a decoded JSON value to an object.
+func asMap(v any) map[string]any {
+	if m, ok := v.(map[string]any); ok {
+		return m
 	}
 	return nil
 }
 
-// SetComputerSystemProperty applies a value to a named property on the first
-// ComputerSystem exposed by the BMC.
-func SetComputerSystemProperty(client *gofish.APIClient, propertyName, value string) error {
-	sys, err := GetDefaultComputerSystem(client)
-	if err != nil {
-		return err
-	}
-
-	field, ok := exportedField(sys, propertyName)
-	if !ok {
-		return fmt.Errorf("unknown property %q on ComputerSystem", propertyName)
-	}
-	payload, err := decodePropertyValue(field, value)
-	if err != nil {
-		return fmt.Errorf("failed to parse value for ComputerSystem.%s: %w", propertyName, err)
-	}
-	if err := sys.Patch(sys.ODataID, map[string]any{propertyName: payload}); err != nil {
-		return fmt.Errorf("failed to update ComputerSystem.%s: %w", propertyName, err)
+// asSlice type-asserts a decoded JSON value to an array.
+func asSlice(v any) []any {
+	if s, ok := v.([]any); ok {
+		return s
 	}
 	return nil
 }
 
-// GetManager returns the Manager matching the given name (e.g. "BMC", "1").
-func GetManager(client *gofish.APIClient, name string) (*schemas.Manager, error) {
-	service := client.GetService()
-	managers, err := service.Managers()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list managers: %w", err)
-	}
-	for _, mgr := range managers {
-		if mgr.ID == name || mgr.Name == name {
-			return mgr, nil
+// oDataID returns the @odata.id reference of a decoded Redfish value, or an
+// empty string when the value is not a link.
+func oDataID(v any) string {
+	if m := asMap(v); m != nil {
+		if id, ok := m["@odata.id"].(string); ok {
+			return id
 		}
 	}
-	return nil, fmt.Errorf("manager %q not found", name)
+	return ""
 }
 
-// GetDefaultManager returns the first Manager exposed by the BMC.
-func GetDefaultManager(client *gofish.APIClient) (*schemas.Manager, error) {
-	service := client.GetService()
-	managers, err := service.Managers()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list managers: %w", err)
+// redfishLink returns the @odata.id value of a link property within a Redfish
+// JSON object, or an empty string if the key is absent.
+func redfishLink(doc map[string]any, key string) string {
+	link := asMap(doc[key])
+	if link == nil {
+		return ""
 	}
-	if len(managers) == 0 {
-		return nil, fmt.Errorf("no managers found on BMC")
-	}
-	return managers[0], nil
+	id, _ := link["@odata.id"].(string)
+	return id
 }
 
-// SetManager applies JSON-encoded properties to the named Manager.
-func SetManager(client *gofish.APIClient, name, jsonData string) error {
-	mgr, err := GetManager(client, name)
-	if err != nil {
-		return err
-	}
-
-	payload, err := decodeObject(jsonData)
-	if err != nil {
-		return fmt.Errorf("failed to parse JSON for Manager %q: %w", name, err)
-	}
-	if err := mgr.Patch(mgr.ODataID, payload); err != nil {
-		return fmt.Errorf("failed to update Manager %q: %w", name, err)
-	}
-	return nil
-}
-
-// SetManagerProperty applies a value to a named property on the first Manager
-// exposed by the BMC.
-func SetManagerProperty(client *gofish.APIClient, propertyName, value string) error {
-	mgr, err := GetDefaultManager(client)
-	if err != nil {
-		return err
-	}
-
-	field, ok := exportedField(mgr, propertyName)
-	if !ok {
-		return fmt.Errorf("unknown property %q on Manager", propertyName)
-	}
-	payload, err := decodePropertyValue(field, value)
-	if err != nil {
-		return fmt.Errorf("failed to parse value for Manager.%s: %w", propertyName, err)
-	}
-	if err := mgr.Patch(mgr.ODataID, map[string]any{propertyName: payload}); err != nil {
-		return fmt.Errorf("failed to update Manager.%s: %w", propertyName, err)
-	}
-	return nil
-}
-
-// ListAccounts returns all ManagerAccount resources from the AccountService.
-func ListAccounts(client *gofish.APIClient) ([]schemas.ManagerAccount, error) {
-	service := client.GetService()
-	acctSvc, err := service.AccountService()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get account service: %w", err)
-	}
-	accts, err := acctSvc.Accounts()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list accounts: %w", err)
-	}
-	result := make([]schemas.ManagerAccount, len(accts))
-	for i := range accts {
-		result[i] = *accts[i]
-	}
-	return result, nil
-}
-
-// UpdateAccount applies JSON-encoded properties to the account matching accountID.
-func UpdateAccount(client *gofish.APIClient, accountID, jsonData string) error {
-	accts, err := ListAccounts(client)
-	if err != nil {
-		return err
-	}
-	for i := range accts {
-		if accts[i].ID == accountID {
-			payload, err := decodeObject(jsonData)
-			if err != nil {
-				return fmt.Errorf("failed to parse JSON for account %q: %w", accountID, err)
-			}
-			if err := accts[i].Patch(accts[i].ODataID, payload); err != nil {
-				return fmt.Errorf("failed to update account %q: %w", accountID, err)
-			}
-			return nil
-		}
-	}
-	return fmt.Errorf("account %q not found", accountID)
-}
-
-// ResetManager performs a factory reset on the first manager.
-// preserveConfig can be: "" (reset all), "PreserveNetwork", or "PreserveNetworkAndUsers".
-func ResetManager(client *gofish.APIClient, preserveConfig string) error {
-	var resetType schemas.ResetToDefaultsType
-	switch preserveConfig {
-	case "":
-		resetType = schemas.ResetAllResetToDefaultsType
-	case "PreserveNetwork":
-		resetType = schemas.PreserveNetworkResetToDefaultsType
-	case "PreserveNetworkAndUsers":
-		resetType = schemas.PreserveNetworkAndUsersResetToDefaultsType
-	default:
-		return fmt.Errorf("invalid preserve configuration %q", preserveConfig)
-	}
-
-	service := client.GetService()
-	managers, err := service.Managers()
-	if err != nil {
-		return fmt.Errorf("failed to list managers: %w", err)
-	}
-	if len(managers) == 0 {
-		return fmt.Errorf("no managers found on BMC")
-	}
-
-	supported, err := managers[0].GetSupportedResetToDefaultsTypes()
-	if err != nil {
-		return fmt.Errorf("failed to query reset-to-defaults support: %w", err)
-	}
-	if len(supported) == 0 {
-		return fmt.Errorf("BMC %q does not support resetting to default via Manager.ResetToDefaults", managers[0].ID)
-	}
-	found := false
-	for _, st := range supported {
-		if st == resetType {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("BMC %q does not support reset type %q (supported: %v)", managers[0].ID, resetType, supported)
-	}
-
-	log.Info().Msgf("resetting manager %s to defaults (type: %s)", managers[0].ID, resetType)
-	_, err = managers[0].ResetToDefaults(resetType)
-	return err
-}
-
-// ListProtocols returns the names of the network protocols present on the
-// ManagerNetworkProtocol of the first manager found on the BMC pointed to by
-// client. Unlike GetProtocolNames, this verifies that a manager and its
-// network protocol resource exist on the live BMC.
-func ListProtocols(client *gofish.APIClient) ([]string, error) {
-	np, err := GetNetworkProtocol(client)
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	t := reflect.TypeOf(np).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		// Skip embedded types and non-protocol fields
-		if field.Anonymous || field.Name[0] == 'O' || field.Name == "Status" || field.Name == "HostName" || field.Name == "FQDN" {
-			continue
-		}
-		names = append(names, field.Name)
-	}
-	return names, nil
-}
-
-// GetProtocolNames returns the names of protocol fields on ManagerNetworkProtocol.
-func GetProtocolNames() []string {
-	var names []string
-	t := reflect.TypeOf(schemas.ManagerNetworkProtocol{})
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		// Skip embedded types and non-protocol fields
-		if field.Anonymous || field.Name[0] == 'O' || field.Name == "Status" || field.Name == "HostName" || field.Name == "FQDN" {
-			continue
-		}
-		names = append(names, field.Name)
-	}
-	return names
-}
-
-// GetProtocolProperties returns the property names of a nested protocol setting.
-func GetProtocolProperties(client *gofish.APIClient, protocolName string) ([]string, error) {
-	np, err := GetNetworkProtocol(client)
-	if err != nil {
-		return nil, err
-	}
-
-	field, ok := exportedField(np, protocolName)
-	if !ok {
-		return nil, fmt.Errorf("unknown protocol %q", protocolName)
-	}
-
-	// Handle pointer types
-	if field.Kind() == reflect.Pointer {
-		if field.IsNil() {
-			return nil, nil
-		}
-		field = field.Elem()
-	}
-
-	if field.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("protocol %q does not contain nested properties", protocolName)
-	}
-
-	var props []string
-	t := field.Type()
-	for i := 0; i < t.NumField(); i++ {
-		props = append(props, t.Field(i).Name)
-	}
-	return props, nil
-}
-
-// GetEthernetInterfaceProperties returns the property names for an ethernet interface.
-func GetEthernetInterfaceProperties(client *gofish.APIClient, index int) ([]string, error) {
-	ifaces, err := GetEthernetInterfaces(client)
-	if err != nil {
-		return nil, err
-	}
-	if index < 0 || index >= len(ifaces) {
-		return nil, fmt.Errorf("interface index %d out of range (0-%d)", index, len(ifaces)-1)
-	}
-
-	var props []string
-	t := reflect.TypeOf(ifaces[index])
-	for i := 0; i < t.NumField(); i++ {
-		props = append(props, t.Field(i).Name)
-	}
-	return props, nil
-}
-
-// GetComputerSystemProperties returns the property names for a ComputerSystem.
-func GetComputerSystemProperties(client *gofish.APIClient, systemID string) ([]string, error) {
-	sys, err := GetComputerSystem(client, systemID)
-	if err != nil {
-		return nil, err
-	}
-
-	var props []string
-	t := reflect.TypeOf(sys).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		props = append(props, t.Field(i).Name)
-	}
-	return props, nil
-}
-
-// GetManagerProperties returns the property names for a Manager.
-func GetManagerProperties(client *gofish.APIClient, name string) ([]string, error) {
-	mgr, err := GetManager(client, name)
-	if err != nil {
-		return nil, err
-	}
-
-	var props []string
-	t := reflect.TypeOf(mgr).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		props = append(props, t.Field(i).Name)
-	}
-	return props, nil
-}
-
-// GetAccountProperties returns the property names for a ManagerAccount.
-func GetAccountProperties(client *gofish.APIClient) ([]string, error) {
-	accts, err := ListAccounts(client)
-	if err != nil {
-		return nil, err
-	}
-	if len(accts) == 0 {
-		return nil, fmt.Errorf("no accounts found")
-	}
-
-	var props []string
-	t := reflect.TypeOf(accts[0])
-	for i := 0; i < t.NumField(); i++ {
-		props = append(props, t.Field(i).Name)
-	}
-	return props, nil
-}
-
-// decodePropertyValue parses a command-line value and verifies that it can be
-// represented by the corresponding gofish schema field. Bare values are
-// treated as strings, while valid JSON scalars, objects, and arrays retain
-// their JSON types.
-func decodePropertyValue(field reflect.Value, value string) (any, error) {
+// decodeSettingValue parses a command-line value for a Redfish property, using
+// the property's existing JSON value to decide how to interpret the input:
+// bare values become strings when the property currently holds a string;
+// otherwise the input is parsed as JSON.
+func decodeSettingValue(current any, value string) (any, error) {
 	trimmed := strings.TrimSpace(value)
+	if _, isString := current.(string); isString && !strings.HasPrefix(trimmed, `"`) {
+		return value, nil
+	}
 	var parsed any
-	if field.Kind() == reflect.String && !strings.HasPrefix(trimmed, `"`) {
-		parsed = value
-	} else if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
 		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") || strings.HasPrefix(trimmed, `"`) {
 			return nil, err
 		}
-		parsed = value
-	}
-
-	encoded, err := json.Marshal(parsed)
-	if err != nil {
-		return nil, err
-	}
-	target := reflect.New(field.Type())
-	if err := json.Unmarshal(encoded, target.Interface()); err != nil {
-		return nil, err
+		return value, nil
 	}
 	return parsed, nil
 }
@@ -528,22 +209,326 @@ func decodeObject(value string) (map[string]any, error) {
 	return payload, nil
 }
 
-func exportedField(resource any, name string) (reflect.Value, bool) {
-	value := reflect.ValueOf(resource)
-	if value.Kind() == reflect.Pointer {
-		if value.IsNil() {
-			return reflect.Value{}, false
+// GetNetworkProtocol returns the ManagerNetworkProtocol resource of the first
+// manager found on the BMC pointed to by client, as raw Redfish JSON.
+func GetNetworkProtocol(client *gofish.APIClient) (map[string]any, error) {
+	mgr, err := GetDefaultManager(client)
+	if err != nil {
+		return nil, err
+	}
+	npPath := redfishLink(mgr, "NetworkProtocol")
+	if npPath == "" {
+		return nil, fmt.Errorf("manager does not expose a NetworkProtocol resource")
+	}
+	return redfishResource(client, npPath)
+}
+
+// SetNetworkProtocol applies JSON-encoded properties to a named network
+// protocol (e.g., "SSH", "HTTPS", "IPMI") on the first manager. The protocol
+// name must match a property of the actual NetworkProtocol payload and is used
+// verbatim as the PATCH key.
+func SetNetworkProtocol(client *gofish.APIClient, protocolName, jsonData string) error {
+	np, err := GetNetworkProtocol(client)
+	if err != nil {
+		return err
+	}
+	current, ok := np[protocolName]
+	if !ok {
+		return fmt.Errorf("unknown network protocol %q", protocolName)
+	}
+	payload, err := decodeSettingValue(current, jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to parse value for protocol %q: %w", protocolName, err)
+	}
+	return patchResource(client, oDataID(np), map[string]any{protocolName: payload})
+}
+
+// GetEthernetInterfaces returns all EthernetInterface resources from the first
+// manager on the BMC, as raw Redfish JSON.
+func GetEthernetInterfaces(client *gofish.APIClient) ([]map[string]any, error) {
+	mgr, err := GetDefaultManager(client)
+	if err != nil {
+		return nil, err
+	}
+	ifacesPath := redfishLink(mgr, "EthernetInterfaces")
+	if ifacesPath == "" {
+		return nil, fmt.Errorf("manager does not expose an EthernetInterfaces collection")
+	}
+	ifaces, err := redfishCollection(client, ifacesPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ethernet interfaces: %w", err)
+	}
+	return ifaces, nil
+}
+
+// SetEthernetInterface applies JSON-encoded properties to the Nth ethernet
+// interface (0-indexed) of the first manager.
+func SetEthernetInterface(client *gofish.APIClient, index int, jsonData string) error {
+	ifaces, err := GetEthernetInterfaces(client)
+	if err != nil {
+		return err
+	}
+	if index < 0 || index >= len(ifaces) {
+		return fmt.Errorf("ethernet interface index %d out of range (0-%d)", index, len(ifaces)-1)
+	}
+	payload, err := decodeObject(jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to parse JSON for ethernet interface %d: %w", index, err)
+	}
+	return patchResource(client, oDataID(ifaces[index]), payload)
+}
+
+// GetComputerSystem returns the ComputerSystem matching the given systemID.
+func GetComputerSystem(client *gofish.APIClient, systemID string) (map[string]any, error) {
+	systems, err := systemMembers(client)
+	if err != nil {
+		return nil, err
+	}
+	for _, sys := range systems {
+		if fmt.Sprint(sys["Id"]) == systemID {
+			return sys, nil
 		}
-		value = value.Elem()
 	}
-	if value.Kind() != reflect.Struct {
-		return reflect.Value{}, false
+	return nil, fmt.Errorf("computer system %q not found", systemID)
+}
+
+// GetDefaultComputerSystem returns the first ComputerSystem exposed by the BMC.
+func GetDefaultComputerSystem(client *gofish.APIClient) (map[string]any, error) {
+	systems, err := systemMembers(client)
+	if err != nil {
+		return nil, err
 	}
-	fieldType, ok := value.Type().FieldByName(name)
-	if !ok || fieldType.PkgPath != "" || fieldType.Anonymous {
-		return reflect.Value{}, false
+	if len(systems) == 0 {
+		return nil, fmt.Errorf("no computer systems found on BMC")
 	}
-	return value.FieldByIndex(fieldType.Index), true
+	return systems[0], nil
+}
+
+// SetComputerSystem applies JSON-encoded properties to the named ComputerSystem.
+func SetComputerSystem(client *gofish.APIClient, systemID, jsonData string) error {
+	sys, err := GetComputerSystem(client, systemID)
+	if err != nil {
+		return err
+	}
+	payload, err := decodeObject(jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to parse JSON for ComputerSystem %q: %w", systemID, err)
+	}
+	uri := oDataID(sys)
+	if uri == "" {
+		return fmt.Errorf("computer system %q missing @odata.id", systemID)
+	}
+	return patchResource(client, uri, payload)
+}
+
+// SetComputerSystemProperty applies a value to a named property on the first
+// ComputerSystem exposed by the BMC.
+func SetComputerSystemProperty(client *gofish.APIClient, propertyName, value string) error {
+	sys, err := GetDefaultComputerSystem(client)
+	if err != nil {
+		return err
+	}
+	current, ok := sys[propertyName]
+	if !ok {
+		return fmt.Errorf("unknown property %q on ComputerSystem", propertyName)
+	}
+	payload, err := decodeSettingValue(current, value)
+	if err != nil {
+		return fmt.Errorf("failed to parse value for ComputerSystem.%s: %w", propertyName, err)
+	}
+	return patchResource(client, oDataID(sys), map[string]any{propertyName: payload})
+}
+
+// GetManager returns the Manager matching the given name (e.g. "BMC", "1").
+func GetManager(client *gofish.APIClient, name string) (map[string]any, error) {
+	managers, err := managerMembers(client)
+	if err != nil {
+		return nil, err
+	}
+	for _, mgr := range managers {
+		if fmt.Sprint(mgr["Id"]) == name || fmt.Sprint(mgr["Name"]) == name {
+			return mgr, nil
+		}
+	}
+	return nil, fmt.Errorf("manager %q not found", name)
+}
+
+// GetDefaultManager returns the first Manager exposed by the BMC.
+func GetDefaultManager(client *gofish.APIClient) (map[string]any, error) {
+	managers, err := managerMembers(client)
+	if err != nil {
+		return nil, err
+	}
+	if len(managers) == 0 {
+		return nil, fmt.Errorf("no managers found on BMC")
+	}
+	return managers[0], nil
+}
+
+// SetManager applies JSON-encoded properties to the named Manager.
+func SetManager(client *gofish.APIClient, name, jsonData string) error {
+	mgr, err := GetManager(client, name)
+	if err != nil {
+		return err
+	}
+	payload, err := decodeObject(jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to parse JSON for Manager %q: %w", name, err)
+	}
+	uri := oDataID(mgr)
+	if uri == "" {
+		return fmt.Errorf("manager %q missing @odata.id", name)
+	}
+	return patchResource(client, uri, payload)
+}
+
+// SetManagerProperty applies a value to a named property on the first Manager
+// exposed by the BMC.
+func SetManagerProperty(client *gofish.APIClient, propertyName, value string) error {
+	mgr, err := GetDefaultManager(client)
+	if err != nil {
+		return err
+	}
+	current, ok := mgr[propertyName]
+	if !ok {
+		return fmt.Errorf("unknown property %q on Manager", propertyName)
+	}
+	payload, err := decodeSettingValue(current, value)
+	if err != nil {
+		return fmt.Errorf("failed to parse value for Manager.%s: %w", propertyName, err)
+	}
+	return patchResource(client, oDataID(mgr), map[string]any{propertyName: payload})
+}
+
+// ListAccounts returns all ManagerAccount resources from the AccountService,
+// as raw Redfish JSON.
+func ListAccounts(client *gofish.APIClient) ([]map[string]any, error) {
+	root, err := redfishResource(client, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch service root: %w", err)
+	}
+	acctSvcPath := redfishLink(root, "AccountService")
+	if acctSvcPath == "" {
+		return nil, fmt.Errorf("service root does not expose an AccountService")
+	}
+	acctSvc, err := redfishResource(client, acctSvcPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account service: %w", err)
+	}
+	acctsPath := redfishLink(acctSvc, "Accounts")
+	if acctsPath == "" {
+		return nil, fmt.Errorf("account service does not expose an Accounts collection")
+	}
+	accts, err := redfishCollection(client, acctsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list accounts: %w", err)
+	}
+	return accts, nil
+}
+
+// UpdateAccount applies JSON-encoded properties to the account matching
+// accountID.
+func UpdateAccount(client *gofish.APIClient, accountID, jsonData string) error {
+	accts, err := ListAccounts(client)
+	if err != nil {
+		return err
+	}
+	for _, acct := range accts {
+		if fmt.Sprint(acct["Id"]) == accountID {
+			payload, err := decodeObject(jsonData)
+			if err != nil {
+				return fmt.Errorf("failed to parse JSON for account %q: %w", accountID, err)
+			}
+			uri := oDataID(acct)
+			if uri == "" {
+				return fmt.Errorf("account %q missing @odata.id", accountID)
+			}
+			return patchResource(client, uri, payload)
+		}
+	}
+	return fmt.Errorf("account %q not found", accountID)
+}
+
+// ResetManager performs a factory reset on the first manager.
+// preserveConfig can be: "" (reset all), "PreserveNetwork", or "PreserveNetworkAndUsers".
+func ResetManager(client *gofish.APIClient, preserveConfig string) error {
+	resetType := ""
+	switch preserveConfig {
+	case "":
+		resetType = "ResetAll"
+	case "PreserveNetwork":
+		resetType = "PreserveNetwork"
+	case "PreserveNetworkAndUsers":
+		resetType = "PreserveNetworkAndUsers"
+	default:
+		return fmt.Errorf("invalid preserve configuration %q", preserveConfig)
+	}
+
+	managers, err := managerMembers(client)
+	if err != nil {
+		return fmt.Errorf("failed to list managers: %w", err)
+	}
+	if len(managers) == 0 {
+		return fmt.Errorf("no managers found on BMC")
+	}
+	mgr := managers[0]
+
+	action := asMap(asMap(mgr["Actions"])["#Manager.ResetToDefaults"])
+	target, _ := action["target"].(string)
+	if target == "" {
+		return fmt.Errorf("BMC %q does not support resetting to default via Manager.ResetToDefaults", mgr["Id"])
+	}
+	var supported []string
+	for _, v := range asSlice(action["ResetType@Redfish.AllowableValues"]) {
+		if s, ok := v.(string); ok {
+			supported = append(supported, s)
+		}
+	}
+	if len(supported) == 0 {
+		return fmt.Errorf("BMC %q does not support resetting to default via Manager.ResetToDefaults", mgr["Id"])
+	}
+	found := false
+	for _, st := range supported {
+		if st == resetType {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("BMC %q does not support reset type %q (supported: %v)", mgr["Id"], resetType, supported)
+	}
+
+	log.Info().Msgf("resetting manager %s to defaults (type: %s)", mgr["Id"], resetType)
+	resp, err := client.Post(target, map[string]any{"ResetType": resetType})
+	if resp != nil {
+		if err := resp.Body.Close(); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+// ListProtocols returns the names of the network protocols present on the
+// ManagerNetworkProtocol of the first manager found on the BMC pointed to by
+// client. Protocol names are derived from the object properties of the actual
+// NetworkProtocol payload, so they match the property names a curl call would
+// return.
+func ListProtocols(client *gofish.APIClient) ([]string, error) {
+	np, err := GetNetworkProtocol(client)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for name, value := range np {
+		if strings.HasPrefix(name, "@") || nonProtocolProperties[name] {
+			continue
+		}
+		if _, ok := value.(map[string]any); ok {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 // listSettingsCategories connects to the BMC and prints the categories for
@@ -603,10 +588,10 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 		}
 		_, _ = fmt.Fprintln(out, "Ethernet interfaces:")
 		for i := range ifaces {
-			_, _ = fmt.Fprintf(out, "  %-3d %-15s %s (use 'magellan settings list <node> EthernetInterface %d' for properties)\n", i, ifaces[i].Name, ifaces[i].ID, i)
+			_, _ = fmt.Fprintf(out, "  %-3d %-15s %s (use 'magellan settings list <node> EthernetInterface %d' for properties)\n", i, ifaces[i]["Name"], ifaces[i]["Id"], i)
 		}
 	case "ComputerSystem":
-		systems, err := client.GetService().Systems()
+		systems, err := systemMembers(client)
 		if err != nil {
 			return err
 		}
@@ -616,10 +601,10 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 		}
 		_, _ = fmt.Fprintln(out, "Computer systems:")
 		for _, sys := range systems {
-			_, _ = fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> ComputerSystem %s' for properties)\n", sys.ID, sys.Name, sys.ID)
+			_, _ = fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> ComputerSystem %s' for properties)\n", sys["Id"], sys["Name"], sys["Id"])
 		}
 	case "Manager":
-		managers, err := client.GetService().Managers()
+		managers, err := managerMembers(client)
 		if err != nil {
 			return err
 		}
@@ -629,7 +614,7 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 		}
 		_, _ = fmt.Fprintln(out, "Managers:")
 		for _, mgr := range managers {
-			_, _ = fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> Manager %s' for properties)\n", mgr.ID, mgr.Name, mgr.ID)
+			_, _ = fmt.Fprintf(out, "  %-15s %s (use 'magellan settings list <node> Manager %s' for properties)\n", mgr["Id"], mgr["Name"], mgr["Id"])
 		}
 	case "Accounts":
 		accts, err := ListAccounts(client)
@@ -642,7 +627,7 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 		}
 		_, _ = fmt.Fprintln(out, "Accounts:")
 		for i := range accts {
-			_, _ = fmt.Fprintf(out, "  %-10s %-20s enabled=%v role=%s (use 'magellan settings list <node> Accounts %s' for properties)\n", accts[i].ID, accts[i].UserName, accts[i].Enabled, accts[i].RoleID, accts[i].ID)
+			_, _ = fmt.Fprintf(out, "  %-10s %-20s enabled=%v role=%s (use 'magellan settings list <node> Accounts %s' for properties)\n", accts[i]["Id"], accts[i]["UserName"], accts[i]["Enabled"], accts[i]["RoleId"], accts[i]["Id"])
 		}
 	case "Reset":
 		_, _ = fmt.Fprintln(out, "  Reset is an action, not a listable resource. Use 'magellan settings reset <node>' to perform a factory reset.")
@@ -651,8 +636,8 @@ func ListSettingsItems(client *gofish.APIClient, out io.Writer, category string)
 }
 
 // listSettingsProperties prints the property names available at the resolved
-// item/path of a category on the BMC. When the resolved value is a struct, its
-// exported fields are listed; otherwise a message directs the user to 'get'.
+// item/path of a category on the BMC. Property names come from the keys of the
+// actual Redfish JSON payload, so they match what a curl call would return.
 func ListSettingsProperties(client *gofish.APIClient, out io.Writer, category, item string, path []string) error {
 	resolved, err := ResolveListItem(client, category, item)
 	if err != nil {
@@ -664,34 +649,48 @@ func ListSettingsProperties(client *gofish.APIClient, out io.Writer, category, i
 		return err
 	}
 
-	value := final
-	if value.Kind() == reflect.Pointer {
-		if value.IsNil() {
-			_, _ = fmt.Fprintln(out, "  (value is nil)")
-			return nil
+	if obj, ok := final.(map[string]any); ok {
+		_, _ = fmt.Fprintf(out, "Properties of %s.%s:", category, item)
+		for _, name := range path {
+			_, _ = fmt.Fprintf(out, ".%s", name)
 		}
-		value = value.Elem()
-	}
-
-	if value.Kind() != reflect.Struct {
-		_, _ = fmt.Fprintf(out, "  %s is a %s; use 'magellan settings get' to read it\n", item, value.Kind())
+		_, _ = fmt.Fprintln(out)
+		var keys []string
+		for name := range obj {
+			if strings.HasPrefix(name, "@") {
+				continue
+			}
+			keys = append(keys, name)
+		}
+		sort.Strings(keys)
+		for _, name := range keys {
+			_, _ = fmt.Fprintf(out, "  %s\n", name)
+		}
 		return nil
 	}
 
-	_, _ = fmt.Fprintf(out, "Properties of %s.%s:", category, item)
-	for _, name := range path {
-		_, _ = fmt.Fprintf(out, ".%s", name)
-	}
-	_, _ = fmt.Fprintln(out)
-	t := value.Type()
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if f.PkgPath != "" || f.Anonymous {
-			continue
-		}
-		_, _ = fmt.Fprintf(out, "  %s\n", f.Name)
-	}
+	_, _ = fmt.Fprintf(out, "  %s is a %s; use 'magellan settings get' to read it\n", item, jsonTypeName(final))
 	return nil
+}
+
+// jsonTypeName returns a readable name for a decoded JSON value.
+func jsonTypeName(v any) string {
+	switch v.(type) {
+	case map[string]any:
+		return "object"
+	case []any:
+		return "array"
+	case string:
+		return "string"
+	case bool:
+		return "bool"
+	case float64:
+		return "number"
+	case nil:
+		return "null"
+	default:
+		return fmt.Sprintf("%T", v)
+	}
 }
 
 // resolveListItem resolves the list item for a category using list semantics:
@@ -703,11 +702,11 @@ func ResolveListItem(client *gofish.APIClient, category, item string) (any, erro
 		if err != nil {
 			return nil, err
 		}
-		field, ok := SettingsField(np, item)
+		value, ok := np[item]
 		if !ok {
 			return nil, fmt.Errorf("unknown protocol %q", item)
 		}
-		return field.Interface(), nil
+		return value, nil
 	case "EthernetInterface":
 		ifaces, err := GetEthernetInterfaces(client)
 		if err != nil {
@@ -730,9 +729,9 @@ func ResolveListItem(client *gofish.APIClient, category, item string) (any, erro
 		if err != nil {
 			return nil, err
 		}
-		for i := range accts {
-			if accts[i].ID == item {
-				return accts[i], nil
+		for _, acct := range accts {
+			if fmt.Sprint(acct["Id"]) == item {
+				return acct, nil
 			}
 		}
 		return nil, fmt.Errorf("account %q not found", item)
@@ -791,11 +790,11 @@ func ResolveCategoryItem(client *gofish.APIClient, category, item string) (any, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to get network protocol: %w", err)
 		}
-		field, ok := SettingsField(np, item)
+		value, ok := np[item]
 		if !ok {
 			return nil, fmt.Errorf("unknown protocol %q", item)
 		}
-		return field.Interface(), nil
+		return value, nil
 	case "EthernetInterface":
 		ifaces, err := GetEthernetInterfaces(client)
 		if err != nil {
@@ -814,35 +813,62 @@ func ResolveCategoryItem(client *gofish.APIClient, category, item string) (any, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to get computer system: %w", err)
 		}
-		field, ok := SettingsField(sys, item)
+		value, ok := sys[item]
 		if !ok {
 			return nil, fmt.Errorf("unknown property %q on ComputerSystem", item)
 		}
-		return field.Interface(), nil
+		return value, nil
 	case "Manager":
 		mgr, err := GetDefaultManager(client)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get manager: %w", err)
 		}
-		field, ok := SettingsField(mgr, item)
+		value, ok := mgr[item]
 		if !ok {
 			return nil, fmt.Errorf("unknown property %q on Manager", item)
 		}
-		return field.Interface(), nil
+		return value, nil
 	case "Accounts":
 		accts, err := ListAccounts(client)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list accounts: %w", err)
 		}
-		for i := range accts {
-			if accts[i].ID == item {
-				return accts[i], nil
+		for _, acct := range accts {
+			if fmt.Sprint(acct["Id"]) == item {
+				return acct, nil
 			}
 		}
 		return nil, fmt.Errorf("account %q not found", item)
 	default:
 		return nil, fmt.Errorf("unknown category %q", category)
 	}
+}
+
+// ResolveSettingsPath walks start down a sequence of Redfish JSON property
+// names, returning the JSON value at the end of the path. Numeric path
+// segments select array elements. Property names and values come directly from
+// the BMC's payload.
+func ResolveSettingsPath(start any, path []string) (any, error) {
+	current := start
+	for _, name := range path {
+		switch node := current.(type) {
+		case map[string]any:
+			value, ok := node[name]
+			if !ok {
+				return nil, fmt.Errorf("unknown property %q", name)
+			}
+			current = value
+		case []any:
+			idx, err := strconv.Atoi(name)
+			if err != nil || idx < 0 || idx >= len(node) {
+				return nil, fmt.Errorf("invalid index %q into array", name)
+			}
+			current = node[idx]
+		default:
+			return nil, fmt.Errorf("unknown property %q", name)
+		}
+	}
+	return current, nil
 }
 
 // ConnectWithCredentials connects to a BMC using the provided configuration.
@@ -978,56 +1004,4 @@ func SettingsEndpoint(address string) (string, error) {
 		return "", fmt.Errorf("invalid BMC address %q", address)
 	}
 	return endpoint, nil
-}
-
-func SettingsField(resource any, name string) (reflect.Value, bool) {
-	value := reflect.ValueOf(resource)
-	if value.Kind() == reflect.Pointer {
-		if value.IsNil() {
-			return reflect.Value{}, false
-		}
-		value = value.Elem()
-	}
-	if value.Kind() != reflect.Struct {
-		return reflect.Value{}, false
-	}
-	fieldType, ok := value.Type().FieldByName(name)
-	if !ok || fieldType.PkgPath != "" || fieldType.Anonymous {
-		return reflect.Value{}, false
-	}
-	return value.FieldByIndex(fieldType.Index), true
-}
-
-// settingsFieldByName walks into a struct (handling pointers) and returns the
-// exported field matching the given name.
-func SettingsFieldByName(value reflect.Value, name string) (reflect.Value, bool) {
-	if value.Kind() == reflect.Pointer {
-		if value.IsNil() {
-			return reflect.Value{}, false
-		}
-		value = value.Elem()
-	}
-	if value.Kind() != reflect.Struct {
-		return reflect.Value{}, false
-	}
-	fieldType, ok := value.Type().FieldByName(name)
-	if !ok || fieldType.PkgPath != "" || fieldType.Anonymous {
-		return reflect.Value{}, false
-	}
-	return value.FieldByIndex(fieldType.Index), true
-}
-
-// resolveSettingsPath walks a starting value down a sequence of field names,
-// returning the final value. Returns an error if any segment is not a valid
-// exported field on the current struct.
-func ResolveSettingsPath(start any, path []string) (reflect.Value, error) {
-	current := reflect.ValueOf(start)
-	for _, name := range path {
-		field, ok := SettingsFieldByName(current, name)
-		if !ok {
-			return reflect.Value{}, fmt.Errorf("unknown property %q", name)
-		}
-		current = field
-	}
-	return current, nil
 }

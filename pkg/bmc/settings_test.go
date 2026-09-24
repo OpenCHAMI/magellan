@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -146,7 +145,7 @@ func TestSettingsGettersUseDefaultResources(t *testing.T) {
 
 	np, err := GetNetworkProtocol(client)
 	require.NoError(t, err)
-	require.Equal(t, "bmc-a.example.com", np.FQDN)
+	require.Equal(t, "bmc-a.example.com", np["FQDN"])
 
 	protocols, err := ListProtocols(client)
 	require.NoError(t, err)
@@ -157,20 +156,20 @@ func TestSettingsGettersUseDefaultResources(t *testing.T) {
 	interfaces, err := GetEthernetInterfaces(client)
 	require.NoError(t, err)
 	require.Len(t, interfaces, 1)
-	require.Equal(t, "bmc-a", interfaces[0].HostName)
+	require.Equal(t, "bmc-a", interfaces[0]["HostName"])
 
 	system, err := GetDefaultComputerSystem(client)
 	require.NoError(t, err)
-	require.Equal(t, "Node0", system.ID)
+	require.Equal(t, "Node0", system["Id"])
 
 	manager, err := GetDefaultManager(client)
 	require.NoError(t, err)
-	require.Equal(t, "BMC-A", manager.ID)
+	require.Equal(t, "BMC-A", manager["Id"])
 
 	accounts, err := ListAccounts(client)
 	require.NoError(t, err)
 	require.Len(t, accounts, 1)
-	require.Equal(t, "root", accounts[0].UserName)
+	require.Equal(t, "root", accounts[0]["UserName"])
 }
 
 func TestSettingsPropertyPatchPayloads(t *testing.T) {
@@ -206,26 +205,35 @@ func TestSettingsPropertyValidationPreventsWrites(t *testing.T) {
 	require.Empty(t, f.capturedWrites())
 }
 
-func TestExportedFieldRejectsInternalFields(t *testing.T) {
-	type resource struct {
-		Visible string
-		hidden  string
-	}
-	value := &resource{Visible: "value", hidden: "secret"}
-	field, ok := exportedField(value, "Visible")
-	require.True(t, ok)
-	require.Equal(t, "value", field.String())
-	_, ok = exportedField(value, "hidden")
-	require.False(t, ok)
-}
-
-func TestDecodePropertyValueKeepsBareStringScalars(t *testing.T) {
-	field := reflect.ValueOf("")
+func TestDecodeSettingValueUsesExistingJSONType(t *testing.T) {
+	// Bare values stay strings when the property already holds a string.
 	for _, value := range []string{"123", "true", "null"} {
-		decoded, err := decodePropertyValue(field, value)
+		decoded, err := decodeSettingValue("", value)
 		require.NoError(t, err)
 		require.Equal(t, value, decoded)
 	}
+
+	// JSON objects are parsed when the property is not a string.
+	decoded, err := decodeSettingValue(map[string]any{}, `{"Port":2222}`)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"Port": float64(2222)}, decoded)
+
+	// Malformed JSON for a non-string property is rejected.
+	_, err = decodeSettingValue(map[string]any{}, `{`)
+	require.Error(t, err)
+}
+
+// TestSettingsUsesRedfishPropertyNames verifies PATCH payloads use the property
+// names exactly as they appear in the actual Redfish JSON (e.g. RoleId, not
+// the Go field name RoleID).
+func TestSettingsUsesRedfishPropertyNames(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	require.NoError(t, UpdateAccount(client, "1", `{"RoleId":"Operator"}`))
+	writes := f.capturedWrites()
+	require.Len(t, writes, 1)
+	require.Equal(t, "Operator", writes[0].payload["RoleId"])
 }
 
 func TestSettingsResourceUpdates(t *testing.T) {

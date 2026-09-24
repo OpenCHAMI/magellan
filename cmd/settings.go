@@ -170,11 +170,11 @@ resource exposed by the BMC. For Accounts, the first item is the account ID.`,
 			}
 			result = item
 			if len(args) > 3 {
-				final, wErr := bmc.ResolveSettingsPath(item, args[3:])
+				resolved, wErr := bmc.ResolveSettingsPath(item, args[3:])
 				if wErr != nil {
 					return wErr
 				}
-				result = final.Interface()
+				result = resolved
 			}
 		}
 		if err != nil {

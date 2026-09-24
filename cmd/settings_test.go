@@ -164,7 +164,7 @@ func TestSettingsListCommand(t *testing.T) {
 
 		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "ComputerSystem", "Node0", "Boot"}))
 		require.Contains(t, output.String(), "BootOrder")
-		require.Contains(t, output.String(), "BootSourceOverrideEnabled")
+		require.Contains(t, output.String(), "BootOptions")
 
 		output.Reset()
 		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "ComputerSystem", "Node0", "Boot", "BootOrder"}))
@@ -294,19 +294,6 @@ func TestSettingsEnvironmentVariablesUseSettingsPrefix(t *testing.T) {
 
 	resolveFlagsFromViper(SettingsResetCmd)
 	require.Equal(t, "PreserveNetwork", settingsPreserveConfig)
-}
-
-func TestSettingsFieldRejectsInternalFields(t *testing.T) {
-	type resource struct {
-		Visible string
-		hidden  string
-	}
-	value := &resource{Visible: "value", hidden: "secret"}
-	field, ok := bmc.SettingsField(value, "Visible")
-	require.True(t, ok)
-	require.Equal(t, "value", field.String())
-	_, ok = bmc.SettingsField(value, "hidden")
-	require.False(t, ok)
 }
 
 func TestSettingsConnectReadsJSONAndYAMLInventory(t *testing.T) {
