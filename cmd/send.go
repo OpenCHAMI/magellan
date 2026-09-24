@@ -36,6 +36,13 @@ var sendCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// the destination host is a required positional argument; without it
+		// no request is attempted at all, which must not look like success
+		if len(args) == 0 {
+			log.Error().Msg("host argument required (e.g. magellan send ... https://smd.example.com)")
+			os.Exit(1)
+		}
+
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {
 			var err error
@@ -74,69 +81,108 @@ var sendCmd = &cobra.Command{
 		// inputRaw, _ := json.MarshalIndent(inputData, "", "  ")
 		log.Debug().Int("endpoint_count", len(inputData)).Send()
 
-		for _, host := range args {
-			var (
-				body []byte
-				err  error
-			)
-
-			smdClient.URI = host
-			for _, dataObject := range inputData {
-				// skip on to the next thing if it's does not exist
-				if dataObject == nil {
-					log.Warn().Str("host", host).Msg("skipping request to host")
-					continue
-				}
-
-				// create and set headers for request
-				headers := client.HTTPHeader{}
-				headers.Authorization(accessToken)
-				headers.ContentType("application/json")
-
-				host, err = urlx.Sanitize(host)
-				if err != nil {
-					log.Warn().
-						Err(err).
-						Str("host", host).
-						Msg("could not sanitize host")
-				}
-
-				// convert to JSON to send data
-				body, err = json.MarshalIndent(dataObject, "", "  ")
-				if err != nil {
-					log.Error().
-						Err(err).
-						Msg("failed to marshal request data")
-					continue
-				}
-				log.Debug().Str("host", host).RawJSON("data", body).Send()
-
-				// make request to remote host
-				err = smdClient.Add(body, headers)
-				if err != nil {
-					// try updating instead
-					if forceUpdate {
-						smdClient.Xname = dataObject["ID"].(string)
-						err = smdClient.Update(body, headers)
-						if err != nil {
-							log.Error().
-								Err(err).
-								Str("host", host).
-								Str("ID", smdClient.Xname).
-								Msgf("failed to forcibly update Redfish endpoint")
-						}
-					} else {
-						log.Error().
-							Err(err).
-							Str("host", host).
-							Str("ID", smdClient.Xname).
-							Msgf("failed to add Redfish endpoint")
-					}
-				}
-			}
-
+		// deliver every data object; anything not delivered is counted so
+		// this command exits non-zero instead of merely logging the failure
+		sent, failed := sendDataToHosts(args, inputData, smdClient)
+		log.Debug().Int("sent", sent).Int("failed", failed).Send()
+		if failed > 0 {
+			log.Error().
+				Int("sent", sent).
+				Int("failed", failed).
+				Msgf("failed to send %d of %d request(s)", failed, sent+failed)
+			os.Exit(1)
 		}
 	},
+}
+
+// sendDataToHosts delivers inputData to each host in hosts and reports how
+// many data objects were successfully sent and how many were not.
+//
+// Every object that is not delivered counts as a failure: nil entries,
+// hosts that cannot be parsed as a URL, marshalling errors, and requests
+// rejected by the remote host (after the optional --force-update retry).
+// Callers use the counts to exit non-zero on partial or total failure;
+// previously such failures were only logged, so scripts and CI saw a
+// successful exit even when nothing reached the remote host.
+func sendDataToHosts(hosts []string, inputData []map[string]any, smdClient *client.SmdClient) (sent, failed int) {
+	for _, host := range hosts {
+		sanitized, err := urlx.Sanitize(host)
+		if err != nil {
+			log.Error().Err(err).Str("host", host).Msg("could not sanitize host")
+			failed += len(inputData)
+			continue
+		}
+		smdClient.URI = sanitized
+
+		for _, dataObject := range inputData {
+			// skip on to the next thing if it does not exist, but count it:
+			// data that is not sent must not look like success
+			if dataObject == nil {
+				log.Warn().Str("host", sanitized).Msg("skipping request to host")
+				failed++
+				continue
+			}
+
+			// create and set headers for request
+			headers := client.HTTPHeader{}
+			headers.Authorization(accessToken)
+			headers.ContentType("application/json")
+
+			// convert to JSON to send data
+			body, err := json.MarshalIndent(dataObject, "", "  ")
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("failed to marshal request data")
+				failed++
+				continue
+			}
+			log.Debug().Str("host", sanitized).RawJSON("data", body).Send()
+
+			// make request to remote host
+			if err := smdClient.Add(body, headers); err != nil {
+				// try updating instead
+				if !forceUpdate {
+					log.Error().
+						Err(err).
+						Str("host", sanitized).
+						Str("ID", dataObjectID(dataObject)).
+						Msg("failed to add Redfish endpoint")
+					failed++
+					continue
+				}
+				id, ok := dataObject["ID"].(string)
+				if !ok || id == "" {
+					log.Error().
+						Str("host", sanitized).
+						Msg("failed to forcibly update Redfish endpoint: data object is missing a string 'ID' field")
+					failed++
+					continue
+				}
+				smdClient.Xname = id
+				if err := smdClient.Update(body, headers); err != nil {
+					log.Error().
+						Err(err).
+						Str("host", sanitized).
+						Str("ID", id).
+						Msg("failed to forcibly update Redfish endpoint")
+					failed++
+					continue
+				}
+			}
+			sent++
+		}
+	}
+	return sent, failed
+}
+
+// dataObjectID returns the 'ID' field of dataObject as a string, or an
+// empty string when it is missing or not a string.
+func dataObjectID(dataObject map[string]any) string {
+	if id, ok := dataObject["ID"].(string); ok {
+		return id
+	}
+	return ""
 }
 
 func init() {

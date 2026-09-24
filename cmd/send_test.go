@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
+	"github.com/OpenCHAMI/magellan/pkg/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -288,4 +291,135 @@ func captureStdout(t *testing.T) func() string {
 		require.NoError(t, readEnd.Close())
 		return string(out)
 	}
+}
+
+// setForceUpdate overrides the package-level --force-update flag for the
+// duration of a test.
+func setForceUpdate(t *testing.T, v bool) {
+	t.Helper()
+	orig := forceUpdate
+	forceUpdate = v
+	t.Cleanup(func() { forceUpdate = orig })
+}
+
+// newSendTestClient returns an SmdClient pointed at a test server running
+// handler, along with the server itself.
+func newSendTestClient(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *client.SmdClient) {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	c := client.NewSmdClient()
+	c.URI = srv.URL
+	return srv, c
+}
+
+func TestSendDataToHostsAllDelivered(t *testing.T) {
+	setForceUpdate(t, false)
+
+	var paths, methods []string
+	srv, c := newSendTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		methods = append(methods, r.Method)
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	input := []map[string]any{{"ID": "x0"}, {"ID": "x1"}}
+	sent, failed := sendDataToHosts([]string{srv.URL}, input, c)
+
+	require.Equal(t, 2, sent)
+	require.Zero(t, failed)
+	require.Equal(t,
+		[]string{"/hsm/v2/Inventory/RedfishEndpoints", "/hsm/v2/Inventory/RedfishEndpoints"},
+		paths)
+	require.Equal(t, []string{http.MethodPost, http.MethodPost}, methods)
+}
+
+func TestSendDataToHostsCountsRejectedRequests(t *testing.T) {
+	setForceUpdate(t, false)
+
+	srv, c := newSendTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	})
+
+	input := []map[string]any{{"ID": "x0"}, {"ID": "x1"}}
+	sent, failed := sendDataToHosts([]string{srv.URL}, input, c)
+
+	require.Zero(t, sent)
+	require.Equal(t, 2, failed)
+}
+
+func TestSendDataToHostsForceUpdateRetryCountsAsDelivered(t *testing.T) {
+	setForceUpdate(t, true)
+
+	var methods, paths []string
+	srv, c := newSendTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		methods = append(methods, r.Method)
+		paths = append(paths, r.URL.Path)
+		if r.Method == http.MethodPost {
+			// already exists -> the client should retry with PUT
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	sent, failed := sendDataToHosts([]string{srv.URL}, []map[string]any{{"ID": "x0"}}, c)
+
+	require.Equal(t, 1, sent)
+	require.Zero(t, failed)
+	require.Equal(t, []string{http.MethodPost, http.MethodPut}, methods)
+	require.Equal(t, "/hsm/v2/Inventory/RedfishEndpoints/x0", paths[1])
+}
+
+func TestSendDataToHostsForceUpdateFailureCounted(t *testing.T) {
+	setForceUpdate(t, true)
+
+	srv, c := newSendTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	})
+
+	sent, failed := sendDataToHosts([]string{srv.URL}, []map[string]any{{"ID": "x0"}}, c)
+
+	require.Zero(t, sent)
+	require.Equal(t, 1, failed)
+}
+
+func TestSendDataToHostsForceUpdateMissingIDIsFailureNotPanic(t *testing.T) {
+	setForceUpdate(t, true)
+
+	var methods []string
+	srv, c := newSendTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		methods = append(methods, r.Method)
+		w.WriteHeader(http.StatusConflict)
+	})
+
+	sent, failed := sendDataToHosts([]string{srv.URL}, []map[string]any{{"FQDN": "node"}}, c)
+
+	require.Zero(t, sent)
+	require.Equal(t, 1, failed)
+	require.Equal(t, []string{http.MethodPost}, methods, "no PUT must be attempted without an ID")
+}
+
+func TestSendDataToHostsUnparseableHostCounted(t *testing.T) {
+	setForceUpdate(t, false)
+
+	c := client.NewSmdClient()
+	input := []map[string]any{{"ID": "x0"}, {"ID": "x1"}}
+	sent, failed := sendDataToHosts([]string{"http://bad host"}, input, c)
+
+	require.Zero(t, sent)
+	require.Equal(t, 2, failed)
+}
+
+func TestSendDataToHostsNilObjectCounted(t *testing.T) {
+	setForceUpdate(t, false)
+
+	srv, c := newSendTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	sent, failed := sendDataToHosts([]string{srv.URL}, []map[string]any{nil, {"ID": "x0"}}, c)
+
+	require.Equal(t, 1, sent)
+	require.Equal(t, 1, failed)
 }

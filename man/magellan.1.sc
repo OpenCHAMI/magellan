@@ -46,7 +46,14 @@ The *magellan* command accepts
 *--cache* _path_
 	Set the path to cache data from a scan. The default path to the cache is
 	'/tmp/allend/magellan/assets.db'. 
-	
+
+	When *--cache* is passed explicitly (or set through the 'CACHE' environment
+	variable or config file), it takes precedence over standard input for
+	commands that read scan results, such as *magellan-collect*(1): the cache is
+	read even when stdin is connected to a pipe, so scripted and CI usage
+	behaves the same with and without a TTY. When no other input source
+	provides data, the cache path is consulted as a fallback.
+
 	The *magellan* CLI can run full workflows without writing to disk. See the
 	*Simple Workflow* on how to do so in the "Getting Started" section of this
 	document.

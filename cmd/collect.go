@@ -60,6 +60,8 @@ var CollectCmd = &cobra.Command{
 	
 	See the 'scan' command on how to perform a scan to create. 
 	
+	Input is taken from, in order of precedence: an explicitly set '--cache' file, positional arguments, and piped standard input. An explicit '--cache' is honored even when stdin is a pipe, and stdin is never read from a terminal, so this command behaves the same with and without a TTY. When none of these provide data, the cache path is used as a fallback.
+	
 	The path to BMC ID mappings can be specified using the '--bmc-id-mappings' flag. This will convert any hosts found  
 	
 	See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of available environment variables.
@@ -68,7 +70,6 @@ var CollectCmd = &cobra.Command{
 		// get probe states stored in db from scan
 		var (
 			scannedResults []magellan.RemoteAsset
-			isStdinEmpty   bool
 
 			// used for processing stdin and --data arguments
 			inputData []map[string]any
@@ -76,38 +77,17 @@ var CollectCmd = &cobra.Command{
 			err       error
 		)
 
-		// use --cache path if stdin is empty
-		isStdinEmpty, err = IsStdinEmpty()
+		// resolve which assets to collect from: an explicit --cache wins
+		// unconditionally, even over a piped stdin, so `scan --cache ... ;
+		// collect --cache ...` behaves the same with and without a TTY
+		// (see issue #189)
+		var stdinInput []map[string]any
+		scannedResults, stdinInput, err = loadCollectInput(cachePath, isCacheExplicit(cmd), args, collectInputFormat)
 		if err != nil {
-			log.Warn().Err(err).Msg("failed to determine if stdin is empty")
+			log.Error().Err(err).Msg("failed to load input for collect")
+			os.Exit(1)
 		}
-		log.Debug().
-			Str("cache", cachePath).
-			Bool("is_stdin_empty", isStdinEmpty).
-			Send()
-		if isStdinEmpty {
-			if cachePath == "" {
-				log.Warn().Msg("expected '--cache' to be set when stdin is empty")
-			}
-			scannedResults, err = sqlite.GetScannedAssets(cachePath)
-			if err != nil {
-				log.Warn().Err(err).Msgf("failed to get scanned results from cache")
-			}
-		} else {
-			// unmarshal directly from standard input
-			for _, arg := range args {
-				var asset magellan.RemoteAsset
-				err = format.UnmarshalData([]byte(arg), &asset, collectInputFormat)
-				if err != nil {
-					log.Warn().Err(err).Msg("failed to unmarshal data from standard input")
-					continue
-				}
-				scannedResults = append(scannedResults, asset)
-			}
-
-			// otherwise, add the arg to be processed further down
-			temp = append(temp, handleArgs(args, collectInputFormat)...)
-		}
+		temp = append(temp, stdinInput...)
 
 		// process input provided from stdin and --data flag
 		for _, data := range temp {
@@ -260,19 +240,127 @@ func init() {
 	rootCmd.AddCommand(CollectCmd)
 }
 
+// IsStdinEmpty reports whether standard input is known to carry no data,
+// without consuming anything from it.
+//
+// It reports true for character devices (a terminal, /dev/null) and for
+// empty regular files (e.g. `< empty.json`). It reports false for pipes,
+// sockets and non-empty files. An idle pipe cannot be distinguished from
+// one with data in flight without reading from it, so this must not be
+// used on its own to decide whether the user piped data in: callers
+// choosing between stdin and --cache should prefer an explicit --cache
+// instead (see loadCollectInput and issue #189).
 func IsStdinEmpty() (bool, error) {
-	var (
-		file         os.FileInfo
-		fromTerminal bool
-		err          error
-	)
-	file, err = os.Stdin.Stat()
+	file, err := os.Stdin.Stat()
 	if err != nil {
 		return true, fmt.Errorf("failed to stat stdin")
 	}
 
-	// check if there's data from terminal or piped in
-	fromTerminal = (file.Mode() & os.ModeCharDevice) == 0
+	// terminals and other character devices (e.g. /dev/null) carry no piped data
+	if file.Mode()&os.ModeCharDevice != 0 {
+		return true, nil
+	}
 
-	return !fromTerminal, nil
+	// a regular file only has data to read when it is non-empty
+	if file.Mode().IsRegular() {
+		return file.Size() == 0, nil
+	}
+
+	// pipes, sockets and friends: data may be present, we cannot tell without reading
+	return false, nil
+}
+
+// isCacheExplicit reports whether the user asked for a specific cache by
+// passing --cache on the command line or by overriding it through the
+// environment or a config file (any resolved value that differs from the
+// built-in default). The default path stays implicit so that
+// `scan | collect` pipelines, which never ask for a cache, keep reading
+// standard input instead.
+func isCacheExplicit(cmd *cobra.Command) bool {
+	f := cmd.Flags().Lookup("cache")
+	if f == nil {
+		return false
+	}
+	return f.Changed || cachePath != f.DefValue
+}
+
+// loadCollectInput resolves the scanned assets that 'collect' will
+// interrogate, along with any input read from stdin destined for the same
+// merge path as the '-d/--data' flag.
+//
+// Input sources are consulted in this order:
+//
+//  1. --cache <path>, when set explicitly (flag, environment or config).
+//     An explicit cache always wins, even when stdin is a pipe, so
+//     `scan --cache ... ; collect --cache ...` behaves identically with
+//     and without a TTY. Failing to read a cache the user explicitly asked
+//     for is an error; an explicitly empty --cache ("") disables it.
+//  2. positional arguments and piped/redirected stdin. Stdin is never read
+//     from a terminal, which would block until end of input.
+//  3. the cache path as a fallback when neither of the above produced any
+//     input. This preserves the historical behavior of empty stdin meaning
+//     "read the cache", now applied consistently regardless of TTY. A cache
+//     that cannot be read here is only a warning; the caller reports the
+//     missing input.
+//
+// Data passed with '-d/--data' is processed by the caller and merged with
+// these results no matter which source was used.
+func loadCollectInput(cachePath string, cacheExplicit bool, args []string, inputFormat format.DataFormat) ([]magellan.RemoteAsset, []map[string]any, error) {
+	isStdinEmpty, err := IsStdinEmpty()
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to determine if stdin is empty")
+	}
+	piped := !isStdinEmpty
+
+	log.Debug().
+		Str("cache", cachePath).
+		Bool("cache_explicit", cacheExplicit).
+		Bool("stdin_piped", piped).
+		Send()
+
+	// (1) an explicit --cache is honored unconditionally
+	if cacheExplicit && cachePath != "" {
+		assets, err := sqlite.GetScannedAssets(cachePath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to read scan results from --cache %q: %w", cachePath, err)
+		}
+		return assets, nil, nil
+	}
+
+	var (
+		assets     []magellan.RemoteAsset
+		stdinInput []map[string]any
+	)
+
+	// (2) positional arguments...
+	for _, arg := range args {
+		var asset magellan.RemoteAsset
+		if err := format.UnmarshalData([]byte(arg), &asset, inputFormat); err != nil {
+			log.Warn().Err(err).Msg("failed to unmarshal data from standard input")
+			continue
+		}
+		assets = append(assets, asset)
+	}
+
+	// ...and piped stdin, but never a terminal (it would block)
+	if piped {
+		stdinInput = handleArgs(args, inputFormat)
+	}
+
+	// (3) fall back to the cache when nothing else produced input; an
+	// explicitly empty --cache ("") means "no cache at all"
+	cacheDisabled := cacheExplicit && cachePath == ""
+	if len(assets) == 0 && len(stdinInput) == 0 && !cacheDisabled {
+		cached, err := sqlite.GetScannedAssets(cachePath)
+		switch {
+		case err == nil:
+			assets = cached
+		case cachePath != "":
+			log.Warn().Err(err).Msgf("failed to get scanned results from cache")
+		default:
+			log.Warn().Msg("expected '--cache' to be set when stdin is empty")
+		}
+	}
+
+	return assets, stdinInput, nil
 }

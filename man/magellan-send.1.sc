@@ -202,6 +202,18 @@ magellan collect -v -F yaml | magellan send -d @inventory.yaml -f yaml https://s
 
 See *magellan*(1) for information about global flags used for all commands.
 
+# EXIT STATUS
+
+*0*
+	All data objects were delivered to every specified host.
+
+*1*
+	A destination host argument or input data was missing, or at least one
+	data object could not be delivered: the request was rejected by the
+	remote host, the host could not be parsed as a URL, or the data was
+	invalid. Individual failures are logged as they occur; a final summary
+	reports how many requests succeeded and failed.
+
 # AUTHOR
 
 Written by David J. Allen and maintained by the OpenCHAMI developers.
