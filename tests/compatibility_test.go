@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"testing"
 
@@ -152,15 +153,23 @@ func TestExpectedOutput(t *testing.T) {
 		t.Fatal("no systems found")
 	}
 
-	// check that we're getting EthernetInterfaces and NetworkInterfaces
+	// check that any ethernet interfaces we're getting are usable
 	for _, system := range systems {
 		// check that we have at least one CPU for each system
 		if system.ProcessorCount <= 0 {
 			t.Errorf("no processors found")
 		}
-		// we expect each system to have at least one of each interface
-		if len(system.EthernetInterfaces) <= 0 {
-			t.Errorf("no ethernet interfaces found for system '%s'", system.Name)
+		// collect only emits ethernet interfaces that carry a usable IPv4
+		// address: SMD rejects ip-less interfaces with 400 Invalid
+		// CompEthInterface IP Address (OpenCHAMI/magellan#191), and csm-rie —
+		// like most BMCs — reports MAC addresses with no IPv4Addresses at
+		// all, so a zero interface count is legitimate here. What must hold
+		// is that anything emitted carries a parseable IP.
+		for _, eth := range system.EthernetInterfaces {
+			if net.ParseIP(eth.IP) == nil {
+				t.Errorf("system %q: ethernet interface %q emitted without a usable IP (%q)",
+					system.Name, eth.URI, eth.IP)
+			}
 		}
 	}
 }

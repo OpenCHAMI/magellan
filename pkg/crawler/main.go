@@ -406,19 +406,9 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			log.Error().Err(err).Msg("failed to get ethernet interfaces from computer system")
 			return systems, err
 		}
-		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
-			ethernetinterface := EthernetInterface{
-				URI:         baseURI + rf_ethernetinterface.ODataID,
-				MAC:         rf_ethernetinterface.MACAddress,
-				Name:        rf_ethernetinterface.Name,
-				Description: rf_ethernetinterface.Description,
-				Enabled:     rf_ethernetinterface.InterfaceEnabled,
-			}
-			if len(rf_ethernetinterface.IPv4Addresses) > 0 {
-				ethernetinterface.IP = rf_ethernetinterface.IPv4Addresses[0].Address
-			}
-			system.EthernetInterfaces = append(system.EthernetInterfaces, ethernetinterface)
-		}
+		// only interfaces carrying a usable IPv4 address are emitted;
+		// see mapEthernetInterfaces (OpenCHAMI/magellan#191)
+		system.EthernetInterfaces = mapEthernetInterfaces(rf_ethernetinterfaces, baseURI)
 
 		rf_networkInterfaces, err := rf_computersystem.NetworkInterfaces()
 		if err != nil {
@@ -491,20 +481,9 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]Manager, er
 			log.Error().Err(err).Msg("failed to get ethernet interfaces from manager")
 			return managers, err
 		}
-		var ethernet_interfaces []EthernetInterface
-		for _, rf_ethernetinterface := range rf_ethernetinterfaces {
-			if len(rf_ethernetinterface.IPv4Addresses) <= 0 {
-				continue
-			}
-			ethernet_interfaces = append(ethernet_interfaces, EthernetInterface{
-				URI:         baseURI + rf_ethernetinterface.ODataID,
-				MAC:         rf_ethernetinterface.MACAddress,
-				Name:        rf_ethernetinterface.Name,
-				Description: rf_ethernetinterface.Description,
-				Enabled:     rf_ethernetinterface.InterfaceEnabled,
-				IP:          rf_ethernetinterface.IPv4Addresses[0].Address,
-			})
-		}
+		// interfaces without a usable IPv4 address are dropped here as well;
+		// one rule for both walkers (OpenCHAMI/magellan#191)
+		ethernet_interfaces := mapEthernetInterfaces(rf_ethernetinterfaces, baseURI)
 
 		var supported_serial_console []string
 		// Manager.SerialConsole is retained for compatibility with older services.
