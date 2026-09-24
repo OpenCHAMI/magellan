@@ -42,7 +42,7 @@ magellan crawl https://bmc.example.com -i -u username -p password
 *-u, --username* _value_
 	Set the username for basic authentication for requests to the BMC node.
 
-See *magellan*(1) for information about global flags used for all commands.
+See *magellan*(1) for information about global flags and environment variables used for all commands.
 
 # AUTHOR
 
@@ -50,7 +50,7 @@ Written by David J. Allen and maintained by the OpenCHAMI developers.
 
 # SEE ALSO
 
-*magellan*(1)
+*magellan*(1), *magellan-collect*(1), *magellan-send*(1), *magellan-secrets*(1)
 
 ; Vim modeline settings
 ; vim: set tw=80 noet sts=4 ts=4 sw=4 syntax=scdoc:

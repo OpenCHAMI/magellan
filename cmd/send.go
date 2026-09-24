@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
-	"github.com/OpenCHAMI/magellan/pkg/auth"
-	"github.com/OpenCHAMI/magellan/pkg/client"
+	"github.com/openchami/magellan/internal/format"
+	urlx "github.com/openchami/magellan/internal/url"
+	"github.com/openchami/magellan/pkg/auth"
+	"github.com/openchami/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +31,11 @@ var sendCmd = &cobra.Command{
 
   // send data to remote host by piping output of collect directly
   magellan collect -v -F yaml | magellan send -d @inventory.yaml -f yaml https://smd.openchami.cluster`,
-	Short: "Send collected node information to specified host.",
+	Short: "Send collected inventory data to specified host(s).",
+	Long: `	Send collected inventory data to specified host(s). The inventory can be piped directly to 'send' via 'collect' or loaded from a file using the '-d/--data' flag. The BMC ID can be
+
+	See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of available environment variables.
+	`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},

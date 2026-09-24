@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/pkg/pdu"
+	"github.com/openchami/magellan/pkg/pdu"
 	"github.com/rs/zerolog/log"
 )
 
