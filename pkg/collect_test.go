@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/OpenCHAMI/magellan/internal/format"
+	"github.com/OpenCHAMI/magellan/pkg/crawler"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,4 +32,13 @@ func TestCollectInventorySkipsInactiveAssets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Empty(t, got)
+}
+
+func TestFindMACAddressWithIPRejectsNilTarget(t *testing.T) {
+	// a nil target can never equal an interface address; the lookup must
+	// fail before connecting to the BMC (hostname scan targets only reach
+	// this point unresolved when DNS resolution failed — see
+	// CollectInventory, which resolves the scan target first).
+	_, err := FindMACAddressWithIP(crawler.CrawlerConfig{}, nil)
+	require.ErrorContains(t, err, "target IP is nil")
 }
