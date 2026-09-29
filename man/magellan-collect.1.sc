@@ -63,6 +63,10 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 *-f, --input-format* _format_
 	Set the data format used for STDIN for the collection input.
 
+	STDIN is only read when it is piped or redirected; it is never read from a
+	terminal. When *--cache* is set explicitly it takes precedence over STDIN
+	and is read even when STDIN is a pipe (see *magellan*(1)).
+
 	Supported values _format_ are:
 
 		- _json_ (default)

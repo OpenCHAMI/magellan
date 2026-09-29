@@ -151,16 +151,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				}
 
 				// optionally, add the MACAddr property if we find a matching IP
-				// from the correct ethernet interface
-
-				host := sr.Host
-				str_protocol := "https://"
-				if strings.Contains(host, str_protocol) {
-					host = strings.TrimPrefix(sr.Host, str_protocol)
-				}
-				mac, err := FindMACAddressWithIP(config, net.ParseIP(host))
+				// from the correct ethernet interface. trimmedHost was resolved
+				// to an IPv4 address above, so hostname-targeted scans perform
+				// the lookup by address: net.ParseIP cannot parse a name, and
+				// the lookup never matched for any scan target that was not
+				// already an IP literal.
+				mac, err := FindMACAddressWithIP(config, net.ParseIP(trimmedHost))
 				if err != nil {
-					log.Warn().Err(err).Msgf("failed to find MAC address with IP '%s'", host)
+					log.Warn().Err(err).Msgf("failed to find MAC address with IP '%s'", trimmedHost)
 				}
 				if mac != "" {
 					data["MACAddr"] = mac
@@ -244,6 +242,14 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 // a matching IPv4Address. Returns an empty string and error if there are no matches
 // found.
 func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string, error) {
+	// a nil target IP can never equal an interface address; fail fast
+	// instead of connecting to the BMC and comparing every interface
+	// against "<nil>" (hostname targets are resolved to an IP before
+	// this is called — see CollectInventory — but resolution can fail)
+	if targetIP == nil {
+		return "", fmt.Errorf("cannot find MAC address: target IP is nil")
+	}
+
 	// get the managers to find the BMC MAC address compared with IP
 	//
 	// NOTE: Since we don't have a RedfishEndpoint type abstraction in
