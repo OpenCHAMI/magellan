@@ -185,17 +185,66 @@ func redfishLink(doc map[string]any, key string) string {
 // otherwise the input is parsed as JSON.
 func decodeSettingValue(current any, value string) (any, error) {
 	trimmed := strings.TrimSpace(value)
-	if _, isString := current.(string); isString && !strings.HasPrefix(trimmed, `"`) {
-		return value, nil
+
+	// Preserve convenient unquoted input for string properties.
+	if _, ok := current.(string); ok && !strings.HasPrefix(trimmed, `"`) {
+		return current, nil
 	}
+
 	var parsed any
 	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
-		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") || strings.HasPrefix(trimmed, `"`) {
-			return nil, err
-		}
-		return value, nil
+		return nil, fmt.Errorf("invalid JSON value: %w", err)
 	}
+
+	if err := validateJSONType(current, parsed); err != nil {
+		return nil, err
+	}
+
 	return parsed, nil
+}
+
+func validateJSONType(current, proposed any) error {
+	switch currentValue := current.(type) {
+	case map[string]any:
+		proposedValue, ok := proposed.(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected object, got %s", jsonTypeName(proposed))
+		}
+
+		for key, newValue := range proposedValue {
+			oldValue, exists := currentValue[key]
+			if !exists {
+				return fmt.Errorf("unknown property %q", key)
+			}
+			if err := validateJSONType(oldValue, newValue); err != nil {
+				return fmt.Errorf("%s: %w", key, err)
+			}
+		}
+		return nil
+	case string:
+		if _, ok := proposed.(string); !ok {
+			return fmt.Errorf("expected string, got %s", jsonTypeName(proposed))
+		}
+	case bool:
+		if _, ok := proposed.(bool); !ok {
+			return fmt.Errorf("expected boolean, got %s", jsonTypeName(proposed))
+		}
+	case float64:
+		if _, ok := proposed.(float64); !ok {
+			return fmt.Errorf("expected number, got %s", jsonTypeName(proposed))
+		}
+	case []any:
+		if _, ok := proposed.([]any); !ok {
+			return fmt.Errorf("expected array, got %s", jsonTypeName(proposed))
+		}
+	case nil:
+		// The current null value provides no type information. Require valid
+		// JSON but permit any JSON type, or adopt a stricter project policy.
+	default:
+		return fmt.Errorf("unsupported current value type %T", current)
+	}
+
+	return nil
 }
 
 func decodeObject(value string) (map[string]any, error) {
