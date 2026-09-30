@@ -67,10 +67,7 @@ var ScanCmd = &cobra.Command{
   
   // perform scan to find emulator BMCS by setting environment variables
   make emulator
-  SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure
-  
-  // perform scan to find emulator BMCs using environment variables
-  SCAN_`,
+  SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure`,
 
 	Short: "Perform network scan to discover BMC nodes.",
 	Long: `Perform a network scan by attempting to connect to each host and port specified 
