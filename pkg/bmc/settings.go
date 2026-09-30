@@ -188,7 +188,7 @@ func decodeSettingValue(current any, value string) (any, error) {
 
 	// Preserve convenient unquoted input for string properties.
 	if _, ok := current.(string); ok && !strings.HasPrefix(trimmed, `"`) {
-		return current, nil
+		return value, nil
 	}
 
 	var parsed any
@@ -209,6 +209,12 @@ func validateJSONType(current, proposed any) error {
 		proposedValue, ok := proposed.(map[string]any)
 		if !ok {
 			return fmt.Errorf("expected object, got %s", jsonTypeName(proposed))
+		}
+
+		// An empty object carries no member type information, so there is
+		// nothing to validate against.
+		if len(currentValue) == 0 {
+			return nil
 		}
 
 		for key, newValue := range proposedValue {
