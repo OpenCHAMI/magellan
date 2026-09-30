@@ -221,6 +221,21 @@ func TestSettingsGetCommand(t *testing.T) {
 		require.Contains(t, out, "02:00:00:00:00:01")
 	})
 
+	t.Run("gets a property of a specific computer system by id", func(t *testing.T) {
+		out := run(t, server.URL, "ComputerSystem", "1", "TrustedModules")
+		require.Contains(t, out, "TPM1_2")
+	})
+
+	t.Run("gets a property of a specific computer system by name", func(t *testing.T) {
+		out := run(t, server.URL, "ComputerSystem", "Compute Node 1", "AssetTag")
+		require.Contains(t, out, "system-1")
+	})
+
+	t.Run("gets a property of a specific manager", func(t *testing.T) {
+		out := run(t, server.URL, "Manager", "bmc", "FirmwareVersion")
+		require.Contains(t, out, "1.0.0")
+	})
+
 	t.Run("gets a specific account", func(t *testing.T) {
 		out := run(t, server.URL, "Accounts", "1")
 		require.Contains(t, out, "admin")
@@ -243,6 +258,44 @@ func TestSettingsGetCommand(t *testing.T) {
 	})
 }
 
+// getCommandResponses extend the shared test fixtures with a second computer
+// system so the get command's specified-resource resolution can be exercised.
+const (
+	responseSystemsWithSecond = `{
+    "@odata.etag": "W/\"1646792654\"",
+    "@odata.id": "/redfish/v1/Systems",
+    "@odata.type": "#ComputerSystemCollection.ComputerSystemCollection",
+    "Description": "Collection of Computer Systems",
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/Systems/Node0"
+        },
+        {
+            "@odata.id": "/redfish/v1/Systems/1"
+        }
+    ],
+    "Members@odata.count": 2,
+    "Name": "Systems Collection"
+}`
+
+	responseSecondSystem = `{
+    "@odata.id": "/redfish/v1/Systems/1",
+    "@odata.type": "#ComputerSystem.v1_5_0.ComputerSystem",
+    "Id": "1",
+    "Name": "Compute Node 1",
+    "Manufacturer": "HPE",
+    "AssetTag": "system-1",
+    "TrustedModules": [
+        {
+            "InterfaceType": "TPM1_2",
+            "Status": {
+                "State": "Enabled"
+            }
+        }
+    ]
+}`
+)
+
 // newSettingsMockServer spins up a mock Redfish service with the resources
 // required by the settings commands and returns its httptest server.
 func newSettingsMockServer(t *testing.T) *httptest.Server {
@@ -254,8 +307,9 @@ func newSettingsMockServer(t *testing.T) *httptest.Server {
 		"/redfish/v1/Managers/bmc/NetworkProtocol":      test.RESPONSE_ManagerNetworkProtocol,
 		"/redfish/v1/Managers/bmc/EthernetInterfaces":   test.RESPONSE_EthernetInterfaceCollection,
 		"/redfish/v1/Managers/bmc/EthernetInterfaces/1": test.RESPONSE_ManagerEthernetInterface,
-		"/redfish/v1/Systems":                           test.RESPONSE_Systems,
+		"/redfish/v1/Systems":                           responseSystemsWithSecond,
 		"/redfish/v1/Systems/Node0":                     test.RESPONSE_EthernetInterface,
+		"/redfish/v1/Systems/1":                         responseSecondSystem,
 		"/redfish/v1/AccountService":                    test.RESPONSE_AccountService,
 		"/redfish/v1/AccountService/Accounts":           test.RESPONSE_AccountCollection,
 		"/redfish/v1/AccountService/Accounts/1":         test.RESPONSE_ManagerAccount,

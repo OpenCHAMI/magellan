@@ -327,18 +327,19 @@ func SetEthernetInterface(client *gofish.APIClient, index int, jsonData string) 
 	return patchResource(client, oDataID(ifaces[index]), payload)
 }
 
-// GetComputerSystem returns the ComputerSystem matching the given systemID.
-func GetComputerSystem(client *gofish.APIClient, systemID string) (map[string]any, error) {
+// GetComputerSystem returns the ComputerSystem matching the given identifier
+// (Id or Name).
+func GetComputerSystem(client *gofish.APIClient, name string) (map[string]any, error) {
 	systems, err := systemMembers(client)
 	if err != nil {
 		return nil, err
 	}
 	for _, sys := range systems {
-		if fmt.Sprint(sys["Id"]) == systemID {
+		if fmt.Sprint(sys["Id"]) == name || fmt.Sprint(sys["Name"]) == name {
 			return sys, nil
 		}
 	}
-	return nil, fmt.Errorf("computer system %q not found", systemID)
+	return nil, fmt.Errorf("computer system %q not found", name)
 }
 
 // GetDefaultComputerSystem returns the first ComputerSystem exposed by the BMC.
@@ -858,6 +859,13 @@ func ResolveCategoryItem(client *gofish.APIClient, category, item string) (any, 
 		}
 		return ifaces[idx], nil
 	case "ComputerSystem":
+		// Prefer list semantics: match the item against ComputerSystem IDs/names
+		// so the specified resource is used rather than the first one. Fall back
+		// to interpreting the item as a property of the default ComputerSystem to
+		// keep supporting property paths such as `ComputerSystem Boot BootOrder`.
+		if sys, err := GetComputerSystem(client, item); err == nil {
+			return sys, nil
+		}
 		sys, err := GetDefaultComputerSystem(client)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get computer system: %w", err)
@@ -868,6 +876,11 @@ func ResolveCategoryItem(client *gofish.APIClient, category, item string) (any, 
 		}
 		return value, nil
 	case "Manager":
+		// Same list-first semantics as ComputerSystem: match the item against
+		// Manager IDs/names, then fall back to a property of the default Manager.
+		if mgr, err := GetManager(client, item); err == nil {
+			return mgr, nil
+		}
 		mgr, err := GetDefaultManager(client)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get manager: %w", err)

@@ -172,6 +172,59 @@ func TestSettingsGettersUseDefaultResources(t *testing.T) {
 	require.Equal(t, "root", accounts[0]["UserName"])
 }
 
+// TestResolveCategoryItemSpecifiedResource verifies that resolving the item
+// for `settings get` behaves like `settings list`: a matching
+// ComputerSystem/Manager is resolved by ID or name instead of always using the
+// first resource, with a fallback to property lookup on the default resource.
+func TestResolveCategoryItemSpecifiedResource(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	// Add a second computer system that is NOT the first collection member.
+	f.addRoute("/redfish/v1/Systems", `{
+		"@odata.id":"/redfish/v1/Systems", "Name":"Systems",
+		"Members":[
+			{"@odata.id":"/redfish/v1/Systems/Node0"},
+			{"@odata.id":"/redfish/v1/Systems/1"}
+		], "Members@odata.count":2
+	}`)
+	f.addRoute("/redfish/v1/Systems/1", `{
+		"@odata.id":"/redfish/v1/Systems/1", "Id":"1", "Name":"Compute Node 1",
+		"TrustedModules":[{"InterfaceType":"TPM1_2","Status":{"State":"Enabled"}}]
+	}`)
+
+	t.Run("resolves a non-default ComputerSystem by id", func(t *testing.T) {
+		sys, err := ResolveCategoryItem(client, "ComputerSystem", "1")
+		require.NoError(t, err)
+		require.Equal(t, "1", fmt.Sprint(sys.(map[string]any)["Id"]))
+		require.Contains(t, fmt.Sprint(sys), "TPM1_2")
+	})
+
+	t.Run("resolves a non-default ComputerSystem by name", func(t *testing.T) {
+		sys, err := ResolveCategoryItem(client, "ComputerSystem", "Compute Node 1")
+		require.NoError(t, err)
+		require.Equal(t, "1", fmt.Sprint(sys.(map[string]any)["Id"]))
+	})
+
+	t.Run("resolves a non-default Manager", func(t *testing.T) {
+		mgr, err := ResolveCategoryItem(client, "Manager", "BMC-B")
+		require.NoError(t, err)
+		require.Equal(t, "BMC-B", fmt.Sprint(mgr.(map[string]any)["Id"]))
+		require.Contains(t, fmt.Sprint(mgr), "9.9.9")
+	})
+
+	t.Run("falls back to a property of the default resource", func(t *testing.T) {
+		boot, err := ResolveCategoryItem(client, "ComputerSystem", "Boot")
+		require.NoError(t, err)
+		require.Contains(t, fmt.Sprint(boot), "BootOrder")
+	})
+
+	t.Run("errors when the item matches neither an id nor a property", func(t *testing.T) {
+		_, err := ResolveCategoryItem(client, "ComputerSystem", "NotAThing")
+		require.ErrorContains(t, err, `unknown property "NotAThing"`)
+	})
+}
+
 func TestSettingsPropertyPatchPayloads(t *testing.T) {
 	f := newRedfishSettingsFixture(t)
 	client := f.client()
