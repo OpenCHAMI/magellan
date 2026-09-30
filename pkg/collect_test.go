@@ -4,8 +4,7 @@ import (
 	"testing"
 
 	"github.com/openchami/magellan/internal/format"
-	"github.com/OpenCHAMI/magellan/internal/format"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/crawler"
 	"github.com/stretchr/testify/require"
 )
 
