@@ -213,15 +213,15 @@ func TestResolveCategoryItemSpecifiedResource(t *testing.T) {
 		require.Contains(t, fmt.Sprint(mgr), "9.9.9")
 	})
 
-	t.Run("falls back to a property of the default resource", func(t *testing.T) {
-		boot, err := ResolveCategoryItem(client, "ComputerSystem", "Boot")
+	t.Run("resolves the default ComputerSystem explicitly", func(t *testing.T) {
+		boot, err := ResolveCategoryItem(client, "ComputerSystem", "default")
 		require.NoError(t, err)
 		require.Contains(t, fmt.Sprint(boot), "BootOrder")
 	})
 
-	t.Run("errors when the item matches neither an id nor a property", func(t *testing.T) {
+	t.Run("errors when the item is not a resource", func(t *testing.T) {
 		_, err := ResolveCategoryItem(client, "ComputerSystem", "NotAThing")
-		require.ErrorContains(t, err, `unknown property "NotAThing"`)
+		require.ErrorContains(t, err, `computer system "NotAThing" not found`)
 	})
 }
 
@@ -297,6 +297,63 @@ func TestDecodeSettingValueUsesExistingJSONType(t *testing.T) {
 	// Malformed JSON for a non-string property is rejected.
 	_, err = decodeSettingValue(map[string]any{}, `{`)
 	require.Error(t, err)
+}
+
+func TestDecodeSettingValueRejectsIncompatibleJSONTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		current any
+		input   string
+	}{
+		{name: "invalid boolean literal", current: true, input: "enabled"},
+		{name: "boolean replaced by string", current: true, input: `"true"`},
+		{name: "number replaced by string", current: float64(22), input: `"443"`},
+		{name: "object replaced by string", current: map[string]any{"Port": float64(22)}, input: `"disabled"`},
+		{name: "array replaced by object", current: []any{"PXE"}, input: `{}`},
+		{name: "nested type mismatch", current: map[string]any{"Port": float64(22)}, input: `{"Port":"443"}`},
+		{name: "unknown nested property", current: map[string]any{"Port": float64(22)}, input: `{"Unknown":true}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := decodeSettingValue(tt.current, tt.input)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestSettingsSettersRejectMissingODataID(t *testing.T) {
+	t.Run("network protocol", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Managers/BMC-A/NetworkProtocol", `{"Id":"NetworkProtocol","SSH":{"ProtocolEnabled":false,"Port":22}}`)
+		err := SetNetworkProtocol(f.client(), "SSH", `{"ProtocolEnabled":true}`)
+		require.ErrorContains(t, err, `network protocol "NetworkProtocol" missing @odata.id`)
+		require.Empty(t, f.capturedWrites())
+	})
+
+	t.Run("ethernet interface", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Managers/BMC-A/EthernetInterfaces/1", `{"Id":"1","Name":"Management Ethernet Interface"}`)
+		err := SetEthernetInterface(f.client(), 0, `{"IPv6Enabled":true}`)
+		require.ErrorContains(t, err, "ethernet interface 0 missing @odata.id")
+		require.Empty(t, f.capturedWrites())
+	})
+
+	t.Run("computer system", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Systems/Node0", `{"Id":"Node0","AssetTag":"old-tag"}`)
+		err := SetComputerSystemProperty(f.client(), "AssetTag", "new-tag")
+		require.ErrorContains(t, err, `computer system "default" missing @odata.id`)
+		require.Empty(t, f.capturedWrites())
+	})
+
+	t.Run("manager", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Managers/BMC-A", `{"Id":"BMC-A","DateTime":"2026-01-01T00:00:00Z"}`)
+		err := SetManagerProperty(f.client(), "DateTime", "2026-08-26T12:00:00Z")
+		require.ErrorContains(t, err, `manager "default" missing @odata.id`)
+		require.Empty(t, f.capturedWrites())
+	})
 }
 
 // TestSettingsUsesRedfishPropertyNames verifies PATCH payloads use the property
