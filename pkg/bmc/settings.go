@@ -295,7 +295,11 @@ func SetNetworkProtocol(client *gofish.APIClient, protocolName, jsonData string)
 	if err != nil {
 		return fmt.Errorf("failed to parse value for protocol %q: %w", protocolName, err)
 	}
-	return patchResource(client, oDataID(np), map[string]any{protocolName: payload})
+	uri := oDataID(np)
+	if uri == "" {
+		return fmt.Errorf("network protocol %q missing @odata.id", fmt.Sprint(np["Id"]))
+	}
+	return patchResource(client, uri, map[string]any{protocolName: payload})
 }
 
 // GetEthernetInterfaces returns all EthernetInterface resources from the first
@@ -330,7 +334,11 @@ func SetEthernetInterface(client *gofish.APIClient, index int, jsonData string) 
 	if err != nil {
 		return fmt.Errorf("failed to parse JSON for ethernet interface %d: %w", index, err)
 	}
-	return patchResource(client, oDataID(ifaces[index]), payload)
+	uri := oDataID(ifaces[index])
+	if uri == "" {
+		return fmt.Errorf("ethernet interface %d missing @odata.id", index)
+	}
+	return patchResource(client, uri, payload)
 }
 
 // GetComputerSystem returns the ComputerSystem matching the given identifier
@@ -392,7 +400,11 @@ func SetComputerSystemProperty(client *gofish.APIClient, propertyName, value str
 	if err != nil {
 		return fmt.Errorf("failed to parse value for ComputerSystem.%s: %w", propertyName, err)
 	}
-	return patchResource(client, oDataID(sys), map[string]any{propertyName: payload})
+	uri := oDataID(sys)
+	if uri == "" {
+		return fmt.Errorf("computer system %q missing @odata.id", fmt.Sprint(sys["Id"]))
+	}
+	return patchResource(client, uri, map[string]any{propertyName: payload})
 }
 
 // GetManager returns the Manager matching the given name (e.g. "BMC", "1").
@@ -453,7 +465,11 @@ func SetManagerProperty(client *gofish.APIClient, propertyName, value string) er
 	if err != nil {
 		return fmt.Errorf("failed to parse value for Manager.%s: %w", propertyName, err)
 	}
-	return patchResource(client, oDataID(mgr), map[string]any{propertyName: payload})
+	uri := oDataID(mgr)
+	if uri == "" {
+		return fmt.Errorf("manager %q missing @odata.id", fmt.Sprint(mgr["Name"]))
+	}
+	return patchResource(client, uri, map[string]any{propertyName: payload})
 }
 
 // ListAccounts returns all ManagerAccount resources from the AccountService,
