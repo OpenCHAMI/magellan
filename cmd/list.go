@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/format"
+	"github.com/openchami/magellan/internal/cache/sqlite"
+	"github.com/openchami/magellan/internal/format"
 	"github.com/rs/zerolog/log"
 
 	"github.com/spf13/cobra"

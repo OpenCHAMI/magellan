@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	urlx "github.com/OpenCHAMI/magellan/internal/url"
-	"github.com/OpenCHAMI/magellan/pkg/client"
+	urlx "github.com/openchami/magellan/internal/url"
+	"github.com/openchami/magellan/pkg/client"
 	"github.com/rs/zerolog/log"
 )
 

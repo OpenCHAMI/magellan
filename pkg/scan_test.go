@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/pkg/test"
+	"github.com/openchami/magellan/pkg/test"
 	"github.com/stretchr/testify/assert"
 )
 
