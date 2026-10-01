@@ -124,7 +124,7 @@ magellan settings get 172.16.0.105 NetworkProtocol SSH
 
 Get a nested computer system property:
 ```
-magellan settings get 172.16.0.105 ComputerSystem Boot BootOrder
+magellan settings get 172.16.0.105 ComputerSystem default Boot BootOrder
 ```
 
 Set SSH protocol settings:
@@ -138,14 +138,14 @@ Get the first ethernet interface:
 magellan settings get 172.16.0.105 EthernetInterface 0
 ```
 
-Update the asset tag on the first computer system:
+Update the asset tag on a specific computer system:
 ```
-magellan settings set 172.16.0.105 ComputerSystem AssetTag rack-12-node-4
+magellan settings set 172.16.0.105 ComputerSystem Node0 AssetTag rack-12-node-4
 ```
 
-Get the firmware version from the first manager:
+Get the firmware version from the default manager:
 ```
-magellan settings get 172.16.0.105 Manager FirmwareVersion
+magellan settings get 172.16.0.105 Manager default FirmwareVersion
 ```
 
 Get all BMC user accounts:

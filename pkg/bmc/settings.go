@@ -907,37 +907,31 @@ func ResolveCategoryItem(client *gofish.APIClient, category, item string) (any, 
 		}
 		return ifaces[idx], nil
 	case "ComputerSystem":
-		// Prefer list semantics: match the item against ComputerSystem IDs/names
-		// so the specified resource is used rather than the first one. Fall back
-		// to interpreting the item as a property of the default ComputerSystem to
-		// keep supporting property paths such as `ComputerSystem Boot BootOrder`.
-		if sys, err := GetComputerSystem(client, item); err == nil {
+		if item == "default" {
+			sys, err := GetDefaultComputerSystem(client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get default computer system: %w", err)
+			}
 			return sys, nil
 		}
-		sys, err := GetDefaultComputerSystem(client)
+		sys, err := GetComputerSystem(client, item)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get computer system: %w", err)
+			return nil, fmt.Errorf("failed to get computer system %q: %w", item, err)
 		}
-		value, ok := sys[item]
-		if !ok {
-			return nil, fmt.Errorf("unknown property %q on ComputerSystem", item)
-		}
-		return value, nil
+		return sys, nil
 	case "Manager":
-		// Same list-first semantics as ComputerSystem: match the item against
-		// Manager IDs/names, then fall back to a property of the default Manager.
-		if mgr, err := GetManager(client, item); err == nil {
+		if item == "default" {
+			mgr, err := GetDefaultManager(client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get default manager: %w", err)
+			}
 			return mgr, nil
 		}
-		mgr, err := GetDefaultManager(client)
+		mgr, err := GetManager(client, item)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get manager: %w", err)
+			return nil, fmt.Errorf("failed to get manager %q: %w", item, err)
 		}
-		value, ok := mgr[item]
-		if !ok {
-			return nil, fmt.Errorf("unknown property %q on Manager", item)
-		}
-		return value, nil
+		return mgr, nil
 	case "Accounts":
 		accts, err := ListAccounts(client)
 		if err != nil {

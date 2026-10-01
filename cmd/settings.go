@@ -128,9 +128,8 @@ The first item after the category selects the setting to read, and any
 additional items walk deeper into nested properties. For NetworkProtocol, the
 first item is the protocol name (e.g., SSH, HTTPS, IPMI, NTP). For
 EthernetInterface, the first item is the interface index (0, 1, ...). For
-ComputerSystem and Manager, the first item first matches a specific resource
-by ID or name (e.g., 1, Node0, bmc); if nothing matches, it is treated as a
-property name on the first resource exposed by the BMC (e.g., Boot). For
+ComputerSystem and Manager, the first item is a resource ID or name (e.g., 1,
+Node0, bmc), or "default" to select the first resource. For
 Accounts, the first item is the account ID.`,
 	Example: `  # get SSH protocol settings
   magellan settings get 172.16.0.105 NetworkProtocol SSH

@@ -212,7 +212,7 @@ func TestSettingsGetCommand(t *testing.T) {
 	})
 
 	t.Run("walks into a nested property", func(t *testing.T) {
-		out := run(t, server.URL, "ComputerSystem", "Boot", "BootOrder")
+		out := run(t, server.URL, "ComputerSystem", "default", "Boot", "BootOrder")
 		require.Contains(t, out, "ME0-PXE-IP4")
 	})
 
@@ -253,7 +253,7 @@ func TestSettingsGetCommand(t *testing.T) {
 		var output bytes.Buffer
 		SettingsGetCmd.SetOut(&output)
 		t.Cleanup(func() { SettingsGetCmd.SetOut(nil) })
-		err := SettingsGetCmd.RunE(SettingsGetCmd, []string{server.URL, "ComputerSystem", "Boot", "NotARealField"})
+		err := SettingsGetCmd.RunE(SettingsGetCmd, []string{server.URL, "ComputerSystem", "default", "Boot", "NotARealField"})
 		require.ErrorContains(t, err, "unknown property \"NotARealField\"")
 	})
 }
