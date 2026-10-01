@@ -145,6 +145,7 @@ available environment variables.
 					URI:             "https://" + node.BmcIP,
 					CredentialStore: store,
 					Insecure:        insecure,
+					CACertPath:      cacertPath,
 				},
 			})
 		}
