@@ -256,7 +256,7 @@ func init() {
 	PowerCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
 	PowerCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
 	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
-	PowerCmd.Flags().String("cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
+	PowerCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
 	PowerCmd.Flags().VarP(&powerFormat, "output-format", "F", "Set the output format (json|yaml).")
 
 	checkRegisterFlagCompletionError(PowerCmd.RegisterFlagCompletionFunc("output-format", completionFormatData))
