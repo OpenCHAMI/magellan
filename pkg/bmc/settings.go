@@ -388,7 +388,20 @@ func SetComputerSystem(client *gofish.APIClient, systemID, jsonData string) erro
 // SetComputerSystemProperty applies a value to a named property on the first
 // ComputerSystem exposed by the BMC.
 func SetComputerSystemProperty(client *gofish.APIClient, propertyName, value string) error {
-	sys, err := GetDefaultComputerSystem(client)
+	return SetComputerSystemPropertyFor(client, "default", propertyName, value)
+}
+
+// SetComputerSystemPropertyFor applies a value to a named property on the
+// ComputerSystem identified by ID or name. The special name "default" selects
+// the first ComputerSystem exposed by the BMC.
+func SetComputerSystemPropertyFor(client *gofish.APIClient, resourceName, propertyName, value string) error {
+	var sys map[string]any
+	var err error
+	if resourceName == "default" {
+		sys, err = GetDefaultComputerSystem(client)
+	} else {
+		sys, err = GetComputerSystem(client, resourceName)
+	}
 	if err != nil {
 		return err
 	}
@@ -398,11 +411,11 @@ func SetComputerSystemProperty(client *gofish.APIClient, propertyName, value str
 	}
 	payload, err := decodeSettingValue(current, value)
 	if err != nil {
-		return fmt.Errorf("failed to parse value for ComputerSystem.%s: %w", propertyName, err)
+		return fmt.Errorf("failed to parse value for ComputerSystem.%s.%s: %w", resourceName, propertyName, err)
 	}
 	uri := oDataID(sys)
 	if uri == "" {
-		return fmt.Errorf("computer system %q missing @odata.id", fmt.Sprint(sys["Id"]))
+		return fmt.Errorf("computer system %q missing @odata.id", resourceName)
 	}
 	return patchResource(client, uri, map[string]any{propertyName: payload})
 }
@@ -453,7 +466,20 @@ func SetManager(client *gofish.APIClient, name, jsonData string) error {
 // SetManagerProperty applies a value to a named property on the first Manager
 // exposed by the BMC.
 func SetManagerProperty(client *gofish.APIClient, propertyName, value string) error {
-	mgr, err := GetDefaultManager(client)
+	return SetManagerPropertyFor(client, "default", propertyName, value)
+}
+
+// SetManagerPropertyFor applies a value to a named property on the Manager
+// identified by ID or name. The special name "default" selects the first
+// Manager exposed by the BMC.
+func SetManagerPropertyFor(client *gofish.APIClient, resourceName, propertyName, value string) error {
+	var mgr map[string]any
+	var err error
+	if resourceName == "default" {
+		mgr, err = GetDefaultManager(client)
+	} else {
+		mgr, err = GetManager(client, resourceName)
+	}
 	if err != nil {
 		return err
 	}
@@ -463,11 +489,11 @@ func SetManagerProperty(client *gofish.APIClient, propertyName, value string) er
 	}
 	payload, err := decodeSettingValue(current, value)
 	if err != nil {
-		return fmt.Errorf("failed to parse value for Manager.%s: %w", propertyName, err)
+		return fmt.Errorf("failed to parse value for Manager.%s.%s: %w", resourceName, propertyName, err)
 	}
 	uri := oDataID(mgr)
 	if uri == "" {
-		return fmt.Errorf("manager %q missing @odata.id", fmt.Sprint(mgr["Name"]))
+		return fmt.Errorf("manager %q missing @odata.id", resourceName)
 	}
 	return patchResource(client, uri, map[string]any{propertyName: payload})
 }

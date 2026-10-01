@@ -246,6 +246,29 @@ func TestSettingsPropertyPatchPayloads(t *testing.T) {
 	require.Equal(t, "2026-08-26T12:00:00Z", writes[4].payload["DateTime"])
 }
 
+func TestSettingsTargetedResourcePropertyPatches(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+	f.addRoute("/redfish/v1/Systems", `{
+		"@odata.id":"/redfish/v1/Systems",
+		"Members":[{"@odata.id":"/redfish/v1/Systems/Node0"},{"@odata.id":"/redfish/v1/Systems/Node1"}]
+	}`)
+	f.addRoute("/redfish/v1/Systems/Node1", `{
+		"@odata.id":"/redfish/v1/Systems/Node1", "Id":"Node1", "Name":"Secondary Node",
+		"AssetTag":"old-secondary-tag"
+	}`)
+
+	require.NoError(t, SetComputerSystemPropertyFor(client, "Node1", "AssetTag", "new-secondary-tag"))
+	require.NoError(t, SetManagerPropertyFor(client, "BMC-B", "FirmwareVersion", "10.0.0"))
+
+	writes := f.capturedWrites()
+	require.Len(t, writes, 2)
+	require.Equal(t, "/redfish/v1/Systems/Node1", writes[0].path)
+	require.Equal(t, "new-secondary-tag", writes[0].payload["AssetTag"])
+	require.Equal(t, "/redfish/v1/Managers/BMC-B", writes[1].path)
+	require.Equal(t, "10.0.0", writes[1].payload["FirmwareVersion"])
+}
+
 func TestSettingsPropertyValidationPreventsWrites(t *testing.T) {
 	f := newRedfishSettingsFixture(t)
 	client := f.client()

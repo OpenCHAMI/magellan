@@ -196,18 +196,33 @@ Accounts, the first item is the account ID.`,
 }
 
 var SettingsSetCmd = &cobra.Command{
-	Use:   "set <node> <category> <property> <value>",
+	Use:   "set <node> <category> [item] <property> <value>",
 	Short: "Set a BMC setting value",
 	Long: `Set a BMC setting value by category, property, and value.
 
-The value should be a JSON string for complex types or a simple string for
-scalar values.`,
+ComputerSystem and Manager settings require an item (resource ID or name)
+before the property. Use "default" to update the first resource. The value
+should be a JSON string for complex types or a simple string for scalar values.`,
 	Example: `  # enable SSH on the BMC
   magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,"Port":22}'
 
   # update the first ethernet interface IP
-  magellan settings set 172.16.0.105 EthernetInterface 0 '{"IPv4Addresses":[{"Address":"172.16.0.105","SubnetMask":"255.255.255.0","Gateway":"172.16.0.1"}]}'`,
-	Args: cobra.ExactArgs(4),
+  magellan settings set 172.16.0.105 EthernetInterface 0 '{"IPv4Addresses":[{"Address":"172.16.0.105","SubnetMask":"255.255.255.0","Gateway":"172.16.0.1"}]}'
+
+  # update a specific computer system
+  magellan settings set 172.16.0.105 ComputerSystem Node0 AssetTag rack-12-node-4`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 4 {
+			return fmt.Errorf("requires at least 4 arguments")
+		}
+		if (args[1] == "ComputerSystem" || args[1] == "Manager") && len(args) != 5 {
+			return fmt.Errorf("%s settings require <item> <property> <value>", args[1])
+		}
+		if args[1] != "ComputerSystem" && args[1] != "Manager" && len(args) != 4 {
+			return fmt.Errorf("requires exactly 4 arguments for %s settings", args[1])
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		nodeArg := args[0]
 		category := args[1]
@@ -234,12 +249,16 @@ scalar values.`,
 				return fmt.Errorf("failed to set EthernetInterface[%d]: %w", idx, err)
 			}
 		case "ComputerSystem":
-			if err := bmc.SetComputerSystemProperty(client, property, value); err != nil {
-				return fmt.Errorf("failed to set ComputerSystem.%s: %w", property, err)
+			property = args[3]
+			value = args[4]
+			if err := bmc.SetComputerSystemPropertyFor(client, args[2], property, value); err != nil {
+				return fmt.Errorf("failed to set ComputerSystem.%s.%s: %w", args[2], property, err)
 			}
 		case "Manager":
-			if err := bmc.SetManagerProperty(client, property, value); err != nil {
-				return fmt.Errorf("failed to set Manager.%s: %w", property, err)
+			property = args[3]
+			value = args[4]
+			if err := bmc.SetManagerPropertyFor(client, args[2], property, value); err != nil {
+				return fmt.Errorf("failed to set Manager.%s.%s: %w", args[2], property, err)
 			}
 		case "Accounts":
 			if err := bmc.UpdateAccount(client, property, value); err != nil {
