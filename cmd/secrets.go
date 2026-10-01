@@ -322,7 +322,13 @@ func init() {
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "Set the file to read as input with credentials. The file must match the format specified with '--format'.")
 	secretsListCmd.Flags().VarP(&secretsListFormat, "output-format", "F", "Set the output format to list secrets.")
 
-	secretsCmd.AddCommand(secretsGenerateKeyCmd, secretsStoreCmd, secretsRetrieveCmd, secretsListCmd, secretsRemoveCmd)
+	secretsCmd.AddCommand(
+		secretsGenerateKeyCmd,
+		secretsStoreCmd,
+		secretsRetrieveCmd,
+		secretsListCmd,
+		secretsRemoveCmd,
+	)
 
 	rootCmd.AddCommand(secretsCmd)
 
