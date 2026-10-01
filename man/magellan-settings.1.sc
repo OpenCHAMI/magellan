@@ -9,7 +9,7 @@ magellan-settings - Configure BMC settings through Redfish
 magellan settings [OPTIONS]++
 magellan settings list <node> [<category> [<item> [<property>...]]] [OPTIONS]++
 magellan settings get <node> <category> [item] [property...] [OPTIONS]++
-magellan settings set <node> <category> <property> <value> [OPTIONS]++
+magellan settings set <node> <category> [<item>] <property> <value> [OPTIONS]++
 magellan settings reset <node> [OPTIONS]
 
 # DESCRIPTION
@@ -46,13 +46,15 @@ used for all commands.
 	*NetworkProtocol*, the first item is the protocol name (e.g. SSH, HTTPS,
 	IPMI). For *EthernetInterface*, the first item is the interface index
 	(0, 1, ...). For *ComputerSystem* and *Manager*, the first item is a
-	property name on the first resource exposed by the BMC. For *Accounts*,
+	a resource ID or name, or *default* to select the first resource. For *Accounts*,
 	the first item is the account ID. Any additional items walk deeper into
 	nested properties.
 
-*set* <node> <category> <property> <value>
-:	Set a BMC setting value. The *value* should be a JSON string for
-	complex types or a simple string for scalar values.
+*set* <node> <category> [<item>] <property> <value>
+:	Set a BMC setting value. *ComputerSystem* and *Manager* require an item
+	(resource ID or name) before the property; use *default* for the first
+	resource. The *value* should be a JSON string for complex types or a
+	simple string for scalar values.
 
 *reset* <node>
 :	Factory reset the BMC manager. By default, resets all settings.
