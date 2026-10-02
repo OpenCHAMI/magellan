@@ -114,9 +114,9 @@ List the properties of the SSH protocol:
 magellan settings list 172.16.0.105 NetworkProtocol SSH
 ```
 
-Walk deeper into a nested structure:
+Walk deeper into a nested structure on the first computer system:
 ```
-magellan settings list 172.16.0.105 ComputerSystem Node0 Boot
+magellan settings list 172.16.0.105 ComputerSystem default Boot
 ```
 
 Get SSH protocol settings from a BMC:
@@ -124,7 +124,7 @@ Get SSH protocol settings from a BMC:
 magellan settings get 172.16.0.105 NetworkProtocol SSH
 ```
 
-Get a nested computer system property:
+Get a nested computer system property from the first system:
 ```
 magellan settings get 172.16.0.105 ComputerSystem default Boot BootOrder
 ```
@@ -142,7 +142,7 @@ magellan settings get 172.16.0.105 EthernetInterface 0
 
 Update the asset tag on a specific computer system:
 ```
-magellan settings set 172.16.0.105 ComputerSystem Node0 AssetTag rack-12-node-4
+magellan settings set 172.16.0.105 ComputerSystem <system-id> AssetTag rack-12-node-4
 ```
 
 Get the firmware version from the default manager:

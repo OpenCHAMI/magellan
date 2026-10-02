@@ -79,8 +79,8 @@ Additional property arguments walk deeper into nested structures.`,
   # list the properties of the SSH protocol
   magellan settings list 172.16.0.105 NetworkProtocol SSH
 
-  # walk deeper into a nested structure
-  magellan settings list 172.16.0.105 ComputerSystem Node0 Boot`,
+  # walk deeper into a nested structure on the first computer system
+  magellan settings list 172.16.0.105 ComputerSystem default Boot`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		nodeArg := args[0]
@@ -137,8 +137,8 @@ Accounts, the first item is the account ID.`,
   # get the first ethernet interface's IPv4 address
   magellan settings get 172.16.0.105 EthernetInterface 0 IPv4Addresses
 
-  # get a nested boot property
-  magellan settings get 172.16.0.105 ComputerSystem Node0 Boot BootOrder
+  # get a nested boot property from the first system
+  magellan settings get 172.16.0.105 ComputerSystem default Boot BootOrder
 
   # get a property of a specific computer system (not just the first one)
   magellan settings get 172.16.0.105 ComputerSystem 1 TrustedModules
@@ -209,7 +209,7 @@ should be a JSON string for complex types or a simple string for scalar values.`
   magellan settings set 172.16.0.105 EthernetInterface 0 '{"IPv4Addresses":[{"Address":"172.16.0.105","SubnetMask":"255.255.255.0","Gateway":"172.16.0.1"}]}'
 
   # update a specific computer system
-  magellan settings set 172.16.0.105 ComputerSystem Node0 AssetTag rack-12-node-4`,
+  magellan settings set 172.16.0.105 ComputerSystem <system-id> AssetTag rack-12-node-4`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 4 {
 			return fmt.Errorf("requires at least 4 arguments")

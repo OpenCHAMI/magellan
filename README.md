@@ -573,14 +573,14 @@ magellan settings list 172.16.0.105 NetworkProtocol
 # list the properties of the SSH protocol
 magellan settings list 172.16.0.105 NetworkProtocol SSH
 
-# walk deeper into a nested structure
-magellan settings list 172.16.0.105 ComputerSystem Node0 Boot
+# walk deeper into a nested structure on the first computer system
+magellan settings list 172.16.0.105 ComputerSystem default Boot
 
 # get SSH protocol settings from a BMC
 magellan settings get 172.16.0.105 NetworkProtocol SSH
 
-# get a nested computer system property
-magellan settings get 172.16.0.105 ComputerSystem Node0 Boot BootOrder
+# get a nested computer system property from the first system
+magellan settings get 172.16.0.105 ComputerSystem default Boot BootOrder
 
 # set SSH protocol settings
 magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,"Port":22}'
@@ -589,7 +589,7 @@ magellan settings set 172.16.0.105 NetworkProtocol SSH '{"ProtocolEnabled":true,
 magellan settings get 172.16.0.105 EthernetInterface 0
 
 # update a property on a specific computer system
-magellan settings set 172.16.0.105 ComputerSystem Node0 AssetTag rack-12-node-4
+magellan settings set 172.16.0.105 ComputerSystem <system-id> AssetTag rack-12-node-4
 
 # get a property from the default manager
 magellan settings get 172.16.0.105 Manager default FirmwareVersion
@@ -606,7 +606,7 @@ magellan settings reset 172.16.0.105 --preserve-config PreserveNetwork
 
 There is no upper limit on the number of property arguments: `list` and `get` walk as deep into nested settings as the BMC exposes (for example, `get <node> ComputerSystem default Boot BootOrder`). Computer systems and managers can be selected by ID or name, or with `default` for the first resource. The `set` command accepts a single property and a value; the `reset` command reports an error if the BMC does not support resetting to defaults via `Manager.ResetToDefaults` or does not support the requested `--preserve-config` type.
 
-The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations use the first resource exposed by the BMC. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
+The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations accept a resource ID or name, or `default` to select the first resource. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
 
 See `magellan-settings(1)` for more details.
 
