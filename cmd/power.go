@@ -25,6 +25,15 @@ var (
 	powerFormat      format.DataFormat = format.FORMAT_JSON
 )
 
+func powerCrawlerConfig(node bmc.Node, store secrets.SecretStore, insecure bool, cacertPath string) crawler.CrawlerConfig {
+	return crawler.CrawlerConfig{
+		URI:             "https://" + node.BmcIP,
+		CredentialStore: store,
+		Insecure:        insecure,
+		CACertPath:      cacertPath,
+	}
+}
+
 // The `power` command gets and sets power states for a collection of BMC nodes.
 // This command should be run after `collect`, as it requires an existing node inventory.
 var PowerCmd = &cobra.Command{
@@ -139,14 +148,9 @@ available environment variables.
 				continue
 			}
 			target_nodes = append(target_nodes, power.CrawlableNode{
-				ClusterID: node.ClusterID,
-				NodeID:    node.NodeID,
-				ConnConfig: crawler.CrawlerConfig{
-					URI:             "https://" + node.BmcIP,
-					CredentialStore: store,
-					Insecure:        insecure,
-					CACertPath:      cacertPath,
-				},
+				ClusterID:  node.ClusterID,
+				NodeID:     node.NodeID,
+				ConnConfig: powerCrawlerConfig(node, store, insecure, cacertPath),
 			})
 		}
 
