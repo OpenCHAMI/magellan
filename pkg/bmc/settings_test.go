@@ -322,6 +322,16 @@ func TestDecodeSettingValueRejectsIncompatibleJSONTypes(t *testing.T) {
 	}
 }
 
+func TestSettingsSettersRejectIncompatibleJSONTypesBeforePatch(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	require.ErrorContains(t, SetNetworkProtocol(client, "SSH", `{"ProtocolEnabled":"true"}`), "expected boolean")
+	require.ErrorContains(t, SetNetworkProtocol(client, "SSH", `{"Port":"443"}`), "expected number")
+	require.ErrorContains(t, SetComputerSystemProperty(client, "Boot", `"disabled"`), "expected object")
+	require.Empty(t, f.capturedWrites())
+}
+
 func TestSettingsSettersRejectMissingODataID(t *testing.T) {
 	t.Run("network protocol", func(t *testing.T) {
 		f := newRedfishSettingsFixture(t)
