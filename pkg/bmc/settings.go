@@ -819,8 +819,14 @@ func ResolveListItem(client *gofish.APIClient, category, item string) (any, erro
 		}
 		return ifaces[idx], nil
 	case "ComputerSystem":
+		if item == "default" {
+			return GetDefaultComputerSystem(client)
+		}
 		return GetComputerSystem(client, item)
 	case "Manager":
+		if item == "default" {
+			return GetDefaultManager(client)
+		}
 		return GetManager(client, item)
 	case "Accounts":
 		accts, err := ListAccounts(client)

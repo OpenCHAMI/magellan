@@ -149,7 +149,15 @@ func TestSettingsListCommand(t *testing.T) {
 		require.Contains(t, output.String(), "Manufacturer")
 
 		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "ComputerSystem", "default"}))
+		require.Contains(t, output.String(), "Manufacturer")
+
+		output.Reset()
 		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Manager", "bmc"}))
+		require.Contains(t, output.String(), "FirmwareVersion")
+
+		output.Reset()
+		require.NoError(t, SettingsListCmd.RunE(SettingsListCmd, []string{server.URL, "Manager", "default"}))
 		require.Contains(t, output.String(), "FirmwareVersion")
 
 		output.Reset()
