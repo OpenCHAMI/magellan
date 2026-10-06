@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/openchami/magellan/pkg/models"
 	"github.com/stmcginnis/gofish/schemas"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +32,7 @@ func TestMapEthernetInterfaces(t *testing.T) {
 		}, baseURI)
 
 		require.Len(t, got, 1)
-		require.Equal(t, EthernetInterface{
+		require.Equal(t, models.EthernetInterface{
 			URI:         baseURI + "/redfish/v1/Systems/1/EthernetInterfaces/0",
 			MAC:         "aa:bb:cc:dd:ee:ff",
 			IP:          "10.0.0.5",

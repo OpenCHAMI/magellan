@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/internal/cache/sqlite"
-	"github.com/OpenCHAMI/magellan/internal/format"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
+	"github.com/openchami/magellan/internal/cache/sqlite"
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )

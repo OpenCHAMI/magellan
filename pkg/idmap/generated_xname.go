@@ -3,7 +3,7 @@ package idmap
 
 import (
 	"github.com/Cray-HPE/hms-xname/xnames"
-	"github.com/OpenCHAMI/magellan/internal/util"
+	"github.com/openchami/magellan/internal/util"
 	"github.com/rs/zerolog/log"
 )
 

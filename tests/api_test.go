@@ -24,9 +24,9 @@ import (
 
 	"flag"
 
-	"github.com/OpenCHAMI/magellan/internal/util"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
-	"github.com/OpenCHAMI/magellan/pkg/client"
+	"github.com/openchami/magellan/internal/util"
+	magellan "github.com/openchami/magellan/pkg"
+	"github.com/openchami/magellan/pkg/client"
 )
 
 var (

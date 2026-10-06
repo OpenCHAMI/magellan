@@ -3,6 +3,7 @@ package crawler
 import (
 	"net"
 
+	"github.com/openchami/magellan/pkg/models"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -22,14 +23,14 @@ import (
 //
 // Both walkSystems and walkManagers route through this function so the
 // Systems and Managers paths of the payload follow a single rule.
-func mapEthernetInterfaces(rf_ethernetinterfaces []*schemas.EthernetInterface, baseURI string) []EthernetInterface {
-	ethernet_interfaces := make([]EthernetInterface, 0, len(rf_ethernetinterfaces))
+func mapEthernetInterfaces(rf_ethernetinterfaces []*schemas.EthernetInterface, baseURI string) []models.EthernetInterface {
+	ethernet_interfaces := make([]models.EthernetInterface, 0, len(rf_ethernetinterfaces))
 	for _, rf_ethernetinterface := range rf_ethernetinterfaces {
 		ip := usableIPv4(rf_ethernetinterface)
 		if ip == "" {
 			continue
 		}
-		ethernet_interfaces = append(ethernet_interfaces, EthernetInterface{
+		ethernet_interfaces = append(ethernet_interfaces, models.EthernetInterface{
 			URI:         baseURI + rf_ethernetinterface.ODataID,
 			MAC:         rf_ethernetinterface.MACAddress,
 			IP:          ip,

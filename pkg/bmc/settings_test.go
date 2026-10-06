@@ -1,0 +1,470 @@
+package bmc
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync"
+	"testing"
+
+	"github.com/stmcginnis/gofish"
+	"github.com/stretchr/testify/require"
+)
+
+type capturedRequest struct {
+	method  string
+	path    string
+	payload map[string]any
+}
+
+type redfishSettingsFixture struct {
+	t      *testing.T
+	server *httptest.Server
+	mu     sync.Mutex
+	writes []capturedRequest
+	routes map[string]string
+}
+
+func newRedfishSettingsFixture(t *testing.T) *redfishSettingsFixture {
+	t.Helper()
+	f := &redfishSettingsFixture{t: t}
+	f.routes = map[string]string{}
+	f.server = httptest.NewServer(http.HandlerFunc(f.serveHTTP))
+	t.Cleanup(f.server.Close)
+	return f
+}
+
+func (f *redfishSettingsFixture) client() *gofish.APIClient {
+	f.t.Helper()
+	client, err := gofish.Connect(gofish.ClientConfig{Endpoint: f.server.URL, BasicAuth: true})
+	require.NoError(f.t, err)
+	return client
+}
+
+// addRoute registers or replaces the JSON served for a request path.
+func (f *redfishSettingsFixture) addRoute(path, response string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.routes[path] = response
+}
+
+func (f *redfishSettingsFixture) capturedWrites() []capturedRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]capturedRequest(nil), f.writes...)
+}
+
+func (f *redfishSettingsFixture) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		var payload map[string]any
+		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&payload))
+		f.mu.Lock()
+		f.writes = append(f.writes, capturedRequest{method: r.Method, path: r.URL.Path, payload: payload})
+		f.mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if response, ok := f.routes[r.URL.Path]; ok {
+		_, _ = w.Write([]byte(response))
+		return
+	}
+
+	responses := map[string]string{
+		"/redfish/v1/": `{
+			"@odata.id":"/redfish/v1/", "Id":"RootService", "Name":"Root Service",
+			"Managers":{"@odata.id":"/redfish/v1/Managers"},
+			"Systems":{"@odata.id":"/redfish/v1/Systems"},
+			"AccountService":{"@odata.id":"/redfish/v1/AccountService"}
+		}`,
+		"/redfish/v1/Managers": `{
+			"@odata.id":"/redfish/v1/Managers", "Name":"Managers",
+			"Members":[{"@odata.id":"/redfish/v1/Managers/BMC-A"},{"@odata.id":"/redfish/v1/Managers/BMC-B"}],
+			"Members@odata.count":2
+		}`,
+		"/redfish/v1/Managers/BMC-A": `{
+			"@odata.id":"/redfish/v1/Managers/BMC-A", "Id":"BMC-A", "Name":"Primary BMC",
+			"FirmwareVersion":"1.2.3", "DateTime":"2026-01-01T00:00:00Z",
+			"NetworkProtocol":{"@odata.id":"/redfish/v1/Managers/BMC-A/NetworkProtocol"},
+			"EthernetInterfaces":{"@odata.id":"/redfish/v1/Managers/BMC-A/EthernetInterfaces"},
+			"Actions":{"#Manager.ResetToDefaults":{
+				"target":"/redfish/v1/Managers/BMC-A/Actions/Manager.ResetToDefaults",
+				"ResetType@Redfish.AllowableValues":["ResetAll","PreserveNetwork","PreserveNetworkAndUsers"]
+			}}
+		}`,
+		"/redfish/v1/Managers/BMC-B": `{
+			"@odata.id":"/redfish/v1/Managers/BMC-B", "Id":"BMC-B", "Name":"Secondary BMC",
+			"FirmwareVersion":"9.9.9"
+		}`,
+		"/redfish/v1/Managers/BMC-A/NetworkProtocol": `{
+			"@odata.id":"/redfish/v1/Managers/BMC-A/NetworkProtocol", "Id":"NetworkProtocol", "Name":"Manager Network Protocol",
+			"FQDN":"bmc-a.example.com", "SSH":{"ProtocolEnabled":false,"Port":22}
+		}`,
+		"/redfish/v1/Managers/BMC-A/EthernetInterfaces": `{
+			"@odata.id":"/redfish/v1/Managers/BMC-A/EthernetInterfaces", "Name":"Ethernet Interfaces",
+			"Members":[{"@odata.id":"/redfish/v1/Managers/BMC-A/EthernetInterfaces/1"}], "Members@odata.count":1
+		}`,
+		"/redfish/v1/Managers/BMC-A/EthernetInterfaces/1": `{
+			"@odata.id":"/redfish/v1/Managers/BMC-A/EthernetInterfaces/1", "Id":"1", "Name":"Management Ethernet Interface",
+			"HostName":"bmc-a", "IPv6Enabled":false
+		}`,
+		"/redfish/v1/Systems": `{
+			"@odata.id":"/redfish/v1/Systems", "Name":"Systems",
+			"Members":[{"@odata.id":"/redfish/v1/Systems/Node0"}], "Members@odata.count":1
+		}`,
+		"/redfish/v1/Systems/Node0": `{
+			"@odata.id":"/redfish/v1/Systems/Node0", "Id":"Node0", "Name":"Compute Node",
+			"AssetTag":"old-tag", "Boot":{"BootOrder":["PXE","Disk"]}
+		}`,
+		"/redfish/v1/AccountService": `{
+			"@odata.id":"/redfish/v1/AccountService", "Id":"AccountService", "Name":"Account Service",
+			"Accounts":{"@odata.id":"/redfish/v1/AccountService/Accounts"}
+		}`,
+		"/redfish/v1/AccountService/Accounts": `{
+			"@odata.id":"/redfish/v1/AccountService/Accounts", "Name":"Accounts",
+			"Members":[{"@odata.id":"/redfish/v1/AccountService/Accounts/1"}], "Members@odata.count":1
+		}`,
+		"/redfish/v1/AccountService/Accounts/1": `{
+			"@odata.id":"/redfish/v1/AccountService/Accounts/1", "Id":"1", "Name":"Administrator",
+			"UserName":"root", "Enabled":true, "RoleId":"Administrator"
+		}`,
+	}
+	response, ok := responses[r.URL.Path]
+	if !ok {
+		http.Error(w, fmt.Sprintf("unexpected path %s", r.URL.Path), http.StatusNotFound)
+		return
+	}
+	_, _ = w.Write([]byte(response))
+}
+
+func TestSettingsGettersUseDefaultResources(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	np, err := GetNetworkProtocol(client)
+	require.NoError(t, err)
+	require.Equal(t, "bmc-a.example.com", np["FQDN"])
+
+	protocols, err := ListProtocols(client)
+	require.NoError(t, err)
+	require.Contains(t, protocols, "SSH")
+	require.NotContains(t, protocols, "FQDN")
+	require.NotContains(t, protocols, "HostName")
+
+	interfaces, err := GetEthernetInterfaces(client)
+	require.NoError(t, err)
+	require.Len(t, interfaces, 1)
+	require.Equal(t, "bmc-a", interfaces[0]["HostName"])
+
+	system, err := GetDefaultComputerSystem(client)
+	require.NoError(t, err)
+	require.Equal(t, "Node0", system["Id"])
+
+	manager, err := GetDefaultManager(client)
+	require.NoError(t, err)
+	require.Equal(t, "BMC-A", manager["Id"])
+
+	accounts, err := ListAccounts(client)
+	require.NoError(t, err)
+	require.Len(t, accounts, 1)
+	require.Equal(t, "root", accounts[0]["UserName"])
+}
+
+// TestResolveCategoryItemSpecifiedResource verifies that resolving the item
+// for `settings get` behaves like `settings list`: a matching
+// ComputerSystem/Manager is resolved by ID or name instead of always using the
+// first resource, with a fallback to property lookup on the default resource.
+func TestResolveCategoryItemSpecifiedResource(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	// Add a second computer system that is NOT the first collection member.
+	f.addRoute("/redfish/v1/Systems", `{
+		"@odata.id":"/redfish/v1/Systems", "Name":"Systems",
+		"Members":[
+			{"@odata.id":"/redfish/v1/Systems/Node0"},
+			{"@odata.id":"/redfish/v1/Systems/1"}
+		], "Members@odata.count":2
+	}`)
+	f.addRoute("/redfish/v1/Systems/1", `{
+		"@odata.id":"/redfish/v1/Systems/1", "Id":"1", "Name":"Compute Node 1",
+		"TrustedModules":[{"InterfaceType":"TPM1_2","Status":{"State":"Enabled"}}]
+	}`)
+
+	t.Run("resolves a non-default ComputerSystem by id", func(t *testing.T) {
+		sys, err := ResolveCategoryItem(client, "ComputerSystem", "1")
+		require.NoError(t, err)
+		require.Equal(t, "1", fmt.Sprint(sys.(map[string]any)["Id"]))
+		require.Contains(t, fmt.Sprint(sys), "TPM1_2")
+	})
+
+	t.Run("resolves a non-default ComputerSystem by name", func(t *testing.T) {
+		sys, err := ResolveCategoryItem(client, "ComputerSystem", "Compute Node 1")
+		require.NoError(t, err)
+		require.Equal(t, "1", fmt.Sprint(sys.(map[string]any)["Id"]))
+	})
+
+	t.Run("resolves a non-default Manager", func(t *testing.T) {
+		mgr, err := ResolveCategoryItem(client, "Manager", "BMC-B")
+		require.NoError(t, err)
+		require.Equal(t, "BMC-B", fmt.Sprint(mgr.(map[string]any)["Id"]))
+		require.Contains(t, fmt.Sprint(mgr), "9.9.9")
+	})
+
+	t.Run("resolves the default ComputerSystem explicitly", func(t *testing.T) {
+		boot, err := ResolveCategoryItem(client, "ComputerSystem", "default")
+		require.NoError(t, err)
+		require.Contains(t, fmt.Sprint(boot), "BootOrder")
+	})
+
+	t.Run("errors when the item is not a resource", func(t *testing.T) {
+		_, err := ResolveCategoryItem(client, "ComputerSystem", "NotAThing")
+		require.ErrorContains(t, err, `computer system "NotAThing" not found`)
+	})
+}
+
+func TestSettingsPropertyPatchPayloads(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	require.NoError(t, SetNetworkProtocol(client, "SSH", `{"ProtocolEnabled":true,"Port":2222}`))
+	require.NoError(t, SetNetworkProtocol(client, "FQDN", "new-bmc.example.com"))
+	require.NoError(t, SetComputerSystemProperty(client, "AssetTag", "new-tag"))
+	require.NoError(t, SetComputerSystemProperty(client, "Boot", `{"BootOrder":["Disk","PXE"]}`))
+	require.NoError(t, SetManagerProperty(client, "DateTime", "2026-08-26T12:00:00Z"))
+
+	writes := f.capturedWrites()
+	require.Len(t, writes, 5)
+	require.Equal(t, capturedRequest{http.MethodPatch, "/redfish/v1/Managers/BMC-A/NetworkProtocol", map[string]any{
+		"SSH": map[string]any{"ProtocolEnabled": true, "Port": float64(2222)},
+	}}, writes[0])
+	require.Equal(t, "new-bmc.example.com", writes[1].payload["FQDN"])
+	require.Equal(t, "new-tag", writes[2].payload["AssetTag"])
+	require.Equal(t, map[string]any{"BootOrder": []any{"Disk", "PXE"}}, writes[3].payload["Boot"])
+	require.Equal(t, "2026-08-26T12:00:00Z", writes[4].payload["DateTime"])
+}
+
+func TestSettingsTargetedResourcePropertyPatches(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+	f.addRoute("/redfish/v1/Systems", `{
+		"@odata.id":"/redfish/v1/Systems",
+		"Members":[{"@odata.id":"/redfish/v1/Systems/Node0"},{"@odata.id":"/redfish/v1/Systems/Node1"}]
+	}`)
+	f.addRoute("/redfish/v1/Systems/Node1", `{
+		"@odata.id":"/redfish/v1/Systems/Node1", "Id":"Node1", "Name":"Secondary Node",
+		"AssetTag":"old-secondary-tag"
+	}`)
+
+	require.NoError(t, SetComputerSystemPropertyFor(client, "Node1", "AssetTag", "new-secondary-tag"))
+	require.NoError(t, SetManagerPropertyFor(client, "BMC-B", "FirmwareVersion", "10.0.0"))
+
+	writes := f.capturedWrites()
+	require.Len(t, writes, 2)
+	require.Equal(t, "/redfish/v1/Systems/Node1", writes[0].path)
+	require.Equal(t, "new-secondary-tag", writes[0].payload["AssetTag"])
+	require.Equal(t, "/redfish/v1/Managers/BMC-B", writes[1].path)
+	require.Equal(t, "10.0.0", writes[1].payload["FirmwareVersion"])
+}
+
+func TestSettingsPropertyValidationPreventsWrites(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	require.ErrorContains(t, SetNetworkProtocol(client, "Unknown", `{}`), "unknown network protocol")
+	require.ErrorContains(t, SetNetworkProtocol(client, "SSH", `{`), "failed to parse value")
+	require.ErrorContains(t, SetComputerSystemProperty(client, "Unknown", "value"), "unknown property")
+	require.ErrorContains(t, SetComputerSystemProperty(client, "Boot", `{`), "failed to parse value")
+	require.ErrorContains(t, SetManagerProperty(client, "Unknown", "value"), "unknown property")
+	require.Empty(t, f.capturedWrites())
+}
+
+func TestDecodeSettingValueUsesExistingJSONType(t *testing.T) {
+	// Bare values stay strings when the property already holds a string.
+	for _, value := range []string{"123", "true", "null"} {
+		decoded, err := decodeSettingValue("", value)
+		require.NoError(t, err)
+		require.Equal(t, value, decoded)
+	}
+
+	// JSON objects are parsed when the property is not a string.
+	decoded, err := decodeSettingValue(map[string]any{}, `{"Port":2222}`)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"Port": float64(2222)}, decoded)
+
+	// Malformed JSON for a non-string property is rejected.
+	_, err = decodeSettingValue(map[string]any{}, `{`)
+	require.Error(t, err)
+}
+
+func TestDecodeSettingValueRejectsIncompatibleJSONTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		current any
+		input   string
+	}{
+		{name: "invalid boolean literal", current: true, input: "enabled"},
+		{name: "boolean replaced by string", current: true, input: `"true"`},
+		{name: "number replaced by string", current: float64(22), input: `"443"`},
+		{name: "object replaced by string", current: map[string]any{"Port": float64(22)}, input: `"disabled"`},
+		{name: "array replaced by object", current: []any{"PXE"}, input: `{}`},
+		{name: "nested type mismatch", current: map[string]any{"Port": float64(22)}, input: `{"Port":"443"}`},
+		{name: "unknown nested property", current: map[string]any{"Port": float64(22)}, input: `{"Unknown":true}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := decodeSettingValue(tt.current, tt.input)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestSettingsSettersRejectIncompatibleJSONTypesBeforePatch(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	require.ErrorContains(t, SetNetworkProtocol(client, "SSH", `{"ProtocolEnabled":"true"}`), "expected boolean")
+	require.ErrorContains(t, SetNetworkProtocol(client, "SSH", `{"Port":"443"}`), "expected number")
+	require.ErrorContains(t, SetComputerSystemProperty(client, "Boot", `"disabled"`), "expected object")
+	require.Empty(t, f.capturedWrites())
+}
+
+func TestSettingsSettersRejectMissingODataID(t *testing.T) {
+	t.Run("network protocol", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Managers/BMC-A/NetworkProtocol", `{"Id":"NetworkProtocol","SSH":{"ProtocolEnabled":false,"Port":22}}`)
+		err := SetNetworkProtocol(f.client(), "SSH", `{"ProtocolEnabled":true}`)
+		require.ErrorContains(t, err, `network protocol "NetworkProtocol" missing @odata.id`)
+		require.Empty(t, f.capturedWrites())
+	})
+
+	t.Run("ethernet interface", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Managers/BMC-A/EthernetInterfaces/1", `{"Id":"1","Name":"Management Ethernet Interface"}`)
+		err := SetEthernetInterface(f.client(), 0, `{"IPv6Enabled":true}`)
+		require.ErrorContains(t, err, "ethernet interface 0 missing @odata.id")
+		require.Empty(t, f.capturedWrites())
+	})
+
+	t.Run("computer system", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Systems/Node0", `{"Id":"Node0","AssetTag":"old-tag"}`)
+		err := SetComputerSystemProperty(f.client(), "AssetTag", "new-tag")
+		require.ErrorContains(t, err, `computer system "default" missing @odata.id`)
+		require.Empty(t, f.capturedWrites())
+	})
+
+	t.Run("manager", func(t *testing.T) {
+		f := newRedfishSettingsFixture(t)
+		f.addRoute("/redfish/v1/Managers/BMC-A", `{"Id":"BMC-A","DateTime":"2026-01-01T00:00:00Z"}`)
+		err := SetManagerProperty(f.client(), "DateTime", "2026-08-26T12:00:00Z")
+		require.ErrorContains(t, err, `manager "default" missing @odata.id`)
+		require.Empty(t, f.capturedWrites())
+	})
+}
+
+// TestSettingsUsesRedfishPropertyNames verifies PATCH payloads use the property
+// names exactly as they appear in the actual Redfish JSON (e.g. RoleId, not
+// the Go field name RoleID).
+func TestSettingsUsesRedfishPropertyNames(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	require.NoError(t, UpdateAccount(client, "1", `{"RoleId":"Operator"}`))
+	writes := f.capturedWrites()
+	require.Len(t, writes, 1)
+	require.Equal(t, "Operator", writes[0].payload["RoleId"])
+}
+
+func TestSettingsResourceUpdates(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	require.NoError(t, SetEthernetInterface(client, 0, `{"IPv6Enabled":true}`))
+	require.ErrorContains(t, SetEthernetInterface(client, 1, `{}`), "out of range")
+	require.NoError(t, UpdateAccount(client, "1", `{"Enabled":false}`))
+	require.ErrorContains(t, UpdateAccount(client, "missing", `{}`), "not found")
+
+	writes := f.capturedWrites()
+	require.Len(t, writes, 2)
+	require.Equal(t, true, writes[0].payload["IPv6Enabled"])
+	require.Equal(t, false, writes[1].payload["Enabled"])
+}
+
+func TestResetManagerValidatesPreservationMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		mode     string
+		expected string
+	}{
+		{name: "reset all", mode: "", expected: "ResetAll"},
+		{name: "preserve network", mode: "PreserveNetwork", expected: "PreserveNetwork"},
+		{name: "preserve network and users", mode: "PreserveNetworkAndUsers", expected: "PreserveNetworkAndUsers"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newRedfishSettingsFixture(t)
+			require.NoError(t, ResetManager(f.client(), tt.mode))
+			writes := f.capturedWrites()
+			require.Len(t, writes, 1)
+			require.Equal(t, http.MethodPost, writes[0].method)
+			require.Equal(t, tt.expected, writes[0].payload["ResetType"])
+		})
+	}
+
+	f := newRedfishSettingsFixture(t)
+	require.ErrorContains(t, ResetManager(f.client(), "PreserveNetwrok"), "invalid preserve configuration")
+	require.Empty(t, f.capturedWrites())
+}
+
+func TestResetManagerRejectsUnsupportedBMC(t *testing.T) {
+	f := newRedfishSettingsFixture(t)
+	client := f.client()
+
+	// Overlay the first manager with a resource that advertises no
+	// ResetToDefaults action at all.
+	f.addRoute("/redfish/v1/Managers/BMC-A", `{
+		"@odata.id":"/redfish/v1/Managers/BMC-A", "Id":"BMC-A", "Name":"Primary BMC",
+		"FirmwareVersion":"1.0.0"
+	}`)
+
+	err := ResetManager(client, "")
+	require.ErrorContains(t, err, `BMC "BMC-A" does not support resetting to default via Manager.ResetToDefaults`)
+	require.Empty(t, f.capturedWrites())
+}
+
+func TestResetManagerRejectsUnsupportedResetType(t *testing.T) {
+	tests := []struct {
+		name     string
+		allowed  string
+		preserve string
+		expected string
+	}{
+		{name: "wrong preserve type", allowed: `["ResetAll"]`, preserve: "PreserveNetwork", expected: "does not support reset type \"PreserveNetwork\" (supported: [ResetAll])"},
+		{name: "plain reset not allowed", allowed: `["PreserveNetwork"]`, preserve: "", expected: "does not support reset type \"ResetAll\" (supported: [PreserveNetwork])"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newRedfishSettingsFixture(t)
+			client := f.client()
+
+			// Overlay a manager fixture whose ResetToDefaults action declares only
+			// the allowed list nominated for this case.
+			f.addRoute("/redfish/v1/Managers/BMC-A", `{
+				"@odata.id":"/redfish/v1/Managers/BMC-A", "Id":"BMC-A", "Name":"Primary BMC",
+				"Actions":{"#Manager.ResetToDefaults":{
+					"target":"/redfish/v1/Managers/BMC-A/Actions/Manager.ResetToDefaults",
+					"ResetType@Redfish.AllowableValues":`+tt.allowed+`
+				}}
+			}`)
+
+			err := ResetManager(client, tt.preserve)
+			require.ErrorContains(t, err, `BMC "BMC-A" does not support reset type`)
+			require.ErrorContains(t, err, tt.expected)
+			require.Empty(t, f.capturedWrites())
+		})
+	}
+}

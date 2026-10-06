@@ -1,4 +1,4 @@
-module github.com/OpenCHAMI/magellan
+module github.com/openchami/magellan
 
 go 1.26.0
 

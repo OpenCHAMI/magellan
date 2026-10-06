@@ -24,21 +24,21 @@ magellan list --cache ./assets.db
 export MASTER_KEY=$(magellan secrets generatekey)
 
 // store specific BMC node creds for *collect* and *crawl* in default secrets store++
-// which uses *nodes.json* by default (--file/-f flag not set)++
+// which uses *secrets.json* by default (e.g. when --file flag not set)++
 magellan secrets store $bmc_host $bmc_creds
 
 // retrieve creds from secrets store++
-magellan secrets retrieve $bmc_host -f nodes.json
+magellan secrets retrieve $bmc_host --file secrets.json
 
 // list creds from specific secrets++
-magellan secrets list -f nodes.json
+magellan secrets list --file secrets.json
 
-// perform a collect using the secret store++
-magellan collect --secrets-file node.json
+// perform a collect using the secret store specified with --secrets-file flag++
+magellan collect --secrets-file secrets.json -o nodes.json
 
 # FLAGS
 
-*-f, --file* _path_
+*--file* _path_
 	Set path to a secrets file to manage secrets.
 
 	Requires the *MASTER_KEY* environment variable to be set. This can be set by
@@ -63,7 +63,9 @@ Lists all the secret IDs and their values for secrets file specified with _path_
 
 The format of this command is:
 
-*list* [-f _path_]
+*list* [--file _path_]
+	*-F, --output-format* _format_
+		Set the output format to list secrets.
 
 ## remove
 
@@ -71,7 +73,7 @@ Remove secrets by IDs from secrets file specified with _path_.
 
 The format of this command is:
 
-*remove* [-f _path_] _secret_id_
+*remove* [--file _path_] _secret_id_
 
 ## retrieve
 
@@ -79,7 +81,7 @@ Retrieve secret by ID from secrets file specified with _path_.
 
 The format of this command is:
 
-*retrieve* [-f _path_] _secret_id_
+*retrieve* [--file _path_] _secret_id_
 
 ## store
 
@@ -87,12 +89,14 @@ Stores the given string value under secretID.
 
 The format of this command is:
 
-*store* [-f _path_] _secret_id_ _data_
-	*-F, --format* _format_
+*store* [--file _path_] _secret_id_ _data_
+	*-f, --input-format* _format_
 		Set the input data format to store secrets in the secrets file.
 
 	*-i, --input-file* _string_
 		Set the file to read as input.
+
+See *magellan*(1) for information about global flags and environment variables used for all commands.
 
 # AUTHOR
 

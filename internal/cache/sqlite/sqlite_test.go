@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	magellan "github.com/OpenCHAMI/magellan/pkg"
+	magellan "github.com/openchami/magellan/pkg"
 	"github.com/stretchr/testify/require"
 )
 

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	"github.com/OpenCHAMI/magellan/pkg/client"
+	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/pkg/client"
 	"github.com/stretchr/testify/require"
 )
 
