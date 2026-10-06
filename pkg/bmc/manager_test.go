@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/bmc"
 	// Blank-import the vendor plugins so their init() registrations run; this is
 	// what wires up vendor detection for the dispatch test below. Living in the
 	// external bmc_test package avoids the import cycle a same-package test would
 	// hit (vendors imports bmc).
-	_ "github.com/OpenCHAMI/magellan/pkg/bmc/vendors"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
-	"github.com/OpenCHAMI/magellan/pkg/test"
 	"github.com/go-chi/chi/v5"
+	_ "github.com/openchami/magellan/pkg/bmc/vendors"
+	"github.com/openchami/magellan/pkg/secrets"
+	"github.com/openchami/magellan/pkg/test"
 )
 
 // mockServer stands up a Redfish service root serving the given document and

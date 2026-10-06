@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/stmcginnis/gofish/schemas"
 )
 

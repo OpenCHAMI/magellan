@@ -10,14 +10,14 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/OpenCHAMI/magellan/internal/server"
+	"github.com/openchami/magellan/internal/server"
 	// Register vendor plugins so the service's manager can dispatch (and to
 	// exercise the same wiring the daemon uses in production).
-	_ "github.com/OpenCHAMI/magellan/pkg/bmc/vendors"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
-	"github.com/OpenCHAMI/magellan/pkg/service"
-	"github.com/OpenCHAMI/magellan/pkg/test"
 	"github.com/go-chi/chi/v5"
+	_ "github.com/openchami/magellan/pkg/bmc/vendors"
+	"github.com/openchami/magellan/pkg/secrets"
+	"github.com/openchami/magellan/pkg/service"
+	"github.com/openchami/magellan/pkg/test"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -45,6 +45,10 @@ func newMockRedfish(t *testing.T, initial schemas.PowerState) *httptest.Server {
 	mux.HandleFunc("/redfish/v1/", test.Make(test.RESPONSE_ServiceRoot))
 	mux.HandleFunc("/redfish/v1", test.Make(test.RESPONSE_ServiceRoot))
 	mux.HandleFunc("/redfish/v1/Systems", test.Make(test.RESPONSE_Systems))
+	mux.HandleFunc("/redfish/v1/Managers", test.Make(test.RESPONSE_Managers))
+	mux.HandleFunc("/redfish/v1/Managers/bmc", test.Make(test.RESPONSE_Manager))
+	mux.HandleFunc("/redfish/v1/Managers/bmc/EthernetInterfaces", test.Make(test.RESPONSE_EthernetInterfaceCollection))
+	mux.HandleFunc("/redfish/v1/Managers/bmc/EthernetInterfaces/1", test.Make(test.RESPONSE_ManagerEthernetInterface))
 	mux.HandleFunc("/redfish/v1/Systems/Node0", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		s := state
@@ -136,6 +140,74 @@ func TestPowerStateEndpoint(t *testing.T) {
 	}
 	if got := decodeBody(t, rec)["powerState"]; got != string(schemas.OnPowerState) {
 		t.Fatalf("powerState = %v, want On", got)
+	}
+}
+
+func TestReadyz(t *testing.T) {
+	h := newTestHandler(t, server.Config{})
+	rec := do(t, h, http.MethodGet, "/readyz", nil, nil)
+	if rec.Code != http.StatusOK || decodeBody(t, rec)["status"] != "ready" {
+		t.Fatalf("unexpected readiness response: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestInventorySuccess(t *testing.T) {
+	mock := newMockRedfish(t, schemas.OnPowerState)
+	h := newTestHandler(t, server.Config{})
+	rec := do(t, h, http.MethodPost, "/v1/inventory", map[string]any{"bmc": mock.URL}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	body := decodeBody(t, rec)
+	if body["bmc"] != mock.URL {
+		t.Fatalf("bmc = %v, want %s", body["bmc"], mock.URL)
+	}
+	systems, ok := body["systems"].([]any)
+	if !ok || len(systems) != 1 {
+		t.Fatalf("systems = %v, want one system", body["systems"])
+	}
+	system := systems[0].(map[string]any)
+	if system["node_id"] != "Node0" || system["uri"] != mock.URL+"/redfish/v1/Systems/Node0" {
+		t.Fatalf("unexpected system identity: %v", system)
+	}
+	managers, ok := body["managers"].([]any)
+	if !ok || len(managers) != 1 {
+		t.Fatalf("managers = %v, want one manager", body["managers"])
+	}
+	manager := managers[0].(map[string]any)
+	if manager["model"] != "Mock BMC" || manager["uri"] != mock.URL+"/redfish/v1/Managers/bmc" {
+		t.Fatalf("unexpected manager identity: %v", manager)
+	}
+	interfaces, ok := manager["ethernet_interfaces"].([]any)
+	if !ok || len(interfaces) != 1 || interfaces[0].(map[string]any)["ip"] != "192.0.2.10" {
+		t.Fatalf("unexpected manager interfaces: %v", manager["ethernet_interfaces"])
+	}
+}
+
+func TestPowerActionRawResetTypeNoWait(t *testing.T) {
+	mock := newMockRedfish(t, schemas.OffPowerState)
+	h := newTestHandler(t, server.Config{})
+	rec := do(t, h, http.MethodPost, "/v1/power",
+		map[string]any{"bmc": mock.URL, "system": "Node0", "resetType": "On"}, nil)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body=%s", rec.Code, rec.Body.String())
+	}
+	body := decodeBody(t, rec)
+	if body["issued"] != true || body["resetType"] != "On" {
+		t.Fatalf("unexpected reset response: %v", body)
+	}
+	rec = do(t, h, http.MethodGet, powerQuery("/v1/power", mock.URL, "Node0"), nil, nil)
+	if rec.Code != http.StatusOK || decodeBody(t, rec)["powerState"] != "On" {
+		t.Fatalf("reset did not turn system on: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPowerActionBothOperationAndResetType(t *testing.T) {
+	h := newTestHandler(t, server.Config{})
+	rec := do(t, h, http.MethodPost, "/v1/power",
+		map[string]any{"bmc": "https://x", "system": "Node0", "operation": "on", "resetType": "On"}, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
 	}
 }
 

@@ -2,12 +2,60 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/openchami/magellan/internal/format"
 	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/models"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
+
+func TestPowerIdentifierLookupFromInventory(t *testing.T) {
+	inventory := []map[string]any{{
+		"ID": "x0c0s0b0", "FQDN": "192.0.2.10",
+		"Systems": []models.InventoryDetail{{
+			NodeID: "Node0", UUID: "3894755a-8e4c-41d6-a6eb-3c5f4b7d2e10",
+			SerialNumber:       "CN75120A3G",
+			EthernetInterfaces: []models.EthernetInterface{{MAC: "aa:bb:cc:dd:ee:ff"}, {}},
+		}},
+	}}
+	formats := []struct {
+		name       string
+		dataFormat format.DataFormat
+		marshal    func(any) ([]byte, error)
+	}{
+		{"json", format.FORMAT_JSON, json.Marshal},
+		{"yaml", format.FORMAT_YAML, yaml.Marshal},
+	}
+	for _, testFormat := range formats {
+		t.Run(testFormat.name, func(t *testing.T) {
+			contents, err := testFormat.marshal(inventory)
+			require.NoError(t, err)
+			path := filepath.Join(t.TempDir(), "inventory."+testFormat.name)
+			require.NoError(t, os.WriteFile(path, contents, 0o600))
+			nodes, err := bmc.ParseInventory(path, testFormat.dataFormat)
+			require.NoError(t, err)
+			require.Len(t, nodes, 1)
+			for _, identifier := range []string{
+				"x0c0s0b0n0", "3894755A-8E4C-41D6-A6EB-3C5F4B7D2E10",
+				"cn75120a3g", "AA-BB-CC-DD-EE-FF",
+			} {
+				t.Run(identifier, func(t *testing.T) {
+					node, err := findNodeByIdentifier(nodes, identifier)
+					require.NoError(t, err)
+					require.Equal(t, "Node0", node.NodeID)
+					require.Equal(t, "192.0.2.10", node.BmcIP)
+				})
+			}
+			require.Equal(t, []string{"aa:bb:cc:dd:ee:ff"}, nodes[0].MACAddresses)
+		})
+	}
+}
 
 func TestPowerCrawlerConfigPropagatesCACertPath(t *testing.T) {
 	store := secrets.NewStaticStore("user", "pass")

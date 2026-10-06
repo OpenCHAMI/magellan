@@ -9,12 +9,13 @@ package service
 import (
 	"context"
 
-	"github.com/OpenCHAMI/magellan/internal/format"
-	magellan "github.com/OpenCHAMI/magellan/pkg"
-	"github.com/OpenCHAMI/magellan/pkg/bmc"
-	"github.com/OpenCHAMI/magellan/pkg/crawler"
-	"github.com/OpenCHAMI/magellan/pkg/power"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/models"
+	"github.com/openchami/magellan/pkg/power"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -65,7 +66,7 @@ func (s *Service) Collect(assets []magellan.RemoteAsset, params *magellan.Collec
 }
 
 // Inventory returns the Redfish systems and managers for a single BMC.
-func (s *Service) Inventory(uri string) ([]crawler.InventoryDetail, []crawler.Manager, error) {
+func (s *Service) Inventory(uri string) ([]models.InventoryDetail, []models.Manager, error) {
 	cfg := s.connConfig(uri)
 	systems, err := crawler.CrawlBMCForSystems(cfg)
 	if err != nil {

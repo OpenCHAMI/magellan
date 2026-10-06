@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/OpenCHAMI/magellan/internal/server"
-	"github.com/OpenCHAMI/magellan/pkg/secrets"
-	"github.com/OpenCHAMI/magellan/pkg/service"
+	"github.com/openchami/magellan/internal/server"
+	"github.com/openchami/magellan/pkg/secrets"
+	"github.com/openchami/magellan/pkg/service"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

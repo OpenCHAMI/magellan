@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenCHAMI/magellan/pkg/test"
 	"github.com/go-chi/chi/v5"
+	"github.com/openchami/magellan/pkg/test"
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
 )
