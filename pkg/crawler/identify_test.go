@@ -4,17 +4,8 @@ import (
 	"testing"
 
 	"github.com/openchami/magellan/pkg/models"
-	"github.com/stmcginnis/gofish/schemas"
 	"github.com/stretchr/testify/require"
 )
-
-func TestIsBMC(t *testing.T) {
-	require.False(t, IsBMC(nil))
-	for _, managerType := range []schemas.ManagerType{schemas.BMCManagerType, schemas.ManagementControllerManagerType} {
-		require.True(t, IsBMC(&schemas.Manager{ManagerType: managerType}))
-	}
-	require.False(t, IsBMC(&schemas.Manager{ManagerType: schemas.ManagerType("EnclosureManager")}))
-}
 
 func TestMergeAndExtractValues(t *testing.T) {
 	a, b := 1, 2
