@@ -32,7 +32,7 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
     - [Managing Power](#managing-power)
     - [Configuring BMC Settings](#configuring-bmc-settings)
     - [Daemon Mode](#daemon-mode)
-    - [Getting an Access Token (WIP)](#getting-an-access-token-wip)
+    - [Getting an Access Token](#getting-an-access-token)
     - [Running with Docker](#running-with-docker)
     - [Environment Variables](#environment-variables)
   - [How It Works](#how-it-works)
@@ -641,24 +641,17 @@ curl -H "Authorization: Bearer your-secure-token" \
 
 ```
 
-### Getting an Access Token (WIP)
+### Getting an Access Token
 
-The `magellan` tool has a `login` subcommand that works with the [`opaal`](https://github.com/OpenCHAMI/opaal) service to obtain a token needed to access the SMD service. If the SMD instance requires authentication, set the `ACCESS_TOKEN` environment variable to have `magellan` include it in the header for HTTP requests to SMD.
-
-```bash
-# must have a running OPAAL instance
-./magellan login --url https://opaal:4444/login
-
-# ...complete login flow to get token
-export ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIs...
-```
-
-Alternatively, if you are running the OpenCHAMI quickstart in the [deployment recipes](https://github.com/OpenCHAMI/deployment-recipes), you can run the provided script to generate a token and set the environment variable that way.
+When running `magellan serve` with `--auth-token`, clients must authenticate using a Bearer token in the `Authorization` header. For simple testing, you can generate a token using [tokensmith](https://github.com/OpenCHAMI/tokensmith):
 
 ```bash
-quickstart_dir=path/to/deployment/recipes/quickstart
-source $quickstart_dir/bash_functions.sh
-export ACCESS_TOKEN=$(gen_access_token)
+# Generate a token (valid for 1 hour)
+token=$(tokensmith --duration 1h)
+
+# Use with curl
+curl -H "Authorization: Bearer $token" \
+     "https://localhost:8443/v1/power?bmc=https://172.16.0.10&system=Node0"
 ```
 
 ### Running with Docker
