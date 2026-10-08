@@ -1,0 +1,271 @@
+magellan-serve(1) "magellan" "OpenCHAMI"
+
+# NAME
+
+magellan serve - Run magellan as a long-lived BMC service (REST API)
+
+# SYNOPSIS
+
+*magellan serve* [OPTIONS]
+
+# DESCRIPTION
+
+The `magellan serve` command runs magellan as a persistent daemon exposing a REST
+API for BMC inventory and power operations. The server runs until it receives
+SIGINT or SIGTERM, then drains in-flight requests. The API is backed by the same
+shared core as the CLI, so behavior is consistent across front-ends.
+
+# OPTIONS
+
+*-h, --host* <host>
+: Host/IP to bind (default: all interfaces)
+
+*-p, --port* <port>
+: Port to listen on (default: 8443)
+
+*--tls-cert* <file>
+: Path to TLS certificate (enables HTTPS when set with --tls-key)
+
+*--tls-key* <file>
+: Path to TLS private key
+
+*--auth-token* <token>
+: Require this bearer token on /v1 routes (auth disabled when empty)
+
+*--secrets-file* <file>
+: Path to the node secrets file (used to resolve BMC credentials)
+
+*-i, --insecure*
+: Ignore BMC TLS verification errors
+
+# ENVIRONMENT VARIABLES
+
+- *SERVER_HOST* / *HOST*: Host/IP to bind
+- *SERVER_PORT* / *PORT*: Port to listen on
+- *SERVER_TLS_CERT* / *TLS_CERT*: TLS certificate path
+- *SERVER_TLS_KEY* / *TLS_KEY*: TLS private key path
+- *SERVER_AUTH_TOKEN* / *AUTH_TOKEN*: Bearer token required for /v1 routes
+- *SECRETS_FILE*: Path to node secrets file
+- *INSECURE*: Ignore TLS verification errors
+
+# AUTHENTICATION
+
+When *--auth-token* is set, all requests to `/v1/*` must include an
+`Authorization: Bearer <token>` header. Liveness/readiness endpoints (`/healthz`,
+`/readyz`) are unauthenticated. For simple testing, generate a token with
+[tokensmith](https://github.com/OpenCHAMI/tokensmith):
+
+```bash
+token=$(tokensmith --duration 1h)
+curl -H "Authorization: Bearer $token" https://localhost:8443/v1/...
+```
+
+# API ENDPOINTS
+
+## GET /healthz
+
+Liveness probe. Returns 200 OK when the server is running.
+
+Example:
+
+```bash
+curl -s http://localhost:8443/healthz
+```
+
+Response:
+
+```json
+{"status":"ok"}
+```
+
+## GET /readyz
+
+Readiness probe. Returns 200 OK when the server is ready.
+
+Example:
+
+```bash
+curl -s http://localhost:8443/readyz
+```
+
+Response:
+
+```json
+{"status":"ready"}
+```
+
+## POST /v1/inventory
+
+Crawl a single BMC for its systems and managers.
+
+Headers:
+: *Content-Type*: application/json (if body provided)
+: *Authorization*: Bearer <token> (required if auth enabled)
+
+Body:
+```json
+{
+  "bmc": "https://bmc.example.com"
+}
+```
+
+Query parameters / body fields:
+- *bmc* (required): BMC base URL (e.g. https://172.16.0.10)
+
+Example:
+
+```bash
+curl -s -X POST https://localhost:8443/v1/inventory \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"bmc":"https://bmc.example.com"}'
+```
+
+Response (200):
+
+```json
+{
+  "systems": [...],
+  "managers": [...]
+}
+```
+
+## GET /v1/power
+
+Get current power state of a ComputerSystem.
+
+Query parameters:
+- *bmc* (required): BMC base URL
+- *system* (required): ComputerSystem Redfish ID
+
+Headers:
+: *Authorization*: Bearer <token> (required if auth enabled)
+
+Example:
+
+```bash
+curl -s "https://localhost:8443/v1/power?bmc=https://bmc.example.com&system=Node0" \
+  -H "Authorization: Bearer $token"
+```
+
+Response (200):
+
+```json
+{
+  "bmc": "https://bmc.example.com",
+  "system": "Node0",
+  "powerState": "On"
+}
+```
+
+## GET /v1/power/reset-types
+
+Get supported reset types for a ComputerSystem.
+
+Query parameters:
+- *bmc* (required): BMC base URL
+- *system* (required): ComputerSystem Redfish ID
+
+Headers:
+: *Authorization*: Bearer <token> (required if auth enabled)
+
+Example:
+
+```bash
+curl -s "https://localhost:8443/v1/power/reset-types?bmc=https://bmc.example.com&system=Node0" \
+  -H "Authorization: Bearer $token"
+```
+
+Response (200):
+
+```json
+{
+  "bmc": "https://bmc.example.com",
+  "system": "Node0",
+  "resetTypes": ["On", "ForceOff", "GracefulShutdown", "ForceRestart", "Nmi"]
+}
+```
+
+## POST /v1/power
+
+Issue a power operation or raw reset, optionally confirming the resulting state.
+
+Headers:
+: *Content-Type*: application/json
+: *Authorization*: Bearer <token> (required if auth enabled)
+
+Body (vendor-neutral operation, optional wait):
+
+```json
+{
+  "bmc": "https://bmc.example.com",
+  "system": "Node0",
+  "operation": "off",
+  "wait": true,
+  "timeoutSeconds": 120
+}
+```
+
+Body (raw reset type):
+
+```json
+{
+  "bmc": "https://bmc.example.com",
+  "system": "Node0",
+  "resetType": "ForceRestart"
+}
+```
+
+Fields:
+- *bmc* (required): BMC base URL
+- *system* (required): ComputerSystem Redfish ID
+- *operation* or *resetType* (exactly one required): vendor-neutral operation name or raw Redfish ResetType
+- *wait* (optional): if true with operation, confirms transition to expected state
+- *timeoutSeconds* (optional): timeout for wait confirmation
+
+Vendor-neutral operations: on, off, soft-off, force-off, soft-restart, hard-restart, init.
+
+Responses:
+- 202 Accepted: operation issued (may not be confirmed)
+- 200 OK: operation issued and confirmed
+- 400 Bad Request: invalid/missing fields
+- 401 Unauthorized: missing/invalid bearer token (if auth enabled)
+- 502 Bad Gateway: BMC operation failed
+
+Example (graceful off with confirmation):
+
+```bash
+curl -s -X POST https://localhost:8443/v1/power \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"bmc":"https://bmc.example.com","system":"Node0","operation":"off","wait":true}'
+```
+
+# ERROR RESPONSES
+
+Errors return JSON:
+
+```json
+{"error": "message"}
+```
+
+Common cases: missing query params (400), unknown operation (400), missing/invalid token (401), BMC connectivity/Redfish errors (502).
+
+# EXAMPLES
+
+Start with HTTPS and token:
+
+```bash
+magellan serve --port 8443 --tls-cert cert.pem --tls-key key.pem --auth-token "$TOKEN"
+```
+
+Start on localhost, insecure (dev only):
+
+```bash
+magellan serve --host 127.0.0.1 --port 8080 --insecure
+```
+
+# SEE ALSO
+
+magellan(1), magellan-collect(1), magellan-power(1), magellan-settings(1)
+
