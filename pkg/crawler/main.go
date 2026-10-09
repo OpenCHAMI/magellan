@@ -5,17 +5,33 @@ import (
 
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/models"
-	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
+	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
-type CrawlerConfig struct {
-	URI             string // URI of the BMC
-	Insecure        bool   // Whether to ignore SSL errors
-	CACertPath      string // Optional path to a trusted CA certificate
-	CredentialStore secrets.SecretStore
-	UseDefault      bool
+// CrawlerConfig is an alias for bmc.ConnConfig, the canonical BMC connection
+// configuration. It is retained for backwards compatibility with existing
+// callers and tests; its GetUserPass method is defined on bmc.ConnConfig.
+type CrawlerConfig = bmc.ConnConfig
+
+// GetBMCClient connects to a BMC (Baseboard Management Controller) using the provided configuration,
+// and returns the active client.
+//
+// Parameters:
+//   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
+//
+// Returns:
+//   - *gofish.APIClient: The active client for the BMC.
+//   - error: An error object if any error occurs during the connection or retrieval process.
+//
+// The function performs the following steps:
+//  1. Initializes a gofish client with the provided configuration.
+//  2. Attempts to connect to the BMC using the gofish client.
+//  3. Handles specific connection errors such as 404 (ServiceRoot not found) and 401 (authentication failed).
+//  4. Returns the active gofish client.
+func GetBMCClient(config CrawlerConfig) (*gofish.APIClient, error) {
+	return bmc.DefaultManager.Connect(config)
 }
 
 // CrawlBMCForSystems pulls all pertinent information from a BMC.
@@ -26,7 +42,7 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]models.InventoryDetail, error) 
 		rf_systems []*schemas.ComputerSystem
 	)
 
-	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
+	client, err := bmc.DefaultManager.Connect(config)
 	if err != nil {
 		return []models.InventoryDetail{}, err
 	}
@@ -98,7 +114,7 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]models.InventoryDetail, error) 
 //  5. Returns the list of managers and any error encountered during the process.
 func CrawlBMCForManagers(config CrawlerConfig) ([]models.Manager, error) {
 	var managers []models.Manager
-	client, err := bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
+	client, err := bmc.DefaultManager.Connect(config)
 	if err != nil {
 		return managers, err
 	}
@@ -185,15 +201,9 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		}
 
 		// convert supported reset types to []string
-		var (
-			resetTypes []schemas.ResetType
-			actions    []string
-		)
-		resetTypes, err = rf_computersystem.GetSupportedResetTypes()
-		if err != nil {
-			log.Warn().Err(err).Str("system", rf_computersystem.Name).Msg("failed to get supported reset types for system")
-		}
-		for _, action := range resetTypes {
+		actions := []string{}
+		supportedResetTypes, _ := rf_computersystem.GetSupportedResetTypes()
+		for _, action := range supportedResetTypes {
 			actions = append(actions, string(action))
 		}
 
@@ -208,12 +218,15 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			SerialNumber: rf_computersystem.SerialNumber,
 			SerialConsole: models.SerialConsole{
 				IPMI: models.SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.IPMI.Port),
 					Enabled: rf_computersystem.SerialConsole.IPMI.ServiceEnabled,
 				},
 				SSH: models.SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.SSH.Port),
 					Enabled: rf_computersystem.SerialConsole.SSH.ServiceEnabled,
 				},
 				Telnet: models.SerialConsoleConfig{
+					Port:    derefUint(rf_computersystem.SerialConsole.Telnet.Port),
 					Enabled: rf_computersystem.SerialConsole.Telnet.ServiceEnabled,
 				},
 			},
@@ -228,28 +241,12 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 				RestorePolicy:   string(rf_computersystem.PowerRestorePolicy),
 				PowerControlIDs: powercontrolIDs,
 			},
-			Actions:       actions,
-			ProcessorType: rf_computersystem.ProcessorSummary.Model,
-			NodeID:        rf_computersystem.ID,
+			Actions:        actions,
+			ProcessorCount: derefUint(rf_computersystem.ProcessorSummary.Count),
+			ProcessorType:  rf_computersystem.ProcessorSummary.Model,
+			MemoryTotal:    derefFloat(rf_computersystem.MemorySummary.TotalSystemMemoryGiB),
+			NodeID:         rf_computersystem.ID,
 		}
-
-		// check that pointers values are set before de-referencing
-		if rf_computersystem.SerialConsole.IPMI.Port != nil {
-			system.SerialConsole.IPMI.Port = uint(*rf_computersystem.SerialConsole.IPMI.Port)
-		}
-		if rf_computersystem.SerialConsole.SSH.Port != nil {
-			system.SerialConsole.SSH.Port = uint(*rf_computersystem.SerialConsole.SSH.Port)
-		}
-		if rf_computersystem.SerialConsole.Telnet.Port != nil {
-			system.SerialConsole.Telnet.Port = uint(*rf_computersystem.SerialConsole.Telnet.Port)
-		}
-		if rf_computersystem.ProcessorSummary.Count != nil {
-			system.ProcessorCount = uint(*rf_computersystem.ProcessorSummary.Count)
-		}
-		if rf_computersystem.MemorySummary.TotalSystemMemoryGiB != nil {
-			system.MemoryTotal = float64(*rf_computersystem.MemorySummary.TotalSystemMemoryGiB)
-		}
-
 		if rf_chassis != nil {
 			system.Chassis_SKU = rf_chassis.SKU
 			system.Chassis_Serial = rf_chassis.SerialNumber
@@ -303,8 +300,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			system.NetworkInterfaces = append(system.NetworkInterfaces, networkInterface)
 		}
 
-		// TrustedModules is retained for compatibility with older Redfish services.
-		//nolint:staticcheck
+		//nolint:staticcheck // Preserve legacy TrustedModules inventory data for existing consumers.
 		for _, rf_trustedmodule := range rf_computersystem.TrustedModules {
 			system.TrustedModules = append(system.TrustedModules, fmt.Sprintf("%s %s", rf_trustedmodule.InterfaceType, rf_trustedmodule.FirmwareVersion))
 		}
@@ -344,8 +340,7 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]models.Mana
 		ethernet_interfaces := mapEthernetInterfaces(rf_ethernetinterfaces, baseURI)
 
 		var supported_serial_console []string
-		// Manager.SerialConsole is retained for compatibility with older services.
-		//nolint:staticcheck
+		//nolint:staticcheck // Manager serial-console data remains part of Magellan's manager inventory contract.
 		for _, console_type := range rf_manager.SerialConsole.ConnectTypesSupported {
 			supported_serial_console = append(supported_serial_console, string(console_type))
 		}
@@ -384,4 +379,23 @@ func merge(systems map[string]*models.InventoryDetail, newSystems []models.Inven
 		systems[system.URI] = &system
 	}
 	return systems
+}
+
+// derefUint dereferences an optional *uint Redfish field to a uint, yielding 0
+// when the BMC omitted the value. gofish v0.22 pointer-ized these optional
+// numeric fields; treating nil as 0 preserves the pre-upgrade output.
+func derefUint(p *uint) uint {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// derefFloat dereferences an optional *float64 Redfish field to a float64,
+// yielding 0 when the BMC omitted the value (see derefUint).
+func derefFloat(p *float64) float64 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }

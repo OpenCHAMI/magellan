@@ -1,4 +1,4 @@
-package crawler
+package bmc
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/stmcginnis/gofish/schemas"
 )
 
-// BMCInfo represents relevant information about a BMC
+// BMCInfo describes a Redfish Manager, not the ComputerSystem represented by Node.
 type BMCInfo struct {
 	Manufacturer    string `json:"manufacturer"`
 	Model           string `json:"model"`
@@ -17,53 +17,33 @@ type BMCInfo struct {
 	UUID            string `json:"uuid"`
 }
 
-// IsBMC checks if a given Manager is a BMC based on its type and associations
+// IsBMC reports whether a Redfish Manager represents a BMC.
 func IsBMC(manager *schemas.Manager) bool {
 	if manager == nil {
 		return false
 	}
-
-	// Valid BMC types in Redfish
-	bmcTypes := map[string]bool{
-		"BMC":                  true,
-		"ManagementController": true, // Some BMCs use this type
-	}
-
-	// Check if ManagerType matches a BMC type
-	if !bmcTypes[string(manager.ManagerType)] {
-		return false
-	}
-
-	return true
+	return manager.ManagerType == schemas.BMCManagerType || manager.ManagerType == schemas.ManagementControllerManagerType
 }
 
-// GetBMCInfo retrieves details of all available BMCs
+// GetBMCInfo retrieves identity details for all BMC managers.
 func GetBMCInfo(client *gofish.APIClient) ([]BMCInfo, error) {
 	var bmcList []BMCInfo
-
-	// Retrieve all managers (BMCs and other managers)
 	managers, err := client.Service.Managers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve managers: %v", err)
 	}
-
-	// Iterate through each manager and collect BMC details
 	for _, manager := range managers {
 		if !IsBMC(manager) {
-			continue // Skip if it's not a BMC
+			continue
 		}
-
-		bmc := BMCInfo{
+		bmcList = append(bmcList, BMCInfo{
 			Manufacturer:    manager.Manufacturer,
 			Model:           manager.Model,
 			SerialNumber:    manager.SerialNumber,
 			FirmwareVersion: manager.FirmwareVersion,
-			ManagerType:     string(manager.ManagerType), // Convert ManagerType to string
+			ManagerType:     string(manager.ManagerType),
 			UUID:            manager.UUID,
-		}
-
-		bmcList = append(bmcList, bmc)
+		})
 	}
-
 	return bmcList, nil
 }
