@@ -31,6 +31,21 @@ var ServeCmd = &cobra.Command{
 	Long: "Run magellan as a persistent daemon exposing a REST API for BMC inventory and\n" +
 		"power operations, backed by the same shared core the CLI uses. The server runs\n" +
 		"until it receives SIGINT or SIGTERM, then drains in-flight requests.",
+	Example: `  # serve on the default port (8500) using a secrets file
+  magellan serve --secrets-file secrets.json
+
+  # serve over HTTPS and require a bearer token
+  magellan serve --tls-cert cert.pem --tls-key key.pem --auth-token "$TOKEN"
+
+  # bind to localhost on a custom port, ignoring BMC TLS errors (dev only)
+  magellan serve --host 127.0.0.1 --port 8080 --insecure
+
+  # configure with environment variables
+  SERVER_PORT=9000 SERVER_AUTH_TOKEN="$TOKEN" magellan serve
+
+  # query the running daemon
+  curl -H "Authorization: Bearer $TOKEN" \
+    "https://localhost:8500/v1/power?bmc=https://172.16.0.10&system=Node0"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Resolve BMC credentials from the local secret store, matching the
 		// other subcommands. Per-request credentials are a later enhancement.
@@ -63,7 +78,7 @@ var ServeCmd = &cobra.Command{
 
 func init() {
 	ServeCmd.Flags().StringVar(&serveHost, "host", "", "Host/IP to bind (default: all interfaces)")
-	ServeCmd.Flags().IntVar(&servePort, "port", 8443, "Port to listen on")
+	ServeCmd.Flags().IntVar(&servePort, "port", 8500, "Port to listen on")
 	ServeCmd.Flags().StringVar(&serveTLSCert, "tls-cert", "", "Path to TLS certificate (enables HTTPS when set with --tls-key)")
 	ServeCmd.Flags().StringVar(&serveTLSKey, "tls-key", "", "Path to TLS private key")
 	ServeCmd.Flags().StringVar(&serveAuthToken, "auth-token", "", "Require this bearer token on /v1 routes (auth disabled when empty)")

@@ -25,7 +25,7 @@ const shutdownGrace = 15 * time.Second
 
 // Config configures the daemon HTTP server.
 type Config struct {
-	// Addr is the listen address, e.g. ":8443".
+	// Addr is the listen address, e.g. ":8500".
 	Addr string
 	// TLSCert and TLSKey, when both set, enable HTTPS.
 	TLSCert string
