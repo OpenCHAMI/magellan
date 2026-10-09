@@ -13,31 +13,31 @@ The `magellan` CLI tool is a Redfish-based, board management controller (BMC) di
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [OpenCHAMI Magellan](#openchami-magellan)
-  - [Main Features](#main-features)
-  - [Getting Started](#getting-started)
-  - [Documentation](#documentation)
-  - [Building the Executable](#building-the-executable)
-    - [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
-    - [Docker](#docker)
-    - [Arch Linux (AUR)](#arch-linux-aur)
-  - [Local checks before pushing](#local-checks-before-pushing)
-  - [Usage](#usage)
-    - [Checking for Redfish](#checking-for-redfish)
-    - [BMC ID Mapping](#bmc-id-mapping)
-    - [Running the Tool](#running-the-tool)
-      - [Modular Workflows](#modular-workflows)
-    - [PDU Inventory Collection](#pdu-inventory-collection)
-    - [Starting the Emulator](#starting-the-emulator)
-    - [Updating Firmware](#updating-firmware)
-    - [Managing Power](#managing-power)
-    - [Configuring BMC Settings](#configuring-bmc-settings)
-    - [Daemon Mode](#daemon-mode)
-    - [Getting an Access Token](#getting-an-access-token)
-    - [Running with Docker](#running-with-docker)
-    - [Environment Variables](#environment-variables)
-  - [How It Works](#how-it-works)
-  - [TODO](#todo)
-  - [Copyright](#copyright)
+	- [Main Features](#main-features)
+	- [Getting Started](#getting-started)
+	- [Documentation](#documentation)
+	- [Building the Executable](#building-the-executable)
+		- [Building on Debian 12 (Bookworm)](#building-on-debian-12-bookworm)
+		- [Docker](#docker)
+		- [Arch Linux (AUR)](#arch-linux-aur)
+	- [Local checks before pushing](#local-checks-before-pushing)
+	- [Usage](#usage)
+		- [Checking for Redfish](#checking-for-redfish)
+		- [BMC ID Mapping](#bmc-id-mapping)
+		- [Running the Tool](#running-the-tool)
+			- [Modular Workflows](#modular-workflows)
+		- [PDU Inventory Collection](#pdu-inventory-collection)
+		- [Starting the Emulator](#starting-the-emulator)
+		- [Updating Firmware](#updating-firmware)
+		- [Managing Power](#managing-power)
+		- [Configuring BMC Settings](#configuring-bmc-settings)
+		- [Daemon Mode](#daemon-mode)
+		- [Getting an Access Token](#getting-an-access-token)
+		- [Running with Docker](#running-with-docker)
+		- [Environment Variables](#environment-variables)
+	- [How It Works](#how-it-works)
+	- [TODO](#todo)
+	- [Copyright](#copyright)
 
 <!-- TOC end -->
 
@@ -618,8 +618,12 @@ The `magellan` tool can operate as a long-lived REST service, allowing other Ope
 To start the daemon, use the `serve` subcommand:
 
 ```bash
+<<<<<<< HEAD
 magellan serve --port 8500 --secrets-file /path/to/secrets.json
 
+=======
+magellan serve --port 8443 --secrets-file /path/to/secrets.json
+>>>>>>> 95e3e7e (docs(readme): update/correct docker section)
 ```
 
 By default, the server binds to all interfaces. You can secure the API by providing TLS certificates and requiring a static bearer token:
@@ -630,15 +634,18 @@ magellan serve \
     --tls-cert cert.pem \
     --tls-key key.pem \
     --auth-token "your-secure-token"
-
 ```
 
 Once running, the API accepts standard HTTP requests. For example, to retrieve the power state of a BMC:
 
 ```bash
 curl -H "Authorization: Bearer your-secure-token" \
+<<<<<<< HEAD
      "https://localhost:8500/v1/power?bmc=https://172.16.0.10&system=Node0"
 
+=======
+     "https://localhost:8443/v1/power?bmc=https://172.16.0.10&system=Node0"
+>>>>>>> 95e3e7e (docs(readme): update/correct docker section)
 ```
 
 ### Getting an Access Token
@@ -662,12 +669,12 @@ The `magellan` tool can be run in a Docker container after pulling the latest im
 docker pull ghcr.io/openchami/magellan:latest
 ```
 
-Then, run either with the helper script found in `bin/magellan.sh` or the binary in the container:
+Then, run or the binary in the container:
 
 ```bash
-docker run ghcr.io/openchami/magellan:latest /magellan.sh --scan "--subnet 172.16.0.0 --port 443 --timeout 3" --collect "--user admin --pass password --host http://vm01 --port 27779"
-# ... or ..
-docker ghcr.io/openhami/magellan:latest /magellan scan --subnet 172.16.0.0 --subnet-mask 255.255.255.0
+docker run -it --rm ghcr.io/openchami/magellan:latest /magellan scan --subnet 172.16.0.0 --subnet-mask 255.255.255.0
+docker run -it --rm ghcr.io/openchami/magellan:latest /magellan collect --secrets-file /tmp/magellan/secrets.json -i -F yaml -o /tmp/magellan/inventory.yaml
+docker run -it --rm ghcr.io/openchami/magellan:latest /magellan send https://demo.openchami.cluster:8443/hsm/v2 -F yaml -d@/tmp/magellan/inventory.yaml
 ```
 
 ### Environment Variables
