@@ -17,11 +17,11 @@ shared core as the CLI, so behavior is consistent across front-ends.
 
 # OPTIONS
 
-*-h, --host* <host>
+*--host* <host>
 : Host/IP to bind (default: all interfaces)
 
-*-p, --port* <port>
-: Port to listen on (default: 8443)
+*--port* <port>
+: Port to listen on (default: 8500)
 
 *--tls-cert* <file>
 : Path to TLS certificate (enables HTTPS when set with --tls-key)
@@ -57,7 +57,7 @@ When *--auth-token* is set, all requests to `/v1/*` must include an
 
 ```bash
 token=$(tokensmith --duration 1h)
-curl -H "Authorization: Bearer $token" https://localhost:8443/v1/...
+curl -H "Authorization: Bearer $token" https://localhost:8500/v1/...
 ```
 
 # API ENDPOINTS
@@ -69,7 +69,7 @@ Liveness probe. Returns 200 OK when the server is running.
 Example:
 
 ```bash
-curl -s http://localhost:8443/healthz
+curl -s http://localhost:8500/healthz
 ```
 
 Response:
@@ -85,7 +85,7 @@ Readiness probe. Returns 200 OK when the server is ready.
 Example:
 
 ```bash
-curl -s http://localhost:8443/readyz
+curl -s http://localhost:8500/readyz
 ```
 
 Response:
@@ -98,8 +98,8 @@ Response:
 
 Crawl a single BMC for its systems and managers.
 
-Headers:
-: *Content-Type*: application/json (if body provided)
+Request headers:
+: *Content-Type*: application/json
 : *Authorization*: Bearer <token> (required if auth enabled)
 
 Body:
@@ -109,26 +109,31 @@ Body:
 }
 ```
 
-Query parameters / body fields:
+Body fields (unknown fields are rejected with 400):
 - *bmc* (required): BMC base URL (e.g. https://172.16.0.10)
 
 Example:
 
 ```bash
-curl -s -X POST https://localhost:8443/v1/inventory \
+curl -s -X POST https://localhost:8500/v1/inventory \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
   -d '{"bmc":"https://bmc.example.com"}'
 ```
 
+Response headers: *Content-Type*: application/json
+
 Response (200):
 
 ```json
 {
+  "bmc": "https://bmc.example.com",
   "systems": [...],
   "managers": [...]
 }
 ```
+
+Errors: 400 (missing/invalid body), 401 (bad token), 502 (BMC failure).
 
 ## GET /v1/power
 
@@ -144,7 +149,7 @@ Headers:
 Example:
 
 ```bash
-curl -s "https://localhost:8443/v1/power?bmc=https://bmc.example.com&system=Node0" \
+curl -s "https://localhost:8500/v1/power?bmc=https://bmc.example.com&system=Node0" \
   -H "Authorization: Bearer $token"
 ```
 
@@ -172,7 +177,7 @@ Headers:
 Example:
 
 ```bash
-curl -s "https://localhost:8443/v1/power/reset-types?bmc=https://bmc.example.com&system=Node0" \
+curl -s "https://localhost:8500/v1/power/reset-types?bmc=https://bmc.example.com&system=Node0" \
   -H "Authorization: Bearer $token"
 ```
 
@@ -228,14 +233,27 @@ Vendor-neutral operations: on, off, soft-off, force-off, soft-restart, hard-rest
 Responses:
 - 202 Accepted: operation issued (may not be confirmed)
 - 200 OK: operation issued and confirmed
-- 400 Bad Request: invalid/missing fields
+- 400 Bad Request: invalid/missing fields, unknown operation, or *wait* with *resetType*
 - 401 Unauthorized: missing/invalid bearer token (if auth enabled)
+- 422 Unprocessable Entity: operation not supported by the target
 - 502 Bad Gateway: BMC operation failed
+
+Response headers: *Content-Type*: application/json
+
+Response bodies:
+
+```json
+{"issued": true, "operation": "off"}
+{"issued": true, "resetType": "ForceRestart"}
+{"operation": "off", "status": "...", "finalState": "Off", "escalated": false, "escalatedTo": ""}
+```
+
+The last form is returned when *wait* is true.
 
 Example (graceful off with confirmation):
 
 ```bash
-curl -s -X POST https://localhost:8443/v1/power \
+curl -s -X POST https://localhost:8500/v1/power \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
   -d '{"bmc":"https://bmc.example.com","system":"Node0","operation":"off","wait":true}'
@@ -249,20 +267,32 @@ Errors return JSON:
 {"error": "message"}
 ```
 
-Common cases: missing query params (400), unknown operation (400), missing/invalid token (401), BMC connectivity/Redfish errors (502).
+Common cases: missing query params (400), unknown operation (400), missing/invalid token (401), unsupported operation (422), BMC connectivity/Redfish errors (502).
 
 # EXAMPLES
 
 Start with HTTPS and token:
 
 ```bash
-magellan serve --port 8443 --tls-cert cert.pem --tls-key key.pem --auth-token "$TOKEN"
+magellan serve --port 8500 --tls-cert cert.pem --tls-key key.pem --auth-token "$TOKEN"
 ```
 
 Start on localhost, insecure (dev only):
 
 ```bash
 magellan serve --host 127.0.0.1 --port 8080 --insecure
+```
+
+Start with the default port (8500) and a secrets file:
+
+```bash
+magellan serve --secrets-file secrets.json
+```
+
+Configure with environment variables:
+
+```bash
+SERVER_PORT=9000 SERVER_AUTH_TOKEN="$TOKEN" magellan serve
 ```
 
 # SEE ALSO
