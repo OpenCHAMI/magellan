@@ -618,12 +618,7 @@ The `magellan` tool can operate as a long-lived REST service, allowing other Ope
 To start the daemon, use the `serve` subcommand:
 
 ```bash
-<<<<<<< HEAD
-magellan serve --port 8500 --secrets-file /path/to/secrets.json
-
-=======
 magellan serve --port 8443 --secrets-file /path/to/secrets.json
->>>>>>> 95e3e7e (docs(readme): update/correct docker section)
 ```
 
 By default, the server binds to all interfaces. You can secure the API by providing TLS certificates and requiring a static bearer token:
@@ -640,12 +635,8 @@ Once running, the API accepts standard HTTP requests. For example, to retrieve t
 
 ```bash
 curl -H "Authorization: Bearer your-secure-token" \
-<<<<<<< HEAD
-     "https://localhost:8500/v1/power?bmc=https://172.16.0.10&system=Node0"
-
-=======
      "https://localhost:8443/v1/power?bmc=https://172.16.0.10&system=Node0"
->>>>>>> 95e3e7e (docs(readme): update/correct docker section)
+
 ```
 
 ### Getting an Access Token
