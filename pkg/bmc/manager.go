@@ -79,7 +79,7 @@ func (m *Manager) ConnectContext(ctx context.Context, cfg ConnConfig) (*gofish.A
 		if strings.HasPrefix(err.Error(), "401:") {
 			err = fmt.Errorf("authentication failed.  Check your username and password: %s", cfg.URI)
 		}
-		log.Error().Err(err).Msg("failed to connect to BMC")
+		log.Error().Err(err).Msg("could not connect to the specified BMC")
 		return nil, err
 	}
 	return api, nil

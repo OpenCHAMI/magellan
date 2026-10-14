@@ -51,7 +51,7 @@ var ServeCmd = &cobra.Command{
 		// other subcommands. Per-request credentials are a later enhancement.
 		store, err := secrets.OpenStore(secretsFile)
 		if err != nil {
-			log.Warn().Err(err).Str("path", secretsFile).Msg("failed to open secrets store; BMC operations will fail until credentials are available")
+			log.Warn().Err(err).Str("path", secretsFile).Msg("could not open credential store; BMC operations will fail until credentials are available")
 		}
 
 		svc := service.New(store)

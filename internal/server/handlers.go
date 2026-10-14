@@ -3,9 +3,16 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/stmcginnis/gofish/schemas"
 )
@@ -18,29 +25,138 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
-// handleInventory crawls a single BMC for its systems and managers.
-// Request body: {"bmc": "https://..."}.
+// handleInventory crawls one or more BMCs for Redfish inventory and returns the
+// same collect-format JSON array that `magellan collect` emits, so the response
+// can be piped directly into `magellan send`.
+//
+// Request body (any of the following):
+//
+//	{"bmc": "https://bmc1"}                  // a single BMC
+//	{"bmcs": ["https://bmc1", "https://bmc2"]} // multiple BMCs
+//	["https://bmc1", "https://bmc2"]          // a bare JSON array of BMC URLs
 func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		BMC string `json:"bmc"`
-	}
-	if !decodeJSON(w, r, &req) {
+	// Read the raw body so we can accept either a bare JSON array of BMC URLs
+	// or an object with "bmc"/"bmcs" fields.
+	raw, err := readBody(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "could not read request body: "+err.Error())
 		return
 	}
-	if req.BMC == "" {
-		writeError(w, http.StatusBadRequest, "field 'bmc' is required")
+	bmcURIs, err := parseInventoryTargets(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	systems, managers, err := s.svc.Inventory(req.BMC)
+	if len(bmcURIs) == 0 {
+		writeError(w, http.StatusBadRequest, "at least one BMC is required (field 'bmc', 'bmcs', or a JSON array of URLs)")
+		return
+	}
+
+	// Build the asset list. Each BMC URL is parsed into the Host/Port split that
+	// the collector expects.
+	assets := make([]magellan.RemoteAsset, 0, len(bmcURIs))
+	for _, u := range bmcURIs {
+		asset, err := bmcToAsset(u)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		assets = append(assets, asset)
+	}
+
+	insecure := s.svc.Insecure || isInsecureRequest(r)
+	concurrency := len(assets)
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	params := &magellan.CollectParams{
+		Concurrency:  concurrency,
+		Insecure:     insecure,
+		SecretStore:  s.svc.Secrets,
+		OutputFormat: format.FORMAT_JSON,
+	}
+	collection, err := s.svc.Collect(assets, params)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"bmc":      req.BMC,
-		"systems":  systems,
-		"managers": managers,
-	})
+	if collection == nil {
+		collection = []map[string]any{}
+	}
+	// The collect-format array is written directly (not wrapped) so it matches
+	// what `magellan send` accepts.
+	writeJSON(w, http.StatusOK, collection)
+}
+
+// readBody reads the entire request body.
+func readBody(r *http.Request) ([]byte, error) {
+	defer func() { _ = r.Body.Close() }()
+	return io.ReadAll(r.Body)
+}
+
+// parseInventoryTargets accepts either a bare JSON array of BMC URL strings or
+// an object with "bmc" (single) and/or "bmcs" (array) fields, and returns the
+// normalized list of BMC URLs.
+func parseInventoryTargets(raw []byte) ([]string, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	// Bare JSON array of strings.
+	if strings.HasPrefix(trimmed, "[") {
+		var urls []string
+		if err := json.Unmarshal([]byte(trimmed), &urls); err != nil {
+			return nil, fmt.Errorf("invalid JSON array of BMC URLs: %v", err)
+		}
+		return urls, nil
+	}
+
+	// Object form.
+	var obj struct {
+		BMC  string   `json:"bmc"`
+		BMCs []string `json:"bmcs"`
+	}
+	if err := json.Unmarshal([]byte(trimmed), &obj); err != nil {
+		return nil, fmt.Errorf("invalid JSON body: %v", err)
+	}
+	urls := append([]string{}, obj.BMCs...)
+	if obj.BMC != "" {
+		urls = append([]string{obj.BMC}, urls...)
+	}
+	return urls, nil
+}
+
+// bmcToAsset parses a BMC base URL into the RemoteAsset shape the collector
+// expects (Host holds scheme://host, Port holds the port).
+func bmcToAsset(raw string) (magellan.RemoteAsset, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return magellan.RemoteAsset{}, fmt.Errorf("invalid BMC URL %q: %v", raw, err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return magellan.RemoteAsset{}, fmt.Errorf("invalid BMC URL %q: must include scheme and host", raw)
+	}
+	port := u.Port()
+	if port == "" {
+		if u.Scheme == "http" {
+			port = "80"
+		} else {
+			port = "443"
+		}
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return magellan.RemoteAsset{}, fmt.Errorf("invalid port in BMC URL %q: %v", raw, err)
+	}
+	return magellan.RemoteAsset{
+		Host:        fmt.Sprintf("%s://%s", u.Scheme, u.Hostname()),
+		Port:        portNum,
+		Protocol:    "tcp",
+		State:       true,
+		Timestamp:   time.Now(),
+		ServiceType: magellan.BMC,
+	}, nil
 }
 
 // handlePowerState returns the power state of a ComputerSystem.
@@ -50,7 +166,8 @@ func (s *Server) handlePowerState(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	state, err := s.svc.PowerState(r.Context(), bmcURI, systemID)
+	insecure := s.svc.Insecure || isInsecureRequest(r)
+	state, err := s.svc.PowerState(r.Context(), bmcURI, systemID, insecure)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -69,7 +186,8 @@ func (s *Server) handleResetTypes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	types, err := s.svc.ResetTypes(r.Context(), bmcURI, systemID)
+	insecure := s.svc.Insecure || isInsecureRequest(r)
+	types, err := s.svc.ResetTypes(r.Context(), bmcURI, systemID, insecure)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -112,6 +230,7 @@ func (s *Server) handlePowerAction(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
+	insecure := s.svc.Insecure || isInsecureRequest(r)
 	// Raw reset type: passed through unresolved; confirmation is not supported
 	// because a raw reset has no vendor-neutral target state.
 	if req.ResetType != "" {
@@ -119,7 +238,7 @@ func (s *Server) handlePowerAction(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "'wait' is only supported with 'operation', not raw 'resetType'")
 			return
 		}
-		if _, err := s.svc.Reset(ctx, req.BMC, req.System, schemas.ResetType(req.ResetType)); err != nil {
+		if _, err := s.svc.Reset(ctx, req.BMC, req.System, schemas.ResetType(req.ResetType), insecure); err != nil {
 			writeError(w, http.StatusBadGateway, err.Error())
 			return
 		}
@@ -139,7 +258,7 @@ func (s *Server) handlePowerAction(w http.ResponseWriter, r *http.Request) {
 		if req.TimeoutSeconds > 0 {
 			opts.Timeout = time.Duration(req.TimeoutSeconds) * time.Second
 		}
-		res, err := s.svc.PowerTransition(ctx, req.BMC, req.System, op, opts)
+		res, err := s.svc.PowerTransition(ctx, req.BMC, req.System, op, opts, insecure)
 		if err != nil {
 			writePowerError(w, err)
 			return
@@ -160,7 +279,7 @@ func (s *Server) handlePowerAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.svc.ResetOperation(ctx, req.BMC, req.System, op); err != nil {
+	if _, err := s.svc.ResetOperation(ctx, req.BMC, req.System, op, insecure); err != nil {
 		writePowerError(w, err)
 		return
 	}
@@ -177,6 +296,32 @@ func powerTarget(w http.ResponseWriter, r *http.Request) (bmcURI, systemID strin
 		return "", "", false
 	}
 	return bmcURI, systemID, true
+}
+
+// isInsecureRequest checks for insecure override in query param or header.
+// Query: ?insecure=true (case-insensitive). Header: X-Magellan-Insecure with
+// truthy values (true, 1, t, yes, on), case-insensitive.
+func isInsecureRequest(r *http.Request) bool {
+	q := r.URL.Query().Get("insecure")
+	if truthy(q) {
+		return true
+	}
+	if h := r.Header.Get("X-Magellan-Insecure"); truthy(h) {
+		return true
+	}
+	return false
+}
+
+func truthy(v string) bool {
+	if v == "" {
+		return false
+	}
+	switch strings.ToLower(v) {
+	case "true", "1", "t", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 // writePowerError maps service-layer power errors to HTTP status codes,

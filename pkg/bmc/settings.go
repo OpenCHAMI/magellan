@@ -1035,7 +1035,7 @@ func ConnectWithCredentials(uri string, store secrets.SecretStore, insecure bool
 		}
 		event := log.Error()
 		event.Err(err)
-		event.Msg("failed to connect to BMC")
+		event.Msg("could not connect to the specified BMC")
 		return nil, err
 	}
 	return client, nil

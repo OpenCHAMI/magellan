@@ -42,10 +42,10 @@ func New(store secrets.SecretStore) *Service {
 
 // connConfig builds a connection config for a BMC URI using the service's
 // credential store and TLS settings.
-func (s *Service) connConfig(uri string) crawler.CrawlerConfig {
+func (s *Service) connConfig(uri string, insecure bool) crawler.CrawlerConfig {
 	return crawler.CrawlerConfig{
 		URI:             uri,
-		Insecure:        s.Insecure,
+		Insecure:        insecure,
 		CredentialStore: s.Secrets,
 		UseDefault:      true,
 	}
@@ -66,8 +66,12 @@ func (s *Service) Collect(assets []magellan.RemoteAsset, params *magellan.Collec
 }
 
 // Inventory returns the Redfish systems and managers for a single BMC.
-func (s *Service) Inventory(uri string) ([]models.InventoryDetail, []models.Manager, error) {
-	cfg := s.connConfig(uri)
+func (s *Service) Inventory(uri string, insecure ...bool) ([]models.InventoryDetail, []models.Manager, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	cfg := s.connConfig(uri, ins)
 	systems, err := crawler.CrawlBMCForSystems(cfg)
 	if err != nil {
 		return systems, nil, err
@@ -77,40 +81,60 @@ func (s *Service) Inventory(uri string) ([]models.InventoryDetail, []models.Mana
 }
 
 // crawlableNode adapts a (BMC URI, system ID) pair to power's node type.
-func (s *Service) crawlableNode(uri, systemID string) power.CrawlableNode {
+func (s *Service) crawlableNode(uri, systemID string, insecure bool) power.CrawlableNode {
 	return power.CrawlableNode{
-		ConnConfig: s.connConfig(uri),
+		ConnConfig: s.connConfig(uri, insecure),
 		NodeID:     systemID,
 	}
 }
 
 // PowerState returns the current power state of a ComputerSystem.
-func (s *Service) PowerState(ctx context.Context, uri, systemID string) (schemas.PowerState, error) {
-	return power.GetPowerState(ctx, s.crawlableNode(uri, systemID))
+func (s *Service) PowerState(ctx context.Context, uri, systemID string, insecure ...bool) (schemas.PowerState, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.GetPowerState(ctx, s.crawlableNode(uri, systemID, ins))
 }
 
 // ResetTypes returns the reset types supported by a ComputerSystem.
-func (s *Service) ResetTypes(ctx context.Context, uri, systemID string) ([]schemas.ResetType, error) {
-	return power.GetResetTypes(ctx, s.crawlableNode(uri, systemID))
+func (s *Service) ResetTypes(ctx context.Context, uri, systemID string, insecure ...bool) ([]schemas.ResetType, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.GetResetTypes(ctx, s.crawlableNode(uri, systemID, ins))
 }
 
 // Reset issues a reset of the given raw Redfish type to a ComputerSystem,
 // returning the gofish task-monitor handle when the BMC models it asynchronously.
-func (s *Service) Reset(ctx context.Context, uri, systemID string, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
-	return power.ResetComputerSystem(ctx, s.crawlableNode(uri, systemID), resetType)
+func (s *Service) Reset(ctx context.Context, uri, systemID string, resetType schemas.ResetType, insecure ...bool) (*schemas.TaskMonitorInfo, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.ResetComputerSystem(ctx, s.crawlableNode(uri, systemID, ins), resetType)
 }
 
 // ResetOperation performs a vendor-neutral power Operation (e.g. bmc.OpOff) on a
 // ComputerSystem, resolving it to a supported reset type with the
 // graceful→forced fallback chain. It returns bmc.ErrUnsupportedOperation when the
 // operation cannot be satisfied by the target's advertised reset types.
-func (s *Service) ResetOperation(ctx context.Context, uri, systemID string, op bmc.Operation) (*schemas.TaskMonitorInfo, error) {
-	return power.ResetOperation(ctx, s.crawlableNode(uri, systemID), op)
+func (s *Service) ResetOperation(ctx context.Context, uri, systemID string, op bmc.Operation, insecure ...bool) (*schemas.TaskMonitorInfo, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.ResetOperation(ctx, s.crawlableNode(uri, systemID, ins), op)
 }
 
 // PowerTransition performs and confirms a vendor-neutral power operation.
-func (s *Service) PowerTransition(ctx context.Context, uri, systemID string, op bmc.Operation, opts bmc.TransitionOptions) (*bmc.TransitionResult, error) {
-	return power.PowerTransition(ctx, s.crawlableNode(uri, systemID), op, opts)
+func (s *Service) PowerTransition(ctx context.Context, uri, systemID string, op bmc.Operation, opts bmc.TransitionOptions, insecure ...bool) (*bmc.TransitionResult, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.PowerTransition(ctx, s.crawlableNode(uri, systemID, ins), op, opts)
 }
 
 // Close releases any cached BMC sessions held by the manager.

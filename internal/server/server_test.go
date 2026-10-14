@@ -68,7 +68,7 @@ func newMockRedfish(t *testing.T, initial schemas.PowerState) *httptest.Server {
 		mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewTLSServer(mux)
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -158,21 +158,27 @@ func TestInventorySuccess(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
-	body := decodeBody(t, rec)
-	if body["bmc"] != mock.URL {
-		t.Fatalf("bmc = %v, want %s", body["bmc"], mock.URL)
+	// The response is a collect-format JSON array (as emitted by `magellan
+	// collect`), so it can be piped straight into `magellan send`.
+	var collection []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &collection); err != nil {
+		t.Fatalf("decode response %q: %v", rec.Body.String(), err)
 	}
-	systems, ok := body["systems"].([]any)
+	if len(collection) != 1 {
+		t.Fatalf("collection = %v, want one entry", collection)
+	}
+	entry := collection[0]
+	systems, ok := entry["Systems"].([]any)
 	if !ok || len(systems) != 1 {
-		t.Fatalf("systems = %v, want one system", body["systems"])
+		t.Fatalf("Systems = %v, want one system", entry["Systems"])
 	}
 	system := systems[0].(map[string]any)
 	if system["node_id"] != "Node0" || system["uri"] != mock.URL+"/redfish/v1/Systems/Node0" {
 		t.Fatalf("unexpected system identity: %v", system)
 	}
-	managers, ok := body["managers"].([]any)
+	managers, ok := entry["Managers"].([]any)
 	if !ok || len(managers) != 1 {
-		t.Fatalf("managers = %v, want one manager", body["managers"])
+		t.Fatalf("Managers = %v, want one manager", entry["Managers"])
 	}
 	manager := managers[0].(map[string]any)
 	if manager["model"] != "Mock BMC" || manager["uri"] != mock.URL+"/redfish/v1/Managers/bmc" {

@@ -57,7 +57,7 @@ tokensmith (https://github.com/OpenCHAMI/tokensmith):
 
 ```
 token=$(tokensmith --duration 1h)
-curl -H "Authorization: Bearer $token" https://localhost:8500/v1/...
+curl -H "Authorization: Bearer $token" http://localhost:8500/v1/... or https:// if TLS enabled
 ```
 
 # API ENDPOINTS
@@ -96,46 +96,81 @@ Response:
 
 ## POST /v1/inventory
 
-Crawl a single BMC for its systems and managers.
+Crawl one or more BMCs for Redfish inventory. The response is the same
+collect-format JSON array emitted by *magellan collect*, so it can be piped
+directly into *magellan send*.
 
 Request headers:
 - *Content-Type*: application/json
 - *Authorization*: Bearer <token> (required if auth enabled)
 
-Body:
+Body (any of the following):
+
+Single BMC:
 
 ```
 {
-	"bmc": "https://bmc.example.com"
+	"bmc": "https://127.0.0.1:5000"
 }
 ```
 
-Body fields (unknown fields are rejected with 400):
+Multiple BMCs:
 
-- *bmc* (required): BMC base URL (e.g. https://172.16.0.10)
+```
+{
+	"bmcs": ["https://172.16.0.10", "https://172.16.0.11"]
+}
+```
+
+Bare JSON array of BMC URLs:
+
+```
+["https://172.16.0.10", "https://172.16.0.11"]
+```
+
+Body fields:
+
+- *bmc* (string, optional): a single BMC base URL
+- *bmcs* (array of strings, optional): multiple BMC base URLs
+
+At least one BMC is required (via *bmc*, *bmcs*, or a bare array); otherwise a 400 is returned.
 
 Example:
 
 ```
-curl -s -X POST https://localhost:8500/v1/inventory \
-	-H "Authorization: Bearer $token" \
-	-H "Content-Type: application/json" \
-	-d '{"bmc":"https://bmc.example.com"}'
+curl -s -X POST http://localhost:8500/v1/inventory \\
+	-H "Authorization: Bearer $token" \\
+	-H "Content-Type: application/json" \\
+	-d '{"bmcs":["https://172.16.0.10","https://172.16.0.11"]}'
 ```
 
 Response headers: *Content-Type*: application/json
 
-Response (200):
+Response (200): a JSON array of collect-format objects, ready for *magellan send*:
 
 ```
-{
-	"bmc": "https://bmc.example.com",
-	"systems": [...],
-	"managers": [...]
-}
+[
+	{
+		"ID": "x1000c0s0b0",
+		"FQDN": "172.16.0.10",
+		"User": "admin",
+		"Systems": [...],
+		"Managers": [...],
+		"SchemaVersion": 1
+	}
+]
 ```
 
-Errors: 400 (missing/invalid body), 401 (bad token), 502 (BMC failure).
+Pipe straight into *magellan send*:
+
+```
+curl -s -X POST http://localhost:8500/v1/inventory \\
+	-H "Authorization: Bearer $token" \\
+	-H "Content-Type: application/json" \\
+	-d '{"bmc":"https://172.16.0.10"}' | magellan send -d @- https://smd.example.com
+```
+
+Errors: 400 (missing/invalid body or no BMCs), 401 (bad token), 502 (BMC failure).
 
 ## GET /v1/power
 
@@ -153,15 +188,24 @@ Headers:
 Example:
 
 ```
-curl -s "https://localhost:8500/v1/power?bmc=https://bmc.example.com&system=Node0" \
+curl -s "http://localhost:8500/v1/power?bmc=https://127.0.0.1:5000&system=Node0" \\
 	-H "Authorization: Bearer $token"
+```
+
+Example with curl flags:
+
+```
+curl -s -G http://localhost:8500/v1/power \\
+	-H "Authorization: Bearer $token" \\
+	--data-urlencode "bmc=https://127.0.0.1:5000" \\
+	--data-urlencode "system=Node0"
 ```
 
 Response (200):
 
 ```
 {
-	"bmc": "https://bmc.example.com",
+	"bmc": "https://127.0.0.1:5000",
 	"system": "Node0",
 	"powerState": "On"
 }
@@ -183,15 +227,24 @@ Headers:
 Example:
 
 ```
-curl -s "https://localhost:8500/v1/power/reset-types?bmc=https://bmc.example.com&system=Node0" \
+curl -s "http://localhost:8500/v1/power/reset-types?bmc=https://127.0.0.1:5000&system=Node0" \\
 	-H "Authorization: Bearer $token"
+```
+
+Example with curl flags:
+
+```
+curl -s -G http://localhost:8500/v1/power/reset-types \\
+	-H "Authorization: Bearer $token" \\
+	--data-urlencode "bmc=https://127.0.0.1:5000" \\
+	--data-urlencode "system=Node0"
 ```
 
 Response (200):
 
 ```
 {
-	"bmc": "https://bmc.example.com",
+	"bmc": "https://127.0.0.1:5000",
 	"system": "Node0",
 	"resetTypes": ["On", "ForceOff", "GracefulShutdown", "ForceRestart", "Nmi"]
 }
@@ -210,7 +263,7 @@ Body (vendor-neutral operation, optional wait):
 
 ```
 {
-	"bmc": "https://bmc.example.com",
+	"bmc": "https://127.0.0.1:5000",
 	"system": "Node0",
 	"operation": "off",
 	"wait": true,
@@ -222,7 +275,7 @@ Body (raw reset type):
 
 ```
 {
-	"bmc": "https://bmc.example.com",
+	"bmc": "https://127.0.0.1:5000",
 	"system": "Node0",
 	"resetType": "ForceRestart"
 }
@@ -262,10 +315,10 @@ The last form is returned when *wait* is true.
 Example (graceful off with confirmation):
 
 ```
-curl -s -X POST https://localhost:8500/v1/power \
-	-H "Authorization: Bearer $token" \
-	-H "Content-Type: application/json" \
-	-d '{"bmc":"https://bmc.example.com","system":"Node0","operation":"off","wait":true}'
+curl -s -X POST http://localhost:8500/v1/power \\
+	-H "Authorization: Bearer $token" \\
+	-H "Content-Type: application/json" \\
+	-d '{"bmc":"https://127.0.0.1:5000","system":"Node0","operation":"off","wait":true}'
 ```
 
 # ERROR RESPONSES
@@ -277,6 +330,21 @@ Errors return JSON:
 ```
 
 Common cases: missing query params (400), unknown operation (400), missing/invalid token (401), unsupported operation (422), BMC connectivity/Redfish errors (502).
+
+# TLS VERIFICATION
+
+The daemon connects to BMCs using the URLs provided in requests. By default, TLS
+certificate verification is performed. To skip verification (e.g. self-signed
+certificates), start the daemon with *--insecure* (global) or pass
+*insecure=true* as a query parameter or set the *X-Magellan-Insecure* header to
+a truthy value (*true*, *1*, *t*, *yes*, *y*, *on*) on a per-request basis.
+
+```
+magellan serve --insecure --port 8500
+curl -X POST "http://localhost:8500/v1/inventory?insecure=true" \\
+	-H "Content-Type: application/json" \\
+	-d '{"bmc":"https://127.0.0.1:5000"}'
+```
 
 # EXAMPLES
 
