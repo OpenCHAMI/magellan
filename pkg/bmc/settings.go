@@ -1035,7 +1035,7 @@ func ConnectWithCredentials(uri string, store secrets.SecretStore, insecure bool
 		}
 		event := log.Error()
 		event.Err(err)
-		event.Msg("failed to connect to BMC")
+		event.Msg("could not connect to the specified BMC")
 		return nil, err
 	}
 	return client, nil
@@ -1052,7 +1052,7 @@ func Connect(nodeArg string, inventoryFile string, inputFormat format.DataFormat
 			return nil, fmt.Errorf("failed to parse inventory file %s: %w", inventoryFile, err)
 		}
 
-		var found *Node
+		var found *InventoryNode
 		for i := range nodes {
 			if nodes[i].ClusterID == nodeArg || nodes[i].NodeID == nodeArg {
 				found = &nodes[i]

@@ -161,7 +161,7 @@ func SaveSecrets(jsonFile string, store map[string]string) error {
 func loadSecrets(jsonFile string) (map[string]string, error) {
 	file, err := os.Open(jsonFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open secret file %s:%v", jsonFile, err)
+		return nil, fmt.Errorf("could not open credential store file %s: %v", jsonFile, err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -176,7 +176,7 @@ func loadSecrets(jsonFile string) (map[string]string, error) {
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&store)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode file: %v", err)
+		return nil, fmt.Errorf("could not decode credential store (check MASTER_KEY): %v", err)
 	}
 	return store, err
 }

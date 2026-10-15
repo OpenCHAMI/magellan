@@ -14,6 +14,7 @@ require (
 
 require (
 	github.com/Cray-HPE/hms-xname v1.4.0
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/rs/zerolog v1.35.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1

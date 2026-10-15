@@ -1,0 +1,151 @@
+// Package service provides an in-process façade over magellan's BMC operations.
+//
+// Both the CLI and the (forthcoming) daemon are intended to drive BMC work
+// through this single shared core so behavior stays consistent across
+// front-ends. It composes the existing magellan, crawler, power, and bmc
+// packages; it deliberately holds no logic of its own beyond wiring.
+package service
+
+import (
+	"context"
+
+	"github.com/openchami/magellan/internal/format"
+	magellan "github.com/openchami/magellan/pkg"
+	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/crawler"
+	"github.com/openchami/magellan/pkg/models"
+	"github.com/openchami/magellan/pkg/power"
+	"github.com/openchami/magellan/pkg/secrets"
+	"github.com/stmcginnis/gofish/schemas"
+)
+
+// Service is the shared BMC interaction core. A single instance is intended to
+// be long-lived (owned by the daemon) or short-lived (constructed per CLI
+// invocation); it is safe for concurrent use because the underlying Manager is.
+type Service struct {
+	// Manager is the BMC connection authority. Defaults to bmc.DefaultManager.
+	Manager *bmc.Manager
+	// Secrets is the credential store used to resolve BMC credentials.
+	Secrets secrets.SecretStore
+	// Insecure controls whether TLS verification is skipped when connecting.
+	Insecure bool
+	// Vendor forces a specific vendor plugin (e.g. "hpe") for every connection
+	// this service opens, instead of auto-detection. Empty selects automatically.
+	Vendor string
+}
+
+// New constructs a Service backed by the process-wide BMC manager and the given
+// credential store.
+func New(store secrets.SecretStore) *Service {
+	return &Service{
+		Manager: bmc.DefaultManager,
+		Secrets: store,
+	}
+}
+
+// connConfig builds a connection config for a BMC URI using the service's
+// credential store, TLS settings, and vendor override.
+func (s *Service) connConfig(uri string, insecure bool) crawler.CrawlerConfig {
+	return crawler.CrawlerConfig{
+		URI:             uri,
+		Insecure:        insecure,
+		CredentialStore: s.Secrets,
+		UseDefault:      true,
+		Vendor:          s.Vendor,
+	}
+}
+
+// Scan searches the network for BMC (and optionally PDU) assets.
+func (s *Service) Scan(params *magellan.ScanParams) []magellan.RemoteAsset {
+	return magellan.ScanForAssets(params)
+}
+
+// Collect crawls the given assets for Redfish inventory. SecretStore on params
+// is filled from the service when unset.
+func (s *Service) Collect(assets []magellan.RemoteAsset, params *magellan.CollectParams) ([]map[string]any, error) {
+	if params.SecretStore == nil {
+		params.SecretStore = s.Secrets
+	}
+	return magellan.CollectInventory(&assets, params)
+}
+
+// CrawlForInventory retrieves Redfish systems and managers from a single BMC.
+func (s *Service) CrawlForInventory(uri string, insecure ...bool) ([]models.InventoryDetail, []models.Manager, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	cfg := s.connConfig(uri, ins)
+	systems, err := crawler.CrawlBMCForSystems(cfg)
+	if err != nil {
+		return systems, nil, err
+	}
+	managers, err := crawler.CrawlBMCForManagers(cfg)
+	return systems, managers, err
+}
+
+// crawlableNode adapts a (BMC URI, system ID) pair to power's node type.
+func (s *Service) crawlableNode(uri, systemID string, insecure bool) power.CrawlableNode {
+	return power.CrawlableNode{
+		ConnConfig: s.connConfig(uri, insecure),
+		NodeID:     systemID,
+	}
+}
+
+// PowerState returns the current power state of a ComputerSystem.
+func (s *Service) PowerState(ctx context.Context, uri, systemID string, insecure ...bool) (schemas.PowerState, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.GetPowerState(ctx, s.crawlableNode(uri, systemID, ins))
+}
+
+// ResetTypes returns the reset types supported by a ComputerSystem.
+func (s *Service) ResetTypes(ctx context.Context, uri, systemID string, insecure ...bool) ([]schemas.ResetType, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.GetResetTypes(ctx, s.crawlableNode(uri, systemID, ins))
+}
+
+// Reset issues a reset of the given raw Redfish type to a ComputerSystem,
+// returning the gofish task-monitor handle when the BMC models it asynchronously.
+func (s *Service) Reset(ctx context.Context, uri, systemID string, resetType schemas.ResetType, insecure ...bool) (*schemas.TaskMonitorInfo, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.ResetComputerSystem(ctx, s.crawlableNode(uri, systemID, ins), resetType)
+}
+
+// ResetOperation performs a vendor-neutral power Operation (e.g. bmc.OpOff) on a
+// ComputerSystem, resolving it to a supported reset type with the
+// graceful→forced fallback chain. It returns bmc.ErrUnsupportedOperation when the
+// operation cannot be satisfied by the target's advertised reset types.
+func (s *Service) ResetOperation(ctx context.Context, uri, systemID string, op bmc.Operation, insecure ...bool) (*schemas.TaskMonitorInfo, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.ResetOperation(ctx, s.crawlableNode(uri, systemID, ins), op)
+}
+
+// PowerTransition performs and confirms a vendor-neutral power operation.
+func (s *Service) PowerTransition(ctx context.Context, uri, systemID string, op bmc.Operation, opts bmc.TransitionOptions, insecure ...bool) (*bmc.TransitionResult, error) {
+	ins := s.Insecure
+	if len(insecure) > 0 {
+		ins = ins || insecure[0]
+	}
+	return power.PowerTransition(ctx, s.crawlableNode(uri, systemID, ins), op, opts)
+}
+
+// Close releases any cached BMC sessions held by the manager.
+func (s *Service) Close() {
+	s.Manager.LogoutAll()
+}
+
+// Format is re-exported for callers that need to reference data formats without
+// importing the internal package directly.
+type Format = format.DataFormat

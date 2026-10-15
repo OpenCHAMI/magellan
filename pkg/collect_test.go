@@ -11,11 +11,11 @@ import (
 func TestCollectInventoryValidation(t *testing.T) {
 	params := &CollectParams{Concurrency: 1, OutputFormat: format.FORMAT_JSON}
 	_, err := CollectInventory(nil, params)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "assets == nil")
 
 	empty := []RemoteAsset{}
 	_, err = CollectInventory(&empty, params)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "len(*assets) == 0")
 
 	assets := []RemoteAsset{{Host: "https://127.0.0.1", Port: 443, State: true}}
 	_, err = CollectInventory(&assets, nil)

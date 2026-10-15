@@ -33,6 +33,8 @@ List of available commands:
 :  Configure BMC properties through Redfish
 |  *update*
 :  Update firmware through Redfish API
+|  *serve*
+:  Run magellan as a long-lived BMC service (REST API)
 |  *version*
 :  Print version info and exit
 

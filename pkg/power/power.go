@@ -1,7 +1,7 @@
 package power
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/crawler"
@@ -21,9 +21,6 @@ type PowerInfo struct {
 	State     schemas.PowerState
 }
 
-// Hold onto the current set of open clients, so we don't continually have to log into and out of BMCs
-var savedClients map[string]*gofish.APIClient
-
 // ResetComputerSystem connects to a BMC (Baseboard Management Controller) using the provided configuration,
 // retrieves the ServiceRoot, and retrieves the list of supported reset types for the target ComputerSystem.
 //
@@ -33,33 +30,15 @@ var savedClients map[string]*gofish.APIClient
 // Returns:
 //   - []schemas.ResetType: a slice of Redfish reset types supported on the node.
 //   - error: An error object if any error occurs during the connection or reset process.
-func GetResetTypes(node CrawlableNode) ([]schemas.ResetType, error) {
+func GetResetTypes(ctx context.Context, node CrawlableNode) ([]schemas.ResetType, error) {
 	log.Debug().Msgf("polling %s for reset types", node.ConnConfig.URI)
 
-	// Obtain an active client
-	client, err := GetBMCSession(node.ConnConfig)
+	// Obtain an active (cached) vendor-aware client
+	client, err := bmc.DefaultManager.CachedClient(ctx, node.ConnConfig)
 	if err != nil {
 		return nil, err
 	}
-
-	// Determine reset types for the target computer system
-	rf_systems, err := client.GetService().Systems()
-	if err != nil {
-		return nil, err
-	}
-	var system *schemas.ComputerSystem
-	for i := range rf_systems {
-		if rf_systems[i].ID == node.NodeID {
-			system = rf_systems[i]
-			break
-		}
-	}
-
-	resetTypes, err := system.GetSupportedResetTypes()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get supported reset types for: %v", err)
-	}
-	return resetTypes, nil
+	return client.GetResetTypes(ctx, node.NodeID)
 }
 
 // PollBMCPowerStates connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -71,28 +50,15 @@ func GetResetTypes(node CrawlableNode) ([]schemas.ResetType, error) {
 // Returns:
 //   - schemas.PowerState: The current power state of the node. (Custom string subtype)
 //   - error: An error object if any error occurs during the connection or retrieval process.
-func GetPowerState(node CrawlableNode) (schemas.PowerState, error) {
+func GetPowerState(ctx context.Context, node CrawlableNode) (schemas.PowerState, error) {
 	log.Debug().Msgf("polling %s for power states", node.ConnConfig.URI)
 
-	// Obtain an active client
-	client, err := GetBMCSession(node.ConnConfig)
+	// Obtain an active (cached) vendor-aware client
+	client, err := bmc.DefaultManager.CachedClient(ctx, node.ConnConfig)
 	if err != nil {
 		return "", err
 	}
-
-	// Determine power details for the target computer system
-	rf_systems, err := client.GetService().Systems()
-	if err != nil {
-		return "", err
-	}
-	var system *schemas.ComputerSystem
-	for i := range rf_systems {
-		if rf_systems[i].ID == node.NodeID {
-			system = rf_systems[i]
-			break
-		}
-	}
-	return system.PowerState, nil
+	return client.GetPowerState(ctx, node.NodeID)
 }
 
 // ResetComputerSystem connects to a BMC (Baseboard Management Controller) using the provided configuration,
@@ -103,35 +69,56 @@ func GetPowerState(node CrawlableNode) (schemas.PowerState, error) {
 //   - resetType: A schemas.ResetType parameter, specifying the manner in which the target ComputerSystem should be reset.
 //
 // Returns:
+//   - *schemas.TaskMonitorInfo: the Redfish task-monitor handle for the reset
+//     when the BMC models it asynchronously (may be nil for synchronous BMCs).
 //   - error: An error object if any error occurs during the connection or reset process.
-func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
+func ResetComputerSystem(ctx context.Context, node CrawlableNode, resetType schemas.ResetType) (*schemas.TaskMonitorInfo, error) {
 	log.Debug().Msgf("resetting computer system %s: %s", node.ClusterID, resetType)
 
-	client, err := bmc.ConnectWithCredentials(node.ConnConfig.URI, node.ConnConfig.CredentialStore, node.ConnConfig.Insecure, node.ConnConfig.CACertPath)
+	// Use a fresh (uncached) vendor-aware client and log out when done.
+	client, err := bmc.DefaultManager.Client(ctx, node.ConnConfig)
 	if err != nil {
 		return nil, err
 	}
 	defer client.Logout()
 
-	// Obtain the ServiceRoot
-	rf_service := client.GetService()
-	log.Debug().Msgf("found ServiceRoot %s. Redfish Version %s", rf_service.ID, rf_service.RedfishVersion)
+	return client.Reset(ctx, node.NodeID, resetType)
+}
 
-	// Select the relevant ComputerSystem
-	rf_systems, err := rf_service.Systems()
+// ResetOperation connects to a node's BMC and performs a vendor-neutral power
+// Operation (e.g. bmc.OpOff), resolving it to a reset type the target advertises
+// with the graceful→forced fallback chain. It returns bmc.ErrUnsupportedOperation
+// when the operation cannot be satisfied, distinct from a BMC call failure.
+//
+// Returns:
+//   - *schemas.TaskMonitorInfo: the Redfish task-monitor handle for the reset
+//     when the BMC models it asynchronously (may be nil for synchronous BMCs).
+//   - error: An error object if any error occurs during the connection or reset process.
+func ResetOperation(ctx context.Context, node CrawlableNode, op bmc.Operation) (*schemas.TaskMonitorInfo, error) {
+	log.Debug().Msgf("performing power operation %q on computer system %s", op, node.ClusterID)
+
+	// Use a fresh (uncached) vendor-aware client and log out when done.
+	client, err := bmc.DefaultManager.Client(ctx, node.ConnConfig)
 	if err != nil {
 		return nil, err
 	}
-	var rf_compsys *schemas.ComputerSystem
-	for i := range rf_systems {
-		if rf_systems[i].ID == node.NodeID {
-			rf_compsys = rf_systems[i]
-			break
-		}
-	}
+	defer client.Logout()
 
-	// Reset the system
-	return rf_compsys.Reset(resetType)
+	return client.ResetOperation(ctx, node.NodeID, op)
+}
+
+// PowerTransition performs a vendor-neutral power operation and confirms it
+// took effect, polling the BMC until the configured deadline.
+func PowerTransition(ctx context.Context, node CrawlableNode, op bmc.Operation, opts bmc.TransitionOptions) (*bmc.TransitionResult, error) {
+	log.Debug().Msgf("performing confirmed power operation %q on computer system %s", op, node.ClusterID)
+
+	client, err := bmc.DefaultManager.Client(ctx, node.ConnConfig)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Logout()
+
+	return bmc.ResetAndConfirm(ctx, client, node.NodeID, op, opts)
 }
 
 // GetBMCSession returns an already-active gofish BMC client, creating a new one if necessary.
@@ -141,23 +128,12 @@ func ResetComputerSystem(node CrawlableNode, resetType schemas.ResetType) (*sche
 //   - config: A CrawlerConfig struct containing the URI, username, password, and other connection details.
 //
 // Returns: none.
-func GetBMCSession(config crawler.CrawlerConfig) (*gofish.APIClient, error) {
-	client, exists := savedClients[config.URI]
-	if exists {
-		log.Debug().Msgf("found existing client for %s", config.URI)
-	} else {
-		if savedClients == nil {
-			savedClients = make(map[string]*gofish.APIClient)
-		}
-		var err error
-		client, err = bmc.ConnectWithCredentials(config.URI, config.CredentialStore, config.Insecure, config.CACertPath)
-		if err != nil {
-			return nil, err
-		}
-		log.Debug().Msgf("created new client for %s", config.URI)
-		savedClients[config.URI] = client
+func GetBMCSession(ctx context.Context, config crawler.CrawlerConfig) (*gofish.APIClient, error) {
+	client, err := bmc.DefaultManager.CachedClient(ctx, config)
+	if err != nil {
+		return nil, err
 	}
-	return client, nil
+	return client.Gofish(), nil
 }
 
 // LogoutBMCSessions logs out all active gofish BMC clients, which we normally like to keep open for efficiency.
@@ -167,8 +143,5 @@ func GetBMCSession(config crawler.CrawlerConfig) (*gofish.APIClient, error) {
 //
 // Returns: none.
 func LogoutBMCSessions() {
-	for uri, client := range savedClients {
-		log.Debug().Msgf("logging out client for %s", uri)
-		client.Logout()
-	}
+	bmc.DefaultManager.LogoutAll()
 }

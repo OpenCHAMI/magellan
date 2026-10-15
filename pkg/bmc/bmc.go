@@ -17,10 +17,13 @@ type BMCCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
-type Node struct {
-	ClusterID string `yaml:"cluster_id"`
-	BmcIP     string `yaml:"bmc_ip"`
-	NodeID    string `yaml:"node_id"`
+type InventoryNode struct {
+	ClusterID    string   `yaml:"cluster_id"`
+	BmcIP        string   `yaml:"bmc_ip"`
+	NodeID       string   `yaml:"node_id"`
+	UUID         string   `yaml:"uuid,omitempty"`
+	SerialNumber string   `yaml:"serial_number,omitempty"`
+	MACAddresses []string `yaml:"mac_addresses,omitempty"`
 }
 
 func GetBMCCredentialsDefault(store secrets.SecretStore) (BMCCredentials, error) {
@@ -87,9 +90,9 @@ func GetBMCCredentialsOrDefault(store secrets.SecretStore, id string) BMCCredent
 //   - filename: the path of the YAML file to parse for inventory data, or `-` for stdin.
 //
 // Returns:
-//   - []bmc.Node: A slice of structs containing relevant details for connecting to a node via its BMC.
+//   - []bmc.InventoryNode: Inventory records containing details for connecting to systems via their BMCs.
 //   - error: An error object if any error occurs during the connection or reset process.
-func ParseInventory(filename string, dataFormat format.DataFormat) ([]Node, error) {
+func ParseInventory(filename string, dataFormat format.DataFormat) ([]InventoryNode, error) {
 	// Read `collect`ed data from YAML file
 	var (
 		contents []byte
@@ -124,19 +127,28 @@ func ParseInventory(filename string, dataFormat format.DataFormat) ([]Node, erro
 		return nil, err
 	}
 
-	nodelist := make([]Node, 0, len(inventory))
+	nodelist := make([]InventoryNode, 0, len(inventory))
 	for i := range inventory {
 		systems := inventory[i].Systems
 		for j := range systems {
-			nodelist = append(nodelist, Node{
+			macs := make([]string, 0, len(systems[j].EthernetInterfaces))
+			for _, ethernet := range systems[j].EthernetInterfaces {
+				if ethernet.MAC != "" {
+					macs = append(macs, ethernet.MAC)
+				}
+			}
+			nodelist = append(nodelist, InventoryNode{
 				// TODO: This assumes indices in the Systems list correspond to nodes' "…nX" xname components.
 				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
 				// FIXME: This assumes strict xname formatting! To become xname-agnostic, this should be
 				// replaced with some other cluster-wide ID (which the BMC/ComputerSystem itself won't know, so
 				// it'll have to be generated/looked up from somewhere else).
-				ClusterID: fmt.Sprintf("%sn%d", inventory[i].ID, j),
-				BmcIP:     inventory[i].FQDN,
-				NodeID:    systems[j].NodeID,
+				ClusterID:    fmt.Sprintf("%sn%d", inventory[i].ID, j),
+				BmcIP:        inventory[i].FQDN,
+				NodeID:       systems[j].NodeID,
+				UUID:         systems[j].UUID,
+				SerialNumber: systems[j].SerialNumber,
+				MACAddresses: macs,
 			})
 		}
 	}
