@@ -55,8 +55,8 @@ func (s *Service) connConfig(uri string, insecure bool) crawler.CrawlerConfig {
 	}
 }
 
-// Discover scans the network for BMC (and optionally PDU) assets.
-func (s *Service) Discover(params *magellan.ScanParams) []magellan.RemoteAsset {
+// Scan searches the network for BMC (and optionally PDU) assets.
+func (s *Service) Scan(params *magellan.ScanParams) []magellan.RemoteAsset {
 	return magellan.ScanForAssets(params)
 }
 
@@ -69,8 +69,8 @@ func (s *Service) Collect(assets []magellan.RemoteAsset, params *magellan.Collec
 	return magellan.CollectInventory(&assets, params)
 }
 
-// Inventory returns the Redfish systems and managers for a single BMC.
-func (s *Service) Inventory(uri string, insecure ...bool) ([]models.InventoryDetail, []models.Manager, error) {
+// CrawlForInventory retrieves Redfish systems and managers from a single BMC.
+func (s *Service) CrawlForInventory(uri string, insecure ...bool) ([]models.InventoryDetail, []models.Manager, error) {
 	ins := s.Insecure
 	if len(insecure) > 0 {
 		ins = ins || insecure[0]

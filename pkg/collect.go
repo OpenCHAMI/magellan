@@ -48,10 +48,10 @@ type CollectParams struct {
 func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[string]any, error) {
 	// check for available remote assets found from scan
 	if assets == nil {
-		return nil, fmt.Errorf("no assets found")
+		return nil, fmt.Errorf("invalid assets (assets == nil)")
 	}
 	if len(*assets) <= 0 {
-		return nil, fmt.Errorf("no assets found")
+		return nil, fmt.Errorf("no assets found (len(*assets) == 0)")
 	}
 	if params == nil {
 		return nil, fmt.Errorf("invalid collection parameters (params == nil)")
