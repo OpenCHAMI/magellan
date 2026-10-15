@@ -618,7 +618,7 @@ The `magellan` tool can operate as a long-lived REST service, allowing other Ope
 To start the daemon, use the `serve` subcommand:
 
 ```bash
-magellan serve --port 8443 --secrets-file /path/to/secrets.json
+magellan serve --port 8500 --secrets-file /path/to/secrets.json
 ```
 
 By default, the server binds to all interfaces. You can secure the API by providing TLS certificates and requiring a static bearer token:
@@ -635,7 +635,7 @@ Once running, the API accepts standard HTTP requests. For example, to retrieve t
 
 ```bash
 curl -H "Authorization: Bearer your-secure-token" \
-     "https://localhost:8443/v1/power?bmc=https://172.16.0.10&system=Node0"
+     "https://localhost:8500/v1/power?bmc=https://172.16.0.10&system=Node0"
 
 ```
 
@@ -708,6 +708,15 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **power** | `--list-reset-types` | `LIST_RESET_TYPES` | Lists supported Redfish reset types |
 | **power** | `--reset-type` | `RESET_TYPE` | Redfish reset type to perform |
 | **power** | `--inventory-file` | `INVENTORY_FILE` | YAML file containing node inventory |
+| **power** | `--vendor` | `POWER_VENDOR` | Forces a vendor plugin (generic\|hpe\|dell\|supermicro\|cray\|lenovo) |
+| **serve** | `--host` | `SERVER_HOST` / `HOST` | Host/IP to bind (default: all interfaces) |
+| **serve** | `--port` | `SERVER_PORT` / `PORT` | Port to listen on (default: 8500) |
+| **serve** | `--tls-cert` | `SERVER_TLS_CERT` / `TLS_CERT` | Path to TLS certificate (enables HTTPS with --tls-key) |
+| **serve** | `--tls-key` | `SERVER_TLS_KEY` / `TLS_KEY` | Path to TLS private key |
+| **serve** | `--auth-token` | `SERVER_AUTH_TOKEN` / `AUTH_TOKEN` | Bearer token required for /v1 routes |
+| **serve** | `--secrets-file` | `SECRETS_FILE` | Path to the node secrets file |
+| **serve** | `--insecure`, `-i` | `INSECURE` | Ignores BMC TLS verification errors |
+| **serve** | `--vendor` | `SERVER_VENDOR` | Forces a vendor plugin (generic\|hpe\|dell\|supermicro\|cray\|lenovo) |
 | **settings** | `--inventory-file` | `SETTINGS_INVENTORY_FILE` | File containing node inventory |
 | **settings** | `--input-format` | `SETTINGS_INPUT_FORMAT` | Sets the inventory input format (json, yaml) |
 | **settings** | `--username` | `SETTINGS_USERNAME` | Sets the master BMC username |

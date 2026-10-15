@@ -38,6 +38,14 @@ shared core as the CLI, so behavior is consistent across front-ends.
 *-i, --insecure*
 	Ignore BMC TLS verification errors
 
+*--vendor* _name_
+	Force a vendor plugin instead of auto-detecting the BMC vendor for every
+	request served by the daemon. Accepted values are *generic*, *hpe*, *dell*,
+	*supermicro*, *cray*, and *lenovo* (case-insensitive). Use *generic* to
+	bypass vendor plugins entirely. When this flag is not set, the vendor plugin
+	is auto-detected per BMC. An unrecognized value is an error and causes the
+	daemon to exit at startup.
+
 # ENVIRONMENT VARIABLES
 
 - *SERVER_HOST* / *HOST*: Host/IP to bind
@@ -45,6 +53,7 @@ shared core as the CLI, so behavior is consistent across front-ends.
 - *SERVER_TLS_CERT* / *TLS_CERT*: TLS certificate path
 - *SERVER_TLS_KEY* / *TLS_KEY*: TLS private key path
 - *SERVER_AUTH_TOKEN* / *AUTH_TOKEN*: Bearer token required for /v1 routes
+- *SERVER_VENDOR*: Vendor plugin to force for all requests
 - *SECRETS_FILE*: Path to node secrets file
 - *INSECURE*: Ignore TLS verification errors
 
@@ -344,6 +353,24 @@ magellan serve --insecure --port 8500
 curl -X POST "http://localhost:8500/v1/inventory?insecure=true" \\
 	-H "Content-Type: application/json" \\
 	-d '{"bmc":"https://127.0.0.1:5000"}'
+```
+
+# VENDOR SELECTION
+
+magellan supports vendor-specific BMC behavior through a plugin system. By
+default the daemon auto-detects each BMC's vendor and applies the matching
+plugin. Pass *--vendor* (or set *SERVER_VENDOR*) to force a specific plugin for
+every request instead:
+
+- *generic*: bypass all vendor plugins and use only the built-in Redfish behavior
+- *hpe*, *dell*, *supermicro*, *cray*, *lenovo*: force that vendor's plugin
+
+An unrecognized value is a hard error: the daemon exits at startup rather than
+silently falling back to the generic plugin.
+
+```
+magellan serve --vendor hpe --port 8500
+SERVER_VENDOR=hpe magellan serve
 ```
 
 # EXAMPLES

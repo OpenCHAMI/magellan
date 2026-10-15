@@ -99,32 +99,46 @@ func (m *Manager) Client(ctx context.Context, cfg ConnConfig) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientFor(api), nil
+	return clientFor(api, Vendor(cfg.Vendor))
 }
 
 // CachedClient returns a vendor-aware Client for the BMC, creating and caching a
-// new session keyed by URI if one does not already exist. Cached sessions are
-// kept open for efficiency and released together by LogoutAll.
+// new session keyed by URI+Vendor if one does not already exist. Cached sessions
+// are kept open for efficiency and released together by LogoutAll.
 //
 // Note: ctx scopes the session only when a new one is opened; a cache hit
 // returns a session bound to the context it was originally connected with. For
 // per-request cancellation across many callers (e.g. the daemon), prefer Client
 // to obtain an uncached, request-scoped session.
 func (m *Manager) CachedClient(ctx context.Context, cfg ConnConfig) (Client, error) {
+	key := cacheKey(cfg)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if c, ok := m.cache[cfg.URI]; ok {
-		log.Debug().Msgf("found existing client for %s", cfg.URI)
+	if c, ok := m.cache[key]; ok {
+		log.Debug().Msgf("found existing client for %s", key)
 		return c, nil
 	}
 	api, err := m.ConnectContext(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	c := clientFor(api)
-	m.cache[cfg.URI] = c
-	log.Debug().Msgf("created new client for %s", cfg.URI)
+	c, err := clientFor(api, Vendor(cfg.Vendor))
+	if err != nil {
+		return nil, err
+	}
+	m.cache[key] = c
+	log.Debug().Msgf("created new client for %s", key)
 	return c, nil
+}
+
+// cacheKey builds the session-cache key for a connection. The vendor is
+// included so two sessions to the same BMC that force different vendor plugins
+// do not share (and corrupt) a single cached Client.
+func cacheKey(cfg ConnConfig) string {
+	if cfg.Vendor == "" {
+		return cfg.URI
+	}
+	return cfg.URI + "|" + cfg.Vendor
 }
 
 // LogoutAll logs out and evicts every cached session. It should be called as a

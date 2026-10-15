@@ -17,6 +17,11 @@ type ConnConfig struct {
 	CACertPath      string
 	CredentialStore secrets.SecretStore // Source of BMC credentials
 	UseDefault      bool                // Retained for compatibility with existing callers
+	// Vendor forces a specific vendor plugin when opening a session instead of
+	// relying on auto-detection from the Redfish ServiceRoot. Accepted values
+	// are "generic" (bypass plugins) or any registered plugin vendor (e.g.
+	// "hpe", "dell"). Empty selects automatically. Unknown values are an error.
+	Vendor string
 }
 
 // GetUserPass resolves the BMC credentials for this connection from the

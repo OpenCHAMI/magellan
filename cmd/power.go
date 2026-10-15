@@ -24,6 +24,7 @@ var (
 	waitForConfirm   bool
 	waitTimeout      time.Duration
 	powerFormat      format.DataFormat = format.FORMAT_JSON
+	powerVendor      string
 )
 
 func powerCrawlerConfig(node bmc.Node, store secrets.SecretStore, insecure bool, cacertPath string) crawler.CrawlerConfig {
@@ -32,6 +33,7 @@ func powerCrawlerConfig(node bmc.Node, store secrets.SecretStore, insecure bool,
 		CredentialStore: store,
 		Insecure:        insecure,
 		CACertPath:      cacertPath,
+		Vendor:          powerVendor,
 	}
 }
 
@@ -91,6 +93,15 @@ For other identifiers, an inventory file from 'magellan collect' is required.`,
 		// Validate operation flag value
 		if operation != "" && !bmc.KnownOperation(bmc.Operation(operation)) {
 			log.Fatal().Msgf("unknown power operation %q (known operations: %v)", operation, bmc.Operations())
+		}
+
+		// Resolve the vendor override via viper so both the flag and the
+		// POWER_VENDOR env var work; validate before opening any session.
+		powerVendor = viper.GetString("power.vendor")
+		if powerVendor != "" {
+			if _, err := bmc.ParseVendor(powerVendor); err != nil {
+				log.Fatal().Err(err).Msg("invalid --vendor value")
+			}
 		}
 
 		if waitForConfirm && reset_type != "" {
@@ -379,6 +390,7 @@ func init() {
 	PowerCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
 	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
 	PowerCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
+	PowerCmd.Flags().StringVar(&powerVendor, "vendor", "", "Force a vendor plugin (generic|hpe|dell|supermicro|cray|lenovo) instead of auto-detecting.")
 	PowerCmd.Flags().VarP(&powerFormat, "format", "F", "Set the output format (json|yaml).")
 
 	checkRegisterFlagCompletionError(PowerCmd.RegisterFlagCompletionFunc("format", completionFormatData))
@@ -386,6 +398,7 @@ func init() {
 	// Bind flags to config properties
 	checkBindFlagError(viper.BindPFlag("power.cacert", PowerCmd.Flags().Lookup("cacert")))
 	checkBindFlagError(viper.BindPFlag("power.format", PowerCmd.Flags().Lookup("format")))
+	checkBindFlagError(viper.BindPFlag("power.vendor", PowerCmd.Flags().Lookup("vendor")))
 	checkBindFlagError(viper.BindPFlags(PowerCmd.Flags()))
 
 	rootCmd.AddCommand(PowerCmd)

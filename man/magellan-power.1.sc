@@ -16,6 +16,9 @@ magellan power N0D3S3R14L --list-reset-types -i --inventory-file nodes.json
 // turn off node using its IP address (no inventory file required)
 magellan power 172.16.0.105 -o off -i
 
+// force the HPE vendor plugin instead of auto-detecting
+magellan power N0D3S3R14L -o off -i --inventory-file nodes.json --vendor hpe
+
 // turn on/off a node with it's UUID (will error if attempting to turn on/off if already in state)
 magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o on --inventory-file nodes.json -i
 magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o off --inventory-file nodes.json -i
@@ -63,6 +66,13 @@ magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o off --inventory-file node
 	Set the username to _value_ used for basic authentication to the BMC node.
 	When this flag is set, the value overrides all of the values loaded from the
 	secrets file.
+
+*--vendor* _name_
+	Force a vendor plugin instead of auto-detecting the BMC vendor. Accepted
+	values are *generic*, *hpe*, *dell*, *supermicro*, *cray*, and *lenovo*
+	(case-insensitive). Use *generic* to bypass vendor plugins entirely. When
+	this flag is not set, the vendor plugin is auto-detected from the BMC. An
+	unrecognized value is an error and is never silently ignored.
 
 
 See *magellan*(1) for information about global flags and environment variables

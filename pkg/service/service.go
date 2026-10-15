@@ -29,6 +29,9 @@ type Service struct {
 	Secrets secrets.SecretStore
 	// Insecure controls whether TLS verification is skipped when connecting.
 	Insecure bool
+	// Vendor forces a specific vendor plugin (e.g. "hpe") for every connection
+	// this service opens, instead of auto-detection. Empty selects automatically.
+	Vendor string
 }
 
 // New constructs a Service backed by the process-wide BMC manager and the given
@@ -41,13 +44,14 @@ func New(store secrets.SecretStore) *Service {
 }
 
 // connConfig builds a connection config for a BMC URI using the service's
-// credential store and TLS settings.
+// credential store, TLS settings, and vendor override.
 func (s *Service) connConfig(uri string, insecure bool) crawler.CrawlerConfig {
 	return crawler.CrawlerConfig{
 		URI:             uri,
 		Insecure:        insecure,
 		CredentialStore: s.Secrets,
 		UseDefault:      true,
+		Vendor:          s.Vendor,
 	}
 }
 

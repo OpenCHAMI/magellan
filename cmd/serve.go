@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/openchami/magellan/internal/server"
+	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/openchami/magellan/pkg/service"
 	"github.com/rs/zerolog/log"
@@ -20,6 +21,7 @@ var (
 	serveTLSCert   string
 	serveTLSKey    string
 	serveAuthToken string
+	serveVendor    string
 )
 
 // ServeCmd runs magellan as a long-lived REST service over the shared BMC core,
@@ -47,22 +49,42 @@ var ServeCmd = &cobra.Command{
   curl -H "Authorization: Bearer $TOKEN" \
     "https://localhost:8500/v1/power?bmc=https://172.16.0.10&system=Node0"`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Resolve settings via viper so both flags and SERVER_* env vars work.
+		var (
+			host      = viper.GetString("server.host")
+			port      = viper.GetInt("server.port")
+			tlsCert   = viper.GetString("server.tls-cert")
+			tlsKey    = viper.GetString("server.tls-key")
+			authToken = viper.GetString("server.auth-token")
+			vendor    = viper.GetString("server.vendor")
+			secFile   = viper.GetString("server.secrets-file")
+			skipTLS   = viper.GetBool("server.insecure")
+		)
+
+		// Validate the vendor override before opening the credential store.
+		if vendor != "" {
+			if _, err := bmc.ParseVendor(vendor); err != nil {
+				log.Fatal().Err(err).Msg("invalid --vendor value")
+			}
+		}
+
 		// Resolve BMC credentials from the local secret store, matching the
 		// other subcommands. Per-request credentials are a later enhancement.
-		store, err := secrets.OpenStore(secretsFile)
+		store, err := secrets.OpenStore(secFile)
 		if err != nil {
-			log.Warn().Err(err).Str("path", secretsFile).Msg("could not open credential store; BMC operations will fail until credentials are available")
+			log.Warn().Err(err).Str("path", secFile).Msg("could not open credential store; BMC operations will fail until credentials are available")
 		}
 
 		svc := service.New(store)
-		svc.Insecure = insecure
+		svc.Insecure = skipTLS
+		svc.Vendor = vendor
 		defer svc.Close()
 
 		srv := server.New(svc, server.Config{
-			Addr:      fmt.Sprintf("%s:%d", serveHost, servePort),
-			TLSCert:   serveTLSCert,
-			TLSKey:    serveTLSKey,
-			AuthToken: serveAuthToken,
+			Addr:      fmt.Sprintf("%s:%d", host, port),
+			TLSCert:   tlsCert,
+			TLSKey:    tlsKey,
+			AuthToken: authToken,
 		})
 
 		// Cancel the run context on SIGINT/SIGTERM to trigger graceful shutdown.
@@ -82,11 +104,30 @@ func init() {
 	ServeCmd.Flags().StringVar(&serveTLSCert, "tls-cert", "", "Path to TLS certificate (enables HTTPS when set with --tls-key)")
 	ServeCmd.Flags().StringVar(&serveTLSKey, "tls-key", "", "Path to TLS private key")
 	ServeCmd.Flags().StringVar(&serveAuthToken, "auth-token", "", "Require this bearer token on /v1 routes (auth disabled when empty)")
+	ServeCmd.Flags().StringVar(&serveVendor, "vendor", "", "Force a vendor plugin (generic|hpe|dell|supermicro|cray|lenovo) instead of auto-detecting.")
 	ServeCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Path to the node secrets file")
 	ServeCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore BMC TLS verification errors")
 
 	checkBindFlagError(viper.BindPFlag("server.host", ServeCmd.Flags().Lookup("host")))
 	checkBindFlagError(viper.BindPFlag("server.port", ServeCmd.Flags().Lookup("port")))
+	checkBindFlagError(viper.BindPFlag("server.tls-cert", ServeCmd.Flags().Lookup("tls-cert")))
+	checkBindFlagError(viper.BindPFlag("server.tls-key", ServeCmd.Flags().Lookup("tls-key")))
+	checkBindFlagError(viper.BindPFlag("server.auth-token", ServeCmd.Flags().Lookup("auth-token")))
+	checkBindFlagError(viper.BindPFlag("server.vendor", ServeCmd.Flags().Lookup("vendor")))
+	checkBindFlagError(viper.BindPFlag("server.secrets-file", ServeCmd.Flags().Lookup("secrets-file")))
+	checkBindFlagError(viper.BindPFlag("server.insecure", ServeCmd.Flags().Lookup("insecure")))
+
+	// The man page documents both a SERVER_*-prefixed name and a short unprefixed
+	// alias for each setting; bind both so either form resolves. AutomaticEnv
+	// already honors the SERVER_* forms via SetEnvKeyReplacer in root.go.
+	checkBindFlagError(viper.BindEnv("server.host", "SERVER_HOST", "HOST"))
+	checkBindFlagError(viper.BindEnv("server.port", "SERVER_PORT", "PORT"))
+	checkBindFlagError(viper.BindEnv("server.tls-cert", "SERVER_TLS_CERT", "TLS_CERT"))
+	checkBindFlagError(viper.BindEnv("server.tls-key", "SERVER_TLS_KEY", "TLS_KEY"))
+	checkBindFlagError(viper.BindEnv("server.auth-token", "SERVER_AUTH_TOKEN", "AUTH_TOKEN"))
+	checkBindFlagError(viper.BindEnv("server.vendor", "SERVER_VENDOR"))
+	checkBindFlagError(viper.BindEnv("server.secrets-file", "SECRETS_FILE"))
+	checkBindFlagError(viper.BindEnv("server.insecure", "INSECURE"))
 
 	rootCmd.AddCommand(ServeCmd)
 }
