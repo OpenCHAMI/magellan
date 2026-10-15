@@ -17,7 +17,7 @@ type BMCCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
-type Node struct {
+type InventoryNode struct {
 	ClusterID    string   `yaml:"cluster_id"`
 	BmcIP        string   `yaml:"bmc_ip"`
 	NodeID       string   `yaml:"node_id"`
@@ -90,9 +90,9 @@ func GetBMCCredentialsOrDefault(store secrets.SecretStore, id string) BMCCredent
 //   - filename: the path of the YAML file to parse for inventory data, or `-` for stdin.
 //
 // Returns:
-//   - []bmc.Node: A slice of structs containing relevant details for connecting to a node via its BMC.
+//   - []bmc.InventoryNode: Inventory records containing details for connecting to systems via their BMCs.
 //   - error: An error object if any error occurs during the connection or reset process.
-func ParseInventory(filename string, dataFormat format.DataFormat) ([]Node, error) {
+func ParseInventory(filename string, dataFormat format.DataFormat) ([]InventoryNode, error) {
 	// Read `collect`ed data from YAML file
 	var (
 		contents []byte
@@ -127,7 +127,7 @@ func ParseInventory(filename string, dataFormat format.DataFormat) ([]Node, erro
 		return nil, err
 	}
 
-	nodelist := make([]Node, 0, len(inventory))
+	nodelist := make([]InventoryNode, 0, len(inventory))
 	for i := range inventory {
 		systems := inventory[i].Systems
 		for j := range systems {
@@ -137,7 +137,7 @@ func ParseInventory(filename string, dataFormat format.DataFormat) ([]Node, erro
 					macs = append(macs, ethernet.MAC)
 				}
 			}
-			nodelist = append(nodelist, Node{
+			nodelist = append(nodelist, InventoryNode{
 				// TODO: This assumes indices in the Systems list correspond to nodes' "…nX" xname components.
 				// If the list is reordered at any point, or if nodes were missing during crawl, this may not hold!
 				// FIXME: This assumes strict xname formatting! To become xname-agnostic, this should be

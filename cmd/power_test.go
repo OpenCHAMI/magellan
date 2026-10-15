@@ -59,7 +59,7 @@ func TestPowerIdentifierLookupFromInventory(t *testing.T) {
 
 func TestPowerCrawlerConfigPropagatesCACertPath(t *testing.T) {
 	store := secrets.NewStaticStore("user", "pass")
-	node := bmc.Node{BmcIP: "192.0.2.10"}
+	node := bmc.InventoryNode{BmcIP: "192.0.2.10"}
 
 	config := powerCrawlerConfig(node, store, false, "/etc/magellan/bmc-ca.pem")
 	require.Equal(t, "https://192.0.2.10", config.URI)
@@ -83,7 +83,7 @@ func TestPowerCACertFlagBindsPath(t *testing.T) {
 
 	require.NoError(t, PowerCmd.Flags().Set("cacert", "/etc/magellan/bmc-ca.pem"))
 	require.Equal(t, "/etc/magellan/bmc-ca.pem", cacertPath)
-	config := powerCrawlerConfig(bmc.Node{BmcIP: "192.0.2.10"}, secrets.NewStaticStore("user", "pass"), false, cacertPath)
+	config := powerCrawlerConfig(bmc.InventoryNode{BmcIP: "192.0.2.10"}, secrets.NewStaticStore("user", "pass"), false, cacertPath)
 	require.Equal(t, cacertPath, config.CACertPath)
 }
 

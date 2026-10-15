@@ -7,16 +7,6 @@ import (
 	"github.com/stmcginnis/gofish/schemas"
 )
 
-// BMCInfo describes a Redfish Manager, not the ComputerSystem represented by Node.
-type BMCInfo struct {
-	Manufacturer    string `json:"manufacturer"`
-	Model           string `json:"model"`
-	SerialNumber    string `json:"serial_number"`
-	FirmwareVersion string `json:"firmware_version"`
-	ManagerType     string `json:"manager_type"`
-	UUID            string `json:"uuid"`
-}
-
 // IsBMC reports whether a Redfish Manager represents a BMC.
 func IsBMC(manager *schemas.Manager) bool {
 	if manager == nil {
@@ -25,9 +15,9 @@ func IsBMC(manager *schemas.Manager) bool {
 	return manager.ManagerType == schemas.BMCManagerType || manager.ManagerType == schemas.ManagementControllerManagerType
 }
 
-// GetBMCInfo retrieves identity details for all BMC managers.
-func GetBMCInfo(client *gofish.APIClient) ([]BMCInfo, error) {
-	var bmcList []BMCInfo
+// GetBMCManagers retrieves all Redfish Manager resources that represent BMCs.
+func GetBMCManagers(client *gofish.APIClient) ([]*schemas.Manager, error) {
+	var bmcManagers []*schemas.Manager
 	managers, err := client.Service.Managers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve managers: %v", err)
@@ -36,14 +26,7 @@ func GetBMCInfo(client *gofish.APIClient) ([]BMCInfo, error) {
 		if !IsBMC(manager) {
 			continue
 		}
-		bmcList = append(bmcList, BMCInfo{
-			Manufacturer:    manager.Manufacturer,
-			Model:           manager.Model,
-			SerialNumber:    manager.SerialNumber,
-			FirmwareVersion: manager.FirmwareVersion,
-			ManagerType:     string(manager.ManagerType),
-			UUID:            manager.UUID,
-		})
+		bmcManagers = append(bmcManagers, manager)
 	}
-	return bmcList, nil
+	return bmcManagers, nil
 }

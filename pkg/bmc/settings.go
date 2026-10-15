@@ -1052,7 +1052,7 @@ func Connect(nodeArg string, inventoryFile string, inputFormat format.DataFormat
 			return nil, fmt.Errorf("failed to parse inventory file %s: %w", inventoryFile, err)
 		}
 
-		var found *Node
+		var found *InventoryNode
 		for i := range nodes {
 			if nodes[i].ClusterID == nodeArg || nodes[i].NodeID == nodeArg {
 				found = &nodes[i]

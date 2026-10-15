@@ -19,7 +19,7 @@ func TestIsBMC(t *testing.T) {
 	require.False(t, IsBMC(&schemas.Manager{ManagerType: schemas.ManagerType("EnclosureManager")}))
 }
 
-func TestGetBMCInfo(t *testing.T) {
+func TestGetBMCManagers(t *testing.T) {
 	for _, failManagers := range []bool{false, true} {
 		name := "manager identity"
 		if failManagers {
@@ -48,17 +48,21 @@ func TestGetBMCInfo(t *testing.T) {
 			})
 			require.NoError(t, err)
 			t.Cleanup(client.Logout)
-			info, err := GetBMCInfo(client)
+			managers, err := GetBMCManagers(client)
 			if failManagers {
 				require.ErrorContains(t, err, "failed to retrieve managers")
-				require.Nil(t, info)
+				require.Nil(t, managers)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, []BMCInfo{{
-				Manufacturer: "Vendor", Model: "Controller", SerialNumber: "BMC-SERIAL",
-				FirmwareVersion: "1.2.3", ManagerType: "BMC", UUID: "bmc-uuid",
-			}}, info)
+			require.Len(t, managers, 1)
+			require.Equal(t, "bmc", managers[0].ID)
+			require.Equal(t, "Vendor", managers[0].Manufacturer)
+			require.Equal(t, "Controller", managers[0].Model)
+			require.Equal(t, "BMC-SERIAL", managers[0].SerialNumber)
+			require.Equal(t, "1.2.3", managers[0].FirmwareVersion)
+			require.Equal(t, schemas.BMCManagerType, managers[0].ManagerType)
+			require.Equal(t, "bmc-uuid", managers[0].UUID)
 		})
 	}
 }

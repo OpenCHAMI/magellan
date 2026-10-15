@@ -27,7 +27,7 @@ var (
 	powerVendor      string
 )
 
-func powerCrawlerConfig(node bmc.Node, store secrets.SecretStore, insecure bool, cacertPath string) crawler.CrawlerConfig {
+func powerCrawlerConfig(node bmc.InventoryNode, store secrets.SecretStore, insecure bool, cacertPath string) crawler.CrawlerConfig {
 	return crawler.CrawlerConfig{
 		URI:             normalizeBMCURI(node.BmcIP),
 		CredentialStore: store,
@@ -212,7 +212,7 @@ func setupCredentialStore() secrets.SecretStore {
 }
 
 // loadInventory reads and parses the node inventory from the configured file or default location.
-func loadInventory() []bmc.Node {
+func loadInventory() []bmc.InventoryNode {
 	var datafile string
 	if viper.IsSet("inventory-file") {
 		datafile = viper.GetString("inventory-file")
@@ -231,7 +231,7 @@ func loadInventory() []bmc.Node {
 
 // findNodeByIdentifier searches the inventory for a node matching the given identifier.
 // It automatically detects the identifier type and searches the appropriate field(s).
-func findNodeByIdentifier(nodes []bmc.Node, identifier string) (*bmc.Node, error) {
+func findNodeByIdentifier(nodes []bmc.InventoryNode, identifier string) (*bmc.InventoryNode, error) {
 	identifierType := bmc.DetectIdentifierType(identifier)
 
 	switch identifierType {
@@ -287,7 +287,7 @@ func handleDirectIPConnection(ctx context.Context, ipAddr string, store secrets.
 	log.Info().Msgf("connecting directly to BMC at %s (no inventory file required)", ipAddr)
 
 	// Build connection config
-	config := powerCrawlerConfig(bmc.Node{BmcIP: ipAddr}, store, insecure, cacertPath)
+	config := powerCrawlerConfig(bmc.InventoryNode{BmcIP: ipAddr}, store, insecure, cacertPath)
 
 	// Connect to BMC
 	client, err := bmc.DefaultManager.Client(ctx, config)
