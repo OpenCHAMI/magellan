@@ -1,31 +1,23 @@
 module github.com/openchami/magellan
 
-go 1.26.0
-
-require (
-	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
-	github.com/go-chi/chi/v5 v5.3.2
-	github.com/jmoiron/sqlx v1.4.0
-	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
-	github.com/spf13/cobra v1.10.2
-	github.com/spf13/viper v1.21.0
-	github.com/stmcginnis/gofish v0.25.0
-)
+go 1.27.2
 
 require (
 	github.com/Cray-HPE/hms-xname v1.4.0
-	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
+	github.com/go-chi/chi/v5 v5.5.0
+	github.com/jmoiron/sqlx v1.4.0
+	github.com/mattn/go-sqlite3 v1.14.52
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/rs/zerolog v1.35.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
+	github.com/spf13/viper v1.21.0
+	github.com/stmcginnis/gofish v0.27.0
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.58.0
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.57.0
-)
-
-require (
-	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.24 // indirect
+	modernc.org/sqlite v1.60.1
 )
 
 require (
@@ -34,6 +26,8 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
@@ -43,11 +37,10 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	modernc.org/libc v1.74.4 // indirect
+	modernc.org/libc v1.77.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.11.0 // indirect
+	modernc.org/memory v1.12.1 // indirect
 )
