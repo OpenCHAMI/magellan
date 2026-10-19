@@ -80,7 +80,8 @@ The *magellan* command accepts
 
 *--log-file* _path_
 	Set the path to write logs. If no _path_ is set, then no log file is created
-	or used (default).
+	or used (default). Messages written to the log file are always recorded as
+	raw JSON events with timestamps, regardless of the *--log-format* setting.
 
 *-l, --log-level* _level_
 	Set the global logger log level. Log levels with higher internal values than
@@ -98,6 +99,29 @@ The *magellan* command accepts
 	- _error_
 	- _disabled_
 
+*--log-format* _format_
+	Set the format of log messages written to standard error. This affects log
+	messages only; the data written by commands (see the *--output-format* and
+	*--input-format* options) is not affected.
+
+	Available log formats:
+
+	- _json_ (default): raw JSON log events
+	- _rfc3339_: human-readable console format with RFC3339 timestamps
+	- _basic_: compact console format without timestamps
+
+*--log-color* _mode_
+	Control ANSI colorization of log messages written to standard error in the
+	*rfc3339* and *basic* log formats. This option has no effect when the log
+	format is *json*.
+
+	Available color modes:
+
+	- _auto_ (default): colorize when standard error is a terminal and the
+	  *NO_COLOR* environment variable is not set
+	- _on_: always colorize
+	- _off_: never colorize
+
 *-t, --timeout* _time_in_secs_
 	Set the timeout for requests in seconds. This includes requests used in *scan*,
 	*crawl*, *collect*, and *send*. By default, the value of _time_in_secs_ is 5.
@@ -110,6 +134,8 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *CONCURRENCY*: Sets the number of concurrent processes
 - *TIMEOUT*: Sets the timeout for requests in seconds
 - *LOG_LEVEL*: Sets the logger log-level
+- *LOG_FORMAT*: Sets the log message format (json, rfc3339, basic)
+- *LOG_COLOR*: Sets log color output (auto, on, off)
 - *ACCESS_TOKEN*: Sets the access token
 - *CACHE*: Sets the scanning result cache path
 - *CONFIG*: Sets the config file path

@@ -302,14 +302,16 @@ Available Commands:
   version     Print version info and exit
 
 Flags:
-      --access-token string   Set the access token
-      --cache string          Set the scanning result cache path (default "/tmp/allend/magellan/assets.db")
-  -j, --concurrency int       Set the number of concurrent processes (default -1)
-  -c, --config string         Set the config file path
-  -h, --help                  help for magellan
-      --log-file string       Set the path to store a log file
-  -l, --log-level LogLevel    Set the logger log-level (debug|info|warn|error|trace|disabled) (default info)
-  -t, --timeout int           Set the timeout for requests in seconds (default 5)
+      --access-token string    Set the access token
+      --cache string           Set the scanning result cache path (default "/tmp/allend/magellan/assets.db")
+  -j, --concurrency int        Set the number of concurrent processes (default -1)
+  -c, --config string          Set the config file path
+  -h, --help                   help for magellan
+      --log-color LogColor     Set log color output (auto|on|off) (default auto)
+      --log-file string        Set the path to store a log file
+      --log-format LogFormat   Set the log message format (json|rfc3339|basic) (default json)
+  -l, --log-level LogLevel     Set the logger log-level (debug|info|warn|error|trace|disabled) (default info)
+  -t, --timeout int            Set the timeout for requests in seconds (default 5)
 
 Use "magellan [command] --help" for more information about a command.
 
@@ -677,6 +679,8 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **Global** | `--concurrency` | `CONCURRENCY` | Sets the number of concurrent processes |
 | **Global** | `--timeout` | `TIMEOUT` | Sets the timeout for requests in seconds |
 | **Global** | `--log-level` | `LOG_LEVEL` | Sets the logger log-level (debug, info, warn, etc.) |
+| **Global** | `--log-format` | `LOG_FORMAT` | Sets the log message format (json, rfc3339, basic) |
+| **Global** | `--log-color` | `LOG_COLOR` | Sets log color output (auto, on, off) |
 | **Global** | `--access-token` | `ACCESS_TOKEN` | Sets the access token |
 | **Global** | `--cache` | `CACHE` | Sets the scanning result cache path (takes precedence over stdin when set) |
 | **Global** | `--config`, `-c` | `CONFIG` | Sets the config file path |
