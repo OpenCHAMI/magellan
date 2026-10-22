@@ -30,8 +30,12 @@ magellan power 6dd96f87-48e1-4b8e-9f00-f1f0015f3ef5 -o off --inventory-file node
 	made to BMC nodes. When this flag is not provided, the default system
 	certificates are used instead.
 
-	*-i, --insecure*                   
-	Skip TLS certificate verification for requests for power reset actions.
+	*-i, --insecure* _scope_
+	Skip TLS certificate verification for requests for power reset actions, for
+	the given scope: *none* (verify everywhere, the default), *bmc* (BMC
+	connections), *secrets* (the secret manager connection), or *both*. The
+	bare form *-i*/*--insecure* (and the *true* alias) means *bmc*; *false*
+	means *none*.
 
 *-f, --inventory-file* _path_
 	YAML file containing node inventory.

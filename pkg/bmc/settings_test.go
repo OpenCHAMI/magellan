@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync"
 	"testing"
 
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/stmcginnis/gofish"
 	"github.com/stretchr/testify/require"
 )
@@ -467,4 +469,66 @@ func TestResetManagerRejectsUnsupportedResetType(t *testing.T) {
 			require.Empty(t, f.capturedWrites())
 		})
 	}
+}
+
+func TestSettingsCredentialStore(t *testing.T) {
+	t.Cleanup(func() {
+		SettingsUsername, SettingsPassword = "", ""
+		SettingsSecretsFile, SettingsSecretsBackend = "", ""
+		SettingsInsecureTLS = false
+		SettingsCACertPath = ""
+	})
+	SettingsUsername, SettingsPassword = "", ""
+	SettingsSecretsFile, SettingsSecretsBackend = "", ""
+	SettingsInsecureTLS = false
+	SettingsCACertPath = ""
+
+	// Ensure a developer's real BAO_*/VAULT_* credentials never satisfy the
+	// bao backend in this test.
+	for _, name := range []string{"BAO_TOKEN", "BAO_ROLE_ID", "BAO_SECRET_ID", "VAULT_TOKEN", "VAULT_ROLE_ID", "VAULT_SECRET_ID"} {
+		t.Setenv(name, "")
+	}
+
+	t.Run("static store from flags", func(t *testing.T) {
+		SettingsUsername, SettingsPassword = "admin", "pass"
+		t.Cleanup(func() { SettingsUsername, SettingsPassword = "", "" })
+
+		store, err := SettingsCredentialStore()
+		require.NoError(t, err)
+		require.IsType(t, &secrets.StaticStore{}, store)
+	})
+
+	t.Run("local backend by default", func(t *testing.T) {
+		masterKey, err := secrets.GenerateMasterKey()
+		require.NoError(t, err)
+		t.Setenv("MASTER_KEY", masterKey)
+		SettingsSecretsFile = filepath.Join(t.TempDir(), "secrets.json")
+		t.Cleanup(func() { SettingsSecretsFile = "" })
+
+		store, err := SettingsCredentialStore()
+		require.NoError(t, err)
+		require.IsType(t, &secrets.LocalSecretStore{}, store)
+	})
+
+	t.Run("local backend requires a secrets file", func(t *testing.T) {
+		SettingsSecretsFile = ""
+		_, err := SettingsCredentialStore()
+		require.ErrorContains(t, err, "BMC credentials are required")
+	})
+
+	t.Run("unknown backend", func(t *testing.T) {
+		SettingsSecretsBackend = "consul"
+		t.Cleanup(func() { SettingsSecretsBackend = "" })
+
+		_, err := SettingsCredentialStore()
+		require.ErrorContains(t, err, "unknown secrets backend")
+	})
+
+	t.Run("bao backend without credentials", func(t *testing.T) {
+		SettingsSecretsBackend = "bao"
+		t.Cleanup(func() { SettingsSecretsBackend = "" })
+
+		_, err := SettingsCredentialStore()
+		require.ErrorContains(t, err, "no credentials for OpenBao/Vault")
+	})
 }

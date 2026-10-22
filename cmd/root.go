@@ -21,9 +21,11 @@ import (
 	"strings"
 
 	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/internal/insecure"
 	logger "github.com/openchami/magellan/internal/log"
 	"github.com/openchami/magellan/internal/util"
 	_ "github.com/openchami/magellan/pkg/bmc/vendors"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -32,27 +34,28 @@ import (
 
 // CLI arguments as variables to not fiddle with error-prone strings
 var (
-	accessToken string
-	timeout     int
-	concurrency int
-	ports       []int
-	protocol    string
-	cacertPath  string
-	username    string
-	password    string
-	cachePath   string
-	outputPath  string
-	outputDir   string
-	configPath  string
-	showOutput  bool
-	forceUpdate bool
-	insecure    bool
-	idMap       string
-	logLevel    logger.LogLevel = logger.INFO
-	logFormat   logger.LogFormat = logger.FORMAT_JSON
-	logColor    logger.LogColor  = logger.COLOR_AUTO
-	logFile     string
-	tokenPath   string
+	accessToken    string
+	timeout        int
+	concurrency    int
+	ports          []int
+	protocol       string
+	cacertPath     string
+	username       string
+	password       string
+	cachePath      string
+	outputPath     string
+	outputDir      string
+	configPath     string
+	showOutput     bool
+	forceUpdate    bool
+	idMap          string
+	insecureScope  insecure.Scope   = insecure.None
+	secretsBackend secrets.Backend  = secrets.BackendLocal
+	logLevel       logger.LogLevel  = logger.INFO
+	logFormat      logger.LogFormat = logger.FORMAT_JSON
+	logColor       logger.LogColor  = logger.COLOR_AUTO
+	logFile        string
+	tokenPath      string
 )
 
 // The `root` command doesn't do anything on it's own except display
@@ -115,8 +118,11 @@ func init() {
 	rootCmd.PersistentFlags().VarP(&logColor, "log-color", "", "Set log color output (auto|on|off)")
 	rootCmd.PersistentFlags().StringVar(&logFile, "log-file", "", "Set the path to store a log file")
 
+	rootCmd.PersistentFlags().VarP(&secretsBackend, "secrets-backend", "", "Set the secrets backend (local|bao|vault)")
+
 	checkRegisterFlagCompletionError(rootCmd.RegisterFlagCompletionFunc("log-format", completionLogFormat))
 	checkRegisterFlagCompletionError(rootCmd.RegisterFlagCompletionFunc("log-color", completionLogColor))
+	checkRegisterFlagCompletionError(rootCmd.RegisterFlagCompletionFunc("secrets-backend", completionSecretsBackend))
 }
 
 func checkBindFlagError(err error) {
@@ -157,13 +163,36 @@ func completionLogColor(cmd *cobra.Command, args []string, toComplete string) ([
 	return helpMapToSlice(logger.LogColorHelpMap), cobra.ShellCompDirectiveDefault
 }
 
+// completionSecretsBackend is the cobra completion function for the
+// --secrets-backend flag, which uses the secrets.Backend type.
+func completionSecretsBackend(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return helpMapToSlice(secrets.BackendHelpMap), cobra.ShellCompDirectiveDefault
+}
+
+// completionInsecureScope is the cobra completion function for the --insecure
+// flag, which uses the insecure.Scope type.
+func completionInsecureScope(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return helpMapToSlice(insecure.ScopeHelpMap), cobra.ShellCompDirectiveDefault
+}
+
+// registerInsecureFlag registers the scoped --insecure flag on the given
+// command. The bare form (--insecure/-i) resolves to the bmc scope via
+// pflag's NoOptDefVal, preserving the behavior of the old boolean flag.
+func registerInsecureFlag(cmd *cobra.Command, usage string) {
+	cmd.Flags().VarP(&insecureScope, "insecure", "i", usage)
+	if flag := cmd.Flags().Lookup("insecure"); flag != nil {
+		flag.NoOptDefVal = string(insecure.BMC)
+	}
+	checkRegisterFlagCompletionError(cmd.RegisterFlagCompletionFunc("insecure", completionInsecureScope))
+}
+
 // InitializeConfig() initializes a new config object by loading it
 // from a file given a non-empty string.
 func InitializeConfig() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 
-	for _, key := range []string{"concurrency", "timeout", "log-level", "log-format", "log-color", "access-token", "cache"} {
+	for _, key := range []string{"concurrency", "timeout", "log-level", "log-format", "log-color", "access-token", "cache", "secrets-backend"} {
 		f := rootCmd.PersistentFlags().Lookup(key)
 		viper.SetDefault(key, f.DefValue)
 		if f.Changed {
@@ -188,7 +217,7 @@ func InitializeConfig() {
 		log.Debug().Err(err).Msg("failed to load config")
 	}
 
-	for _, key := range []string{"concurrency", "timeout", "log-level", "log-format", "log-color", "access-token", "cache"} {
+	for _, key := range []string{"concurrency", "timeout", "log-level", "log-format", "log-color", "access-token", "cache", "secrets-backend"} {
 		f := rootCmd.PersistentFlags().Lookup(key)
 		if f.Changed || !viper.IsSet(key) {
 			continue
@@ -214,6 +243,10 @@ func InitializeConfig() {
 			accessToken = viper.GetString(key)
 		case "cache":
 			cachePath = viper.GetString(key)
+		case "secrets-backend":
+			if err := secretsBackend.Set(viper.GetString(key)); err != nil {
+				log.Warn().Err(err).Str("key", key).Msg("failed to set flag from config")
+			}
 		}
 	}
 }
@@ -316,5 +349,5 @@ func SetDefaults() {
 	viper.SetDefault("server.auth-token", "")
 	viper.SetDefault("server.vendor", "")
 	viper.SetDefault("server.secrets-file", "")
-	viper.SetDefault("server.insecure", false)
+	viper.SetDefault("server.insecure", string(insecure.None))
 }
