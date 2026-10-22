@@ -34,7 +34,11 @@ var secretsCmd = &cobra.Command{
   # list creds from specific secrets
   magellan secrets list -f nodes.json`,
 	Short: "Manage credentials for BMC nodes",
-	Long:  "Manage credentials for BMC nodes for querying information through Redfish. This requires generating a key and setting the 'MASTER_KEY' environment variable for the secrets store.",
+	Long: `Manage credentials for BMC nodes for querying information through Redfish. The
+default 'local' backend requires generating a key and setting the 'MASTER_KEY'
+environment variable. Use '--secrets-backend bao' (or 'vault') to manage
+credentials in an OpenBao/Vault KV v2 store instead; those backends authenticate
+with BAO_TOKEN/VAULT_TOKEN or BAO_ROLE_ID+BAO_SECRET_ID environment variables.`,
 }
 
 var secretsGenerateKeyCmd = &cobra.Command{
@@ -108,7 +112,7 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 			}
 
 			// open secret store to save credentials
-			store, err = secrets.OpenStore(secretsFile)
+			store, err = openSecretStore(secretsFile)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to open secrets store")
 				return
@@ -140,7 +144,7 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 				return
 			}
 
-			store, err = secrets.OpenStore(secretsFile)
+			store, err = openSecretStore(secretsFile)
 			if err != nil {
 				log.Error().
 					Err(err).
@@ -175,7 +179,7 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 					Msg("invalid JSON value or creds")
 				os.Exit(1)
 			}
-			store, err = secrets.OpenStore(secretsFile)
+			store, err = openSecretStore(secretsFile)
 			if err != nil {
 				log.Error().
 					Err(err).
@@ -227,7 +231,7 @@ var secretsRetrieveCmd = &cobra.Command{
 			err         error
 		)
 
-		store, err = secrets.OpenStore(secretsFile)
+		store, err = openSecretStore(secretsFile)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to open secret store")
 			return
@@ -247,7 +251,7 @@ var secretsListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	Short: "Lists all the secret IDs and their values.",
 	Run: func(cmd *cobra.Command, args []string) {
-		store, err := secrets.OpenStore(secretsFile)
+		store, err := openSecretStore(secretsFile)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -282,8 +286,8 @@ var secretsRemoveCmd = &cobra.Command{
 	Short: "Remove secrets by IDs from secret store.",
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, secretID := range args {
-			// open secret store from file
-			store, err := secrets.OpenStore(secretsFile)
+			// open the configured secret store
+			store, err := openSecretStore(secretsFile)
 			if err != nil {
 				log.Error().
 					Err(err).
@@ -303,14 +307,18 @@ var secretsRemoveCmd = &cobra.Command{
 				return
 			}
 
-			// update store by saving to original file
-			err = secrets.SaveSecrets(secretsFile, store.(*secrets.LocalSecretStore).Secrets)
-			if err != nil {
-				log.Error().
-					Err(err).
-					Str("path", secretsFile).
-					Msg("failed to save secrets to file")
-				return
+			// Persist back to the original file for the local backend.
+			// Remote backends (bao/vault) write through on removal and have
+			// no file to save.
+			if ls, ok := store.(*secrets.LocalSecretStore); ok {
+				err = secrets.SaveSecrets(secretsFile, ls.Secrets)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("path", secretsFile).
+						Msg("failed to save secrets to file")
+					return
+				}
 			}
 		}
 	},

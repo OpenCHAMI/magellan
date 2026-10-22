@@ -24,11 +24,13 @@ import (
 // CLI flags (username, password, secrets-file, insecure, cacert) and consumed
 // by Connect/SettingsCredentialStore.
 var (
-	SettingsUsername    string
-	SettingsPassword    string
-	SettingsSecretsFile string
-	SettingsInsecure    bool
-	SettingsCACertPath  string
+	SettingsUsername       string
+	SettingsPassword       string
+	SettingsSecretsFile    string
+	SettingsSecretsBackend string
+	SettingsInsecure       bool
+	SettingsInsecureTLS    bool
+	SettingsCACertPath     string
 )
 
 // SettingsCategories maps category names to a short description of each.
@@ -1080,12 +1082,21 @@ func SettingsCredentialStore() (secrets.SecretStore, error) {
 	if SettingsUsername != "" && SettingsPassword != "" {
 		return secrets.NewStaticStore(SettingsUsername, SettingsPassword), nil
 	}
-	if SettingsSecretsFile == "" {
+	backend := secrets.Backend(SettingsSecretsBackend)
+	if backend == "" {
+		backend = secrets.BackendLocal
+	}
+	if backend == secrets.BackendLocal && SettingsSecretsFile == "" {
 		return nil, fmt.Errorf("BMC credentials are required; use --username/--password or --secrets-file")
 	}
-	store, err := secrets.OpenStore(SettingsSecretsFile)
+	store, err := secrets.NewStore(secrets.StoreConfig{
+		Backend:     backend,
+		LocalFile:   SettingsSecretsFile,
+		CACert:      SettingsCACertPath,
+		InsecureTLS: SettingsInsecureTLS,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open secrets file: %w", err)
+		return nil, fmt.Errorf("failed to open secrets store: %w", err)
 	}
 	return store, nil
 }

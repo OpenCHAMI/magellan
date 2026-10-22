@@ -11,7 +11,9 @@ import (
 	"testing"
 
 	"github.com/openchami/magellan/internal/format"
+	"github.com/openchami/magellan/internal/insecure"
 	"github.com/openchami/magellan/pkg/bmc"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/openchami/magellan/pkg/test"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,15 +24,21 @@ func resetSettingsTestState(t *testing.T) {
 	t.Helper()
 	oldUsername, oldPassword := bmc.SettingsUsername, bmc.SettingsPassword
 	oldSecretsFile, oldInsecure := bmc.SettingsSecretsFile, bmc.SettingsInsecure
+	oldSecretsBackend := bmc.SettingsSecretsBackend
+	oldInsecureTLS := bmc.SettingsInsecureTLS
 	oldFormat, oldInputFormat := settingsFormat, settingsInputFormat
 	oldInventory, oldCACert := settingsInventoryFile, bmc.SettingsCACertPath
 	oldPreserve := settingsPreserveConfig
+	oldScope, oldBackend := insecureScope, secretsBackend
 	t.Cleanup(func() {
 		bmc.SettingsUsername, bmc.SettingsPassword = oldUsername, oldPassword
 		bmc.SettingsSecretsFile, bmc.SettingsInsecure = oldSecretsFile, oldInsecure
+		bmc.SettingsSecretsBackend = oldSecretsBackend
+		bmc.SettingsInsecureTLS = oldInsecureTLS
 		settingsFormat, settingsInputFormat = oldFormat, oldInputFormat
 		settingsInventoryFile, bmc.SettingsCACertPath = oldInventory, oldCACert
 		settingsPreserveConfig = oldPreserve
+		insecureScope, secretsBackend = oldScope, oldBackend
 		viper.Reset()
 		for _, command := range []commandFlagsForTest{
 			{SettingsGetCmd, []string{"inventory-file", "input-format", "username", "password", "secrets-file", "insecure", "cacert", "output-format"}},
@@ -46,6 +54,10 @@ func resetSettingsTestState(t *testing.T) {
 	})
 	bmc.SettingsUsername, bmc.SettingsPassword, bmc.SettingsSecretsFile = "", "", ""
 	bmc.SettingsInsecure = false
+	bmc.SettingsSecretsBackend = ""
+	bmc.SettingsInsecureTLS = false
+	insecureScope = insecure.None
+	secretsBackend = secrets.BackendLocal
 	settingsFormat = format.FORMAT_JSON
 	settingsInputFormat = format.FORMAT_YAML
 	settingsInventoryFile, bmc.SettingsCACertPath, settingsPreserveConfig = "", "", ""
