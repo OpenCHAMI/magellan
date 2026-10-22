@@ -23,9 +23,12 @@ magellan crawl https://bmc.example.com -i -u username -p password
 	- _json_ (default)
 	- _yaml_
 
-*-i, --insecure*
-	Skip TLS verification when making HTTP requests. This allows making requests
-	to HTTPS hosts without needing to supply a CA certificate.
+*-i, --insecure* _scope_
+	Skip TLS verification when making HTTP requests, for the given scope:
+	*none* (verify everywhere, the default), *bmc* (BMC connections), *secrets*
+	(the secret manager connection), or *both*. The bare form *-i*/*--insecure*
+	(and the *true* alias) means *bmc*; *false* means *none*. This allows
+	making requests to HTTPS hosts without needing to supply a CA certificate.
 
 *-p, --password* _value_
 	Set the password for basic authentication for requests to the BMC node.

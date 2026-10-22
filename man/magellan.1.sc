@@ -122,6 +122,27 @@ The *magellan* command accepts
 	- _on_: always colorize
 	- _off_: never colorize
 
+*--secrets-backend* _backend_
+	Set the secret store backend used to look up BMC credentials. This is a
+	global option honored by every command that reads credentials (*collect*,
+	*crawl*, *power*, *secrets*, *serve*, *settings*, and *update*).
+
+	Available backends:
+
+	- _local_ (default): encrypted JSON file on disk; requires the *MASTER_KEY*
+	  environment variable and a file path (*--secrets-file* or *secrets --file*)
+	- _bao_: OpenBao KV v2 secrets engine; authenticated with *BAO_TOKEN* or
+	  *BAO_ROLE_ID*+*BAO_SECRET_ID*, server address from *BAO_ADDR*
+	- _vault_: HashiCorp Vault KV v2 secrets engine; configured with the
+	  equivalent *VAULT_* environment variables
+
+	For the _bao_ and _vault_ backends, credentials are stored under the
+	*magellan* KV v2 mount by default (override with *BAO_MOUNT*/*VAULT_MOUNT*,
+	optionally below a path prefix set with *BAO_PREFIX*/*VAULT_PREFIX*). BMC
+	URIs are stored as base64url-encoded path segments, and the default
+	credentials use the literal path *default*. Use *--insecure=secrets* to skip
+	TLS verification for the secret manager connection.
+
 *-t, --timeout* _time_in_secs_
 	Set the timeout for requests in seconds. This includes requests used in *scan*,
 	*crawl*, *collect*, and *send*. By default, the value of _time_in_secs_ is 5.
@@ -139,6 +160,7 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *ACCESS_TOKEN*: Sets the access token
 - *CACHE*: Sets the scanning result cache path
 - *CONFIG*: Sets the config file path
+- *SECRETS_BACKEND*: Sets the secret store backend (local, bao, vault)
 
 *Scan Variables*
 - *SCAN_PORTS*: Adds additional ports to scan
@@ -198,8 +220,29 @@ The *magellan* CLI tool allows configuring its flags using environment variables
 - *INPUT_FILE*: Sets the file to read as input
 - *MASTER_KEY*: Set the generated key for the secrets file
 
+*Secret Store Variables* (bao/vault backends)
+- *BAO_ADDR* (or *VAULT_ADDR*): URL of the OpenBao/Vault server
+- *BAO_TOKEN* (or *VAULT_TOKEN*): Token used to authenticate
+- *BAO_ROLE_ID* and *BAO_SECRET_ID* (or *VAULT_ROLE_ID* and
+  *VAULT_SECRET_ID*): AppRole credentials, used when no token is set
+- *BAO_CACERT* (or *VAULT_CACERT*): Path to the CA bundle for the secret
+  manager TLS connection
+- *BAO_MOUNT* (or *VAULT_MOUNT*): KV v2 mount path (default: magellan)
+- *BAO_PREFIX* (or *VAULT_PREFIX*): Path prefix below the mount
+- *BAO_LOGIN_PATH* (or *VAULT_LOGIN_PATH*): AppRole login path (default:
+  auth/approle/login)
+
 Note: Environment variables that take multiple arguments (like *SCAN_SUBNETS* or
 *SCAN_PORTS*) should have their values delimited by a comma *,* (e.g., *SCAN_PORTS=5000,5001*).
+
+Note: The *--insecure* option accepted by *scan*, *crawl*, *collect*, *power*,
+*update*, *serve*, and the *settings* subcommands takes a scope value:
+*i*/*--insecure* with no value (or *true*) skips TLS verification for BMC
+connections only, matching earlier releases, while *--insecure=none*,
+*--insecure=bmc*, *--insecure=secrets* (the secret manager connection only),
+and *--insecure=both* select the scope explicitly. The *INSECURE*,
+*SCAN_INSECURE*, *COLLECT_INSECURE*, *CRAWL_INSECURE*, *SETTINGS_INSECURE*,
+and *UPDATE_INSECURE* variables accept the same values.
 
 # GETTING STARTED
 

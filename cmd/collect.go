@@ -150,7 +150,7 @@ available environment variables.
 			// Alternatively, locate specific credentials (falling back to default) and override those
 			// with --username or --password if either are passed.
 			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
-			if store, err = secrets.OpenStore(secretsFile); err != nil {
+			if store, err = openSecretStore(secretsFile); err != nil {
 				log.Error().Err(err).Msg("failed to open local secrets store")
 			}
 
@@ -202,7 +202,7 @@ available environment variables.
 			Concurrency:  concurrency,
 			OutputPath:   outputPath,
 			OutputDir:    outputDir,
-			Insecure:     insecure,
+			Insecure:     insecureScope.BMC(),
 			OutputFormat: collectOutputFormat,
 			InputFormat:  collectInputFormat,
 			SecretStore:  store,
@@ -235,7 +235,7 @@ func init() {
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query.")
 	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file.")
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning.")
-	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	registerInsecureFlag(CollectCmd, "Skip TLS certificate verification during probe.")
 	CollectCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run.")
 	CollectCmd.Flags().VarP(&collectInputFormat, "input-format", "f", "Set the default input data format (json|yaml).")
 	CollectCmd.Flags().VarP(&collectOutputFormat, "output-format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions).")
