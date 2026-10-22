@@ -311,6 +311,7 @@ Flags:
       --log-file string        Set the path to store a log file
       --log-format LogFormat   Set the log message format (json|rfc3339|basic) (default json)
   -l, --log-level LogLevel     Set the logger log-level (debug|info|warn|error|trace|disabled) (default info)
+      --secrets-backend Backend   Set the secrets backend (local|bao|vault) (default local)
   -t, --timeout int            Set the timeout for requests in seconds (default 5)
 
 Use "magellan [command] --help" for more information about a command.
@@ -486,6 +487,53 @@ If you pass arguments with the `--username/--password` flags, the arguments will
 > ```bash
 > magellan secrets default $username:$password
 > ```
+
+#### Using OpenBao or Vault
+
+Instead of the local encrypted file, `magellan` can store BMC credentials in a KV v2 secrets engine on an [OpenBao](https://openbao.org/) server or a HashiCorp Vault server. Select the backend with the global `--secrets-backend` flag (or the `SECRETS_BACKEND` environment variable); it is honored by every command that reads credentials, not just `secrets`:
+
+```bash
+# point magellan at an OpenBao server (Vault works the same with VAULT_* vars)
+export BAO_ADDR=https://bao.example.com:8200
+export BAO_TOKEN=$bao_token          # or BAO_ROLE_ID + BAO_SECRET_ID for AppRole
+
+# manage credentials exactly like the local backend
+magellan secrets --secrets-backend bao store https://172.16.0.105 $bmc_username:$bmc_password
+magellan secrets --secrets-backend bao list
+
+# every command honors the backend
+magellan collect --secrets-backend bao -o nodes.json
+```
+
+Details:
+
+- The KV v2 engine must be mounted at `magellan` by default; override with `BAO_MOUNT`/`VAULT_MOUNT`, and optionally store credentials below a path prefix with `BAO_PREFIX`/`VAULT_PREFIX`.
+- BMC URIs (the secret IDs) are stored as base64url-encoded path segments so any URI is a valid KV path; the default credentials use the literal path `default`. The credential value is the JSON document `{"username": ..., "password": ...}` under a single `value` field.
+- `BAO_CACERT`/`VAULT_CACERT` set the CA bundle for the secret manager connection (`--cacert` is used as a fallback), and `--insecure=secrets` skips TLS verification for that connection only. BMC connections are unaffected: they use the `bmc` scope of `--insecure`.
+- `magellan secrets list` reads the value of every secret, so its policy must grant read (not only list) on the engine.
+
+Throwaway dev-server for testing:
+
+```bash
+podman run --rm -d -p 8200:8200 --name bao-dev quay.io/openbao/openbao:latest server -dev
+export BAO_ADDR=http://127.0.0.1:8200
+export BAO_TOKEN=$(podman logs bao-dev 2>&1 | grep 'Root Token' | awk '{print $NF}')
+```
+
+> [!NOTE]
+> The OpenBao dev server mounts a KV v2 engine at `secret/`; enable one at `magellan/` with `bao secrets enable -path=magellan kv-v2`, or set `BAO_MOUNT=secret` to reuse the existing mount.
+
+#### Adding a secret store backend
+
+Backends are pluggable through the `secrets.SecretStore` interface. To add one:
+
+1. Implement the `secrets.SecretStore` interface (4 methods: `GetSecretByID`, `StoreSecretByID`, `ListSecrets`, `RemoveSecretByID`) in a new `pkg/secrets/<name>store.go`.
+2. Add a `Backend` constant, e.g. `BackendFoo Backend = "foo"`, and a matching `BackendHelpMap` entry — the help map drives `--secrets-backend` shell completion automatically.
+3. Add a case to `secrets.NewStore()` mapping `StoreConfig` fields to your constructor. Extend `StoreConfig` with backend-specific fields if needed (all optional; zero values must fail with a clear error, not panic).
+4. Add tests mirroring `pkg/secrets/baostore_test.go` (table-driven round-trip through the 4 interface methods, plus auth/config error paths).
+5. Document the backend's environment variables in this README and `man/magellan.1.sc`.
+
+No command files change: all consumers resolve stores through `openSecretStore()`, and the flag/env wiring (`--secrets-backend`, `SECRETS_BACKEND`) is backend-agnostic.
 
 ### Starting the Emulator
 
@@ -684,6 +732,7 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **Global** | `--access-token` | `ACCESS_TOKEN` | Sets the access token |
 | **Global** | `--cache` | `CACHE` | Sets the scanning result cache path (takes precedence over stdin when set) |
 | **Global** | `--config`, `-c` | `CONFIG` | Sets the config file path |
+| **Global** | `--secrets-backend` | `SECRETS_BACKEND` | Sets the secret store backend (local, bao, vault) |
 | **scan** | `--port` | `SCAN_PORTS` | Adds additional ports to scan |
 | **scan** | `--scheme` | `SCAN_SCHEME` | Sets the default scheme to use (e.g., https) |
 | **scan** | `--protocol` | `SCAN_PROTOCOL` | Sets the default protocol to use (e.g., tcp) |
@@ -691,7 +740,7 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **scan** | `--subnet-mask` | `SCAN_SUBNET_MASKS` | Sets the default subnet mask |
 | **scan** | `--disable-probing` | `SCAN_DISABLE_PROBING` | Disables probing found assets for Redfish services |
 | **scan** | `--disable-cache` | `SCAN_DISABLE_CACHE` | Disables saving found assets to cache |
-| **scan** | `--insecure`, `-i` | `SCAN_INSECURE` | Skips TLS certificate verification during probe |
+| **scan** | `--insecure`, `-i` | `SCAN_INSECURE` | TLS verification scope (none, bmc, secrets, both; `true`/`false` accepted) |
 | **scan** | `--output-format`, `-F` | `SCAN_OUTPUT_FORMAT` | Sets the output format (json, yaml) |
 | **scan** | `--output`, `-o` | `SCAN_OUTPUT` | Sets the output file path (for json/yaml formats) |
 | **collect** | `--protocol` | `COLLECT_PROTOCOL` | Sets the protocol used to query |
@@ -700,12 +749,12 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **collect** | `--username` | `COLLECT_USERNAME` | Sets the master BMC username |
 | **collect** | `--password` | `COLLECT_PASSWORD` | Sets the master BMC password |
 | **collect** | `--secrets-file` | `COLLECT_SECRETS_FILE` | Sets path to the node secrets file |
-| **collect** | `--insecure` | `COLLECT_INSECURE` | Skips TLS certificate verification during probe |
+| **collect** | `--insecure` | `COLLECT_INSECURE` | TLS verification scope (none, bmc, secrets, both; `true`/`false` accepted) |
 | **collect** | `--show-output` | `COLLECT_SHOW_OUTPUT` | Shows the output of a collect run |
 | **collect** | `--input-format` | `COLLECT_INPUT_FORMAT` | Sets the default input data format |
 | **collect** | `--output-format` | `COLLECT_OUTPUT_FORMAT` | Sets the default output data format |
 | **collect** | `--bmc-id-map` | `COLLECT_BMC_ID_MAP` | Sets the BMC ID mapping |
-| **crawl** | `--insecure` | `CRAWL_INSECURE` | Ignores SSL errors |
+| **crawl** | `--insecure` | `CRAWL_INSECURE` | TLS verification scope (none, bmc, secrets, both; `true`/`false` accepted) |
 | **crawl** | `--show-output` | `CRAWL_SHOW_OUTPUT` | Show the hardware inventory found from BMC |
 | **power** | `--cacert` | `POWER_CACERT` / `CACERT` | Sets the path to CA cert file |
 | **power** | `--format` | `POWER_FORMAT` / `FORMAT` | Sets the output format |
@@ -719,23 +768,30 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **serve** | `--tls-key` | `SERVER_TLS_KEY` / `TLS_KEY` | Path to TLS private key |
 | **serve** | `--auth-token` | `SERVER_AUTH_TOKEN` / `AUTH_TOKEN` | Bearer token required for /v1 routes |
 | **serve** | `--secrets-file` | `SECRETS_FILE` | Path to the node secrets file |
-| **serve** | `--insecure`, `-i` | `INSECURE` | Ignores BMC TLS verification errors |
+| **serve** | `--insecure`, `-i` | `INSECURE` | TLS verification scope (none, bmc, secrets, both; `true`/`false` accepted) |
 | **serve** | `--vendor` | `SERVER_VENDOR` | Forces a vendor plugin (generic\|hpe\|dell\|supermicro\|cray\|lenovo) |
 | **settings** | `--inventory-file` | `SETTINGS_INVENTORY_FILE` | File containing node inventory |
 | **settings** | `--input-format` | `SETTINGS_INPUT_FORMAT` | Sets the inventory input format (json, yaml) |
 | **settings** | `--username` | `SETTINGS_USERNAME` | Sets the master BMC username |
 | **settings** | `--password` | `SETTINGS_PASSWORD` | Sets the master BMC password |
 | **settings** | `--secrets-file` | `SETTINGS_SECRETS_FILE` | Sets the secrets file with BMC credentials |
-| **settings** | `--insecure` | `SETTINGS_INSECURE` | Skips TLS certificate verification during probe |
+| **settings** | `--insecure` | `SETTINGS_INSECURE` | TLS verification scope (none, bmc, secrets, both; `true`/`false` accepted) |
 | **settings** | `--cacert` | `SETTINGS_CACERT` | Sets the path to CA cert file |
 | **settings** | `--preserve-config` | `SETTINGS_PRESERVE_CONFIG` | Preserve settings during reset |
 | **update** | `--scheme` | `UPDATE_SCHEME` | Sets the transfer protocol |
 | **update** | `--firmware-uri` | `UPDATE_FIRMWARE_URI` | Sets the URI to retrieve the firmware |
 | **update** | `--status` | `UPDATE_STATUS` | Gets the status of the update |
-| **update** | `--insecure` | `UPDATE_INSECURE` | Allows insecure connections to the server |
+| **update** | `--insecure` | `UPDATE_INSECURE` | TLS verification scope (none, bmc, secrets, both; `true`/`false` accepted) |
 | **secrets** | `--file` | `SECRETS_FILE` | Sets the secrets file with BMC credentials |
 | **secrets** | `--input-format` | `SECRETS_INPUT_FORMAT` | Sets the input format for the secrets file |
 | **secrets** | `--input-file` | `SECRETS_INPUT_FILE` | Sets the file to read as input |
+| **secret store** | — | `BAO_ADDR` / `VAULT_ADDR` | URL of the OpenBao/Vault server (bao/vault backends) |
+| **secret store** | — | `BAO_TOKEN` / `VAULT_TOKEN` | Token used to authenticate |
+| **secret store** | — | `BAO_ROLE_ID` + `BAO_SECRET_ID` (or `VAULT_*`) | AppRole credentials, used when no token is set |
+| **secret store** | `--cacert` | `BAO_CACERT` / `VAULT_CACERT` | CA bundle for the secret manager TLS connection |
+| **secret store** | — | `BAO_MOUNT` / `VAULT_MOUNT` | KV v2 mount path (default: magellan) |
+| **secret store** | — | `BAO_PREFIX` / `VAULT_PREFIX` | Path prefix below the mount |
+| **secret store** | — | `BAO_LOGIN_PATH` / `VAULT_LOGIN_PATH` | AppRole login path (default: auth/approle/login) |
 
 > [!NOTE]
 > Due to how configuration defaults and bindings are resolved in `magellan`, some flags accept both a global variable and a command-specific variable (e.g. `--password` under `collect` accepts both `PASSWORD` and `COLLECT_PASSWORD`).

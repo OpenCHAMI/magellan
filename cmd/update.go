@@ -15,7 +15,6 @@ var (
 	firmwareUri      string
 	transferProtocol string
 	showStatus       bool
-	Insecure         bool
 )
 
 // The `update` command provides an interface to easily update firmware
@@ -52,7 +51,7 @@ var updateCmd = &cobra.Command{
 			// Alternatively, locate specific credentials (falling back to default) and override those
 			// with --username or --password if either are passed.
 			log.Debug().Str("id", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
-			if store, err = secrets.OpenStore(secretsFile); err != nil {
+			if store, err = openSecretStore(secretsFile); err != nil {
 				log.Error().Str("id", uri).Err(err).Msg("failed to open local secrets store")
 			}
 
@@ -85,7 +84,7 @@ var updateCmd = &cobra.Command{
 					URI:              arg,
 					FirmwareURI:      firmwareUri,
 					TransferProtocol: transferProtocol,
-					Insecure:         Insecure,
+					Insecure:         insecureScope.BMC(),
 					CollectParams: magellan.CollectParams{
 						SecretStore: store,
 						Timeout:     timeout,
@@ -102,7 +101,7 @@ var updateCmd = &cobra.Command{
 				URI:              arg,
 				FirmwareURI:      firmwareUri,
 				TransferProtocol: strings.ToUpper(transferProtocol),
-				Insecure:         Insecure,
+				Insecure:         insecureScope.BMC(),
 				CollectParams: magellan.CollectParams{
 					SecretStore: store,
 					Timeout:     timeout,
@@ -121,7 +120,7 @@ func init() {
 	updateCmd.Flags().StringVar(&transferProtocol, "scheme", "https", "Set the transfer protocol")
 	updateCmd.Flags().StringVar(&firmwareUri, "firmware-uri", "", "Set the URI to retrieve the firmware")
 	updateCmd.Flags().BoolVar(&showStatus, "status", false, "Get the status of the update")
-	updateCmd.Flags().BoolVarP(&Insecure, "insecure", "i", false, "Allow insecure connections to the server")
+	registerInsecureFlag(updateCmd, "Allow insecure connections to the server")
 
 	rootCmd.AddCommand(updateCmd)
 }

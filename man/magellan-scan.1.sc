@@ -95,18 +95,20 @@ SCAN_SUBNET=172.18.0.0/24 SCAN_PORTS=5000 magellan scan -l info --insecure
 
 	- https://cdn10.servertech.com/assets/documents/documents/968/original/JSON_API_Web_Service_%28JAWS%29_V1.06.pdf?1641867726
 
-*--insecure*
+*--insecure* _scope_
 	Skip TLS certificate verification with the BMC when performing probing
-	requests. After finding remote assets on a network, a subsequent request is
-	made to determine which assets run a Redfish service. The default value for
-	this flag is *false*.
+	requests, for the given scope: *none* (verify everywhere, the default),
+	*bmc* (BMC connections), *secrets* (the secret manager connection), or
+	*both*. The bare form *--insecure* (and the *true* alias) means *bmc*;
+	*false* means *none*.
 
-	When *--insecure* is set to *false*, the BMC expects a CA certificate to be
-	supplied in the request. Currently, *magellan* does not support including
-	certificates in requests to BMCs, but may support this in a future version.
+	When the scope excludes *bmc*, the BMC is expected to present a CA
+	certificate that can be verified. Currently, *magellan* does not support
+	including certificates in requests to BMCs, but may support this in a
+	future version.
 
-	It is recommended that the *--insecure* flag be set to *true* in when the BMC
-	does not require TLS verification for HTTPS requests.
+	It is recommended that the *--insecure* flag be set (i.e. the *bmc* scope)
+	when the BMC does not require TLS verification for HTTPS requests.
 	
 *-o, --output* _path_
 	Output file path (for json/yaml formats)

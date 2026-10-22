@@ -8,7 +8,6 @@ import (
 
 	"github.com/openchami/magellan/internal/server"
 	"github.com/openchami/magellan/pkg/bmc"
-	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/openchami/magellan/pkg/service"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -30,9 +29,9 @@ var (
 var ServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Run magellan as a long-lived BMC service (REST API)",
-	Long: "Run magellan as a persistent daemon exposing a REST API for BMC inventory and\n" +
-		"power operations, backed by the same shared core the CLI uses. The server runs\n" +
-		"until it receives SIGINT or SIGTERM, then drains in-flight requests.",
+	Long: `Run magellan as a persistent daemon exposing a REST API for BMC inventory and
+power operations, backed by the same shared core the CLI uses. The server runs
+until it receives SIGINT or SIGTERM, then drains in-flight requests.`,
 	Example: `  # serve on the default port (8500) using a secrets file
   magellan serve --secrets-file secrets.json
 
@@ -58,8 +57,18 @@ var ServeCmd = &cobra.Command{
 			authToken = viper.GetString("server.auth-token")
 			vendor    = viper.GetString("server.vendor")
 			secFile   = viper.GetString("server.secrets-file")
-			skipTLS   = viper.GetBool("server.insecure")
 		)
+
+		// viper unifies the --insecure flag, the server.insecure config key,
+		// and the INSECURE env var; resolve the scope here since env-only
+		// usage never touches the flag variable. The bmc scope drives BMC
+		// connections, the secrets scope drives the credential store.
+		if scope := viper.GetString("server.insecure"); scope != "" {
+			if err := insecureScope.Set(scope); err != nil {
+				log.Fatal().Err(err).Msg("invalid insecure scope")
+			}
+		}
+		skipTLS := insecureScope.BMC()
 
 		// Validate the vendor override before opening the credential store.
 		if vendor != "" {
@@ -68,9 +77,10 @@ var ServeCmd = &cobra.Command{
 			}
 		}
 
-		// Resolve BMC credentials from the local secret store, matching the
-		// other subcommands. Per-request credentials are a later enhancement.
-		store, err := secrets.OpenStore(secFile)
+		// Resolve BMC credentials from the configured secret store, matching
+		// the other subcommands. Per-request credentials are a later
+		// enhancement.
+		store, err := openSecretStore(secFile)
 		if err != nil {
 			log.Warn().Err(err).Str("path", secFile).Msg("could not open credential store; BMC operations will fail until credentials are available")
 		}
@@ -106,7 +116,7 @@ func init() {
 	ServeCmd.Flags().StringVar(&serveAuthToken, "auth-token", "", "Require this bearer token on /v1 routes (auth disabled when empty)")
 	ServeCmd.Flags().StringVar(&serveVendor, "vendor", "", "Force a vendor plugin (generic|hpe|dell|supermicro|cray|lenovo) instead of auto-detecting.")
 	ServeCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Path to the node secrets file")
-	ServeCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Ignore BMC TLS verification errors")
+	registerInsecureFlag(ServeCmd, "Skip TLS verification for BMC connections (bmc), the secret manager (secrets), both, or none")
 
 	checkBindFlagError(viper.BindPFlag("server.host", ServeCmd.Flags().Lookup("host")))
 	checkBindFlagError(viper.BindPFlag("server.port", ServeCmd.Flags().Lookup("port")))
