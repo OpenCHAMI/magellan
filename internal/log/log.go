@@ -185,20 +185,6 @@ func Init(level LogLevel, format LogFormat, color LogColor, logPath string) erro
 	return nil
 }
 
-// SetEarlyLevel applies only the log level filter, without (re)building the
-// full logger. This allows messages emitted before Init is called (e.g. while
-// configuration is being loaded) to honor the requested log level. Messages
-// emitted before Init are written to stderr as raw JSON by zerolog's default
-// logger.
-func SetEarlyLevel(ll LogLevel) error {
-	zl, err := strToLogLevel(ll)
-	if err != nil {
-		return fmt.Errorf("failed to convert log level: %v", err)
-	}
-	zerolog.SetGlobalLevel(zl)
-	return nil
-}
-
 // newStderrWriter builds the zerolog writer responsible for rendering log
 // messages on out according to the given format and color settings. The io.Writer
 // is injectable to allow unit testing of the rendered output.
@@ -237,10 +223,17 @@ func newStderrWriter(format LogFormat, color LogColor, out io.Writer) (zerolog.L
 }
 
 // noColor decides whether ANSI color codes must be suppressed for console
-// log output written to out. COLOR_AUTO disables colors when out is not a
-// terminal or when the NO_COLOR environment variable is set (see
-// https://no-color.org).
+// log output written to out.
+//
+// The NO_COLOR environment variable (see https://no-color.org) overrides every
+// color mode, including COLOR_ON, so that a single decision controls every
+// rendered part of a log event. This matters because zerolog's built-in
+// ConsoleWriter formatters independently check NO_COLOR; honoring it here as
+// well keeps the custom formatters (e.g. formatCaller) consistent with them.
 func noColor(color LogColor, out io.Writer) bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return true
+	}
 	switch color {
 	case COLOR_ON:
 		return false
@@ -248,7 +241,7 @@ func noColor(color LogColor, out io.Writer) bool {
 		return true
 	default: // COLOR_AUTO
 		f, ok := out.(*os.File)
-		return !ok || !term.IsTerminal(int(f.Fd())) || os.Getenv("NO_COLOR") != ""
+		return !ok || !term.IsTerminal(int(f.Fd()))
 	}
 }
 

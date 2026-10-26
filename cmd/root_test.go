@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -65,8 +67,11 @@ func resetRootLoggerState(t *testing.T) {
 		logFormat = logger.FORMAT_JSON
 		logColor = logger.COLOR_AUTO
 		configPath = ""
+		logFile = ""
+		configDiagnostics = nil
 	})
 	viper.Reset()
+	configDiagnostics = nil
 	configPath = filepath.Join(t.TempDir(), "nonexistent.yaml")
 }
 
@@ -117,4 +122,82 @@ func TestInvalidLogEnvValueKeepsDefault(t *testing.T) {
 
 	require.Equal(t, logger.FORMAT_JSON, logFormat)
 	require.Equal(t, logger.COLOR_AUTO, logColor)
+}
+
+// TestConfigDiagnosticsDeferredUntilLoggerReady verifies that a diagnostic
+// emitted while configuration loads (a missing config file) is collected rather
+// than written immediately, then replayed through the configured logger so it
+// honors both --log-format and --log-file (see ochami#167).
+func TestConfigDiagnosticsDeferredUntilLoggerReady(t *testing.T) {
+	resetRootLoggerState(t)
+	t.Setenv("LOG_LEVEL", "debug")
+	t.Setenv("LOG_FORMAT", "basic")
+
+	// point at a config file that doesn't exist so ReadInConfig fails and a
+	// debug diagnostic is collected
+	configPath = filepath.Join(t.TempDir(), "missing.yaml")
+
+	logPath := filepath.Join(t.TempDir(), "startup.log")
+	logFile = logPath
+
+	// capture stderr by swapping os.Stderr before InitializeLogger builds the
+	// stderr writer
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	origStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = origStderr })
+
+	InitializeConfig()
+	// the diagnostic must be collected, not emitted through the default logger
+	require.NotEmpty(t, configDiagnostics, "missing config must produce a collected diagnostic")
+
+	InitializeLogger()
+	emitConfigDiagnostics()
+
+	require.NoError(t, w.Close())
+	os.Stderr = origStderr
+	stderrBytes, err := io.ReadAll(r)
+	require.NoError(t, err)
+	stderrOut := string(stderrBytes)
+
+	// the diagnostic was rendered in the configured basic format (not raw JSON)
+	require.Contains(t, stderrOut, "failed to load config")
+	require.NotContains(t, stderrOut, `{"level"`, "diagnostic must use the configured format, not raw JSON")
+
+	// and it was appended to the log file as raw JSON
+	require.NoError(t, logger.LogFile.Sync())
+	fileBytes, err := os.ReadFile(logPath)
+	require.NoError(t, err)
+	require.Contains(t, string(fileBytes), "failed to load config")
+	require.Contains(t, string(fileBytes), `"level":"debug"`)
+}
+
+// TestConfigDiagnosticsHonourDisabledLevel verifies that config diagnostics are
+// subject to the resolved log level: with LOG_LEVEL=disabled, a collected
+// warning is not emitted even though it was recorded during config load.
+func TestConfigDiagnosticsHonourDisabledLevel(t *testing.T) {
+	resetRootLoggerState(t)
+	t.Setenv("LOG_LEVEL", "disabled")
+	t.Setenv("LOG_FORMAT", "bogus") // triggers a "failed to set flag from config" warning
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	origStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = origStderr })
+
+	InitializeConfig()
+	require.NotEmpty(t, configDiagnostics, "invalid LOG_FORMAT must produce a collected diagnostic")
+
+	InitializeLogger()
+	emitConfigDiagnostics()
+
+	require.NoError(t, w.Close())
+	os.Stderr = origStderr
+	stderrBytes, err := io.ReadAll(r)
+	require.NoError(t, err)
+
+	require.NotContains(t, string(stderrBytes), "failed to set flag from config",
+		"LOG_LEVEL=disabled must suppress collected warnings")
 }

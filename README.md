@@ -680,7 +680,7 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **Global** | `--timeout` | `TIMEOUT` | Sets the timeout for requests in seconds |
 | **Global** | `--log-level` | `LOG_LEVEL` | Sets the logger log-level (debug, info, warn, etc.) |
 | **Global** | `--log-format` | `LOG_FORMAT` | Sets the log message format (json, rfc3339, basic) |
-| **Global** | `--log-color` | `LOG_COLOR` | Sets log color output (auto, on, off) |
+| **Global** | `--log-color` | `LOG_COLOR` | Sets log color output (auto, on, off). The `NO_COLOR` environment variable overrides every mode, including `on` |
 | **Global** | `--access-token` | `ACCESS_TOKEN` | Sets the access token |
 | **Global** | `--cache` | `CACHE` | Sets the scanning result cache path (takes precedence over stdin when set) |
 | **Global** | `--config`, `-c` | `CONFIG` | Sets the config file path |

@@ -119,8 +119,11 @@ The *magellan* command accepts
 
 	- _auto_ (default): colorize when standard error is a terminal and the
 	  *NO_COLOR* environment variable is not set
-	- _on_: always colorize
+	- _on_: always colorize, unless the *NO_COLOR* environment variable is set
 	- _off_: never colorize
+
+	The *NO_COLOR* environment variable (see https://no-color.org) overrides
+	every mode, including _on_, so that no ANSI color codes are emitted.
 
 *-t, --timeout* _time_in_secs_
 	Set the timeout for requests in seconds. This includes requests used in *scan*,

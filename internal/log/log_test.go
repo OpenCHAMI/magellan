@@ -60,8 +60,6 @@ func TestInit(t *testing.T) {
 func TestInitErrors(t *testing.T) {
 	require.Error(t, Init(INFO, LogFormat("bogus"), COLOR_AUTO, ""))
 	require.Error(t, Init(INFO, FORMAT_JSON, LogColor("bogus"), ""))
-	require.Error(t, SetEarlyLevel(LogLevel("bogus")))
-	require.NoError(t, SetEarlyLevel(INFO))
 }
 
 func TestNewStderrWriterJSON(t *testing.T) {
@@ -121,9 +119,30 @@ func TestNoColor(t *testing.T) {
 	require.True(t, noColor(COLOR_AUTO, &bytes.Buffer{}))
 	require.True(t, noColor(COLOR_OFF, &bytes.Buffer{}))
 	require.False(t, noColor(COLOR_ON, &bytes.Buffer{}))
-	// NO_COLOR (https://no-color.org) disables colors in auto mode
+	// NO_COLOR (https://no-color.org) overrides every mode, including
+	// COLOR_ON, so the whole rendered event stays consistent.
 	t.Setenv("NO_COLOR", "1")
 	require.True(t, noColor(COLOR_AUTO, os.Stderr))
+	require.True(t, noColor(COLOR_ON, &bytes.Buffer{}))
+	require.True(t, noColor(COLOR_OFF, &bytes.Buffer{}))
+}
+
+// TestNoColorOverridesColorOn renders a complete rfc3339 event with COLOR_ON
+// and NO_COLOR both set, and verifies the entire line (timestamp, level,
+// message, fields, and caller) is free of ANSI codes. zerolog's built-in
+// formatters check NO_COLOR independently of ConsoleWriter.NoColor, so the
+// custom formatters must honor it too or only the caller stays colored.
+func TestNoColorOverridesColorOn(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	var buf bytes.Buffer
+	w, err := newStderrWriter(FORMAT_RFC3339, COLOR_ON, &buf)
+	require.NoError(t, err)
+	l := zerolog.New(w).With().Timestamp().Caller().Logger()
+	l.Info().Str("k", "v").Msg("uncolored")
+	out := buf.String()
+	require.NotContains(t, out, "\x1b[", "NO_COLOR must suppress every color code, got: %q", out)
+	require.Contains(t, out, "uncolored")
+	require.Contains(t, out, "k=v")
 }
 
 func TestFormatCaller(t *testing.T) {
@@ -168,26 +187,11 @@ func TestInitClosesPreviousFile(t *testing.T) {
 	require.NoError(t, LogFile.Close())
 }
 
-func TestSetEarlyLevelFiltersDefaultLogger(t *testing.T) {
-	// early messages (before Init) go through zerolog's default logger
-	var buf bytes.Buffer
-	orig := zlog.Logger
-	zlog.Logger = zerolog.New(&buf)
-	defer func() { zlog.Logger = orig }()
-	require.NoError(t, SetEarlyLevel(INFO))
-	zlog.Debug().Msg("hidden")
-	zlog.Error().Msg("shown")
-	require.NotContains(t, buf.String(), "hidden")
-	require.Contains(t, buf.String(), "shown")
-	require.NotContains(t, buf.String(), "\x1b[", "pre-init messages are raw JSON")
-}
-
 // TestInitInstallsGlobalLogger ensures Init installs a working global logger
-// and that SetEarlyLevel applies the global level filter.
+// and applies the requested level filter.
 func TestInitInstallsGlobalLogger(t *testing.T) {
 	require.NoError(t, Init(INFO, FORMAT_JSON, COLOR_OFF, ""))
 	require.Equal(t, zerolog.InfoLevel, zlog.Logger.GetLevel())
-	require.NoError(t, SetEarlyLevel(DEBUG))
-	require.Equal(t, zerolog.DebugLevel, zerolog.GlobalLevel())
-	require.NoError(t, SetEarlyLevel(INFO))
+	require.NoError(t, Init(DEBUG, FORMAT_JSON, COLOR_OFF, ""))
+	require.Equal(t, zerolog.DebugLevel, zlog.Logger.GetLevel())
 }

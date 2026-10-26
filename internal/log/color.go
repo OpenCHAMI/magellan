@@ -24,9 +24,10 @@ const (
 )
 
 // colorize returns the string s wrapped in ANSI code c, unless disabled is
-// true or c is 0. Unlike ochami's version, the NO_COLOR environment variable
-// is not checked here; it is handled centrally by noColor() so that a single
-// decision controls every rendered part.
+// true or c is 0. The NO_COLOR environment variable is honored centrally by
+// noColor(), which decides the disabled value passed here for every rendered
+// part (see https://no-color.org), so a single decision controls the entire
+// log event.
 func colorize(s interface{}, c int, disabled bool) string {
 	if disabled || c == 0 {
 		return fmt.Sprintf("%s", s)
