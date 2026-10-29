@@ -24,6 +24,7 @@ import (
 	logger "github.com/openchami/magellan/internal/log"
 	"github.com/openchami/magellan/internal/util"
 	_ "github.com/openchami/magellan/pkg/bmc/vendors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -48,7 +49,9 @@ var (
 	forceUpdate bool
 	insecure    bool
 	idMap       string
-	logLevel    logger.LogLevel = logger.INFO
+	logLevel    logger.LogLevel  = logger.INFO
+	logFormat   logger.LogFormat = logger.FORMAT_JSON
+	logColor    logger.LogColor  = logger.COLOR_AUTO
 	logFile     string
 	tokenPath   string
 )
@@ -90,8 +93,15 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		InitializeLogger()
+		// Configuration is loaded first so that --log-level/--log-format/
+		// --log-color/--log-file and their LOG_* / config-file counterparts
+		// are fully resolved before the logger is built. Any diagnostics
+		// collected while configuration loads are replayed through the
+		// configured logger afterwards (see emitConfigDiagnostics), so they
+		// honor the selected format, color, log file, and level.
 		InitializeConfig()
+		InitializeLogger()
+		emitConfigDiagnostics()
 		resolveFlagsFromViper(cmd)
 		return nil
 	}
@@ -101,13 +111,17 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Set the access token")
 	rootCmd.PersistentFlags().StringVar(&cachePath, "cache", fmt.Sprintf("/tmp/%s/magellan/assets.db", util.GetCurrentUsername()), "Set the scanning result cache path")
 	rootCmd.PersistentFlags().VarP(&logLevel, "log-level", "l", "Set the logger log-level (debug|info|warn|error|trace|disabled)")
+	rootCmd.PersistentFlags().VarP(&logFormat, "log-format", "", "Set the log message format (json|rfc3339|basic)")
+	rootCmd.PersistentFlags().VarP(&logColor, "log-color", "", "Set log color output (auto|on|off)")
 	rootCmd.PersistentFlags().StringVar(&logFile, "log-file", "", "Set the path to store a log file")
 
+	checkRegisterFlagCompletionError(rootCmd.RegisterFlagCompletionFunc("log-format", completionLogFormat))
+	checkRegisterFlagCompletionError(rootCmd.RegisterFlagCompletionFunc("log-color", completionLogColor))
 }
 
 func checkBindFlagError(err error) {
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to bind cobra/viper flag")
+		addDiagnostic(logger.WARN, err, "failed to bind cobra/viper flag", nil)
 	}
 }
 
@@ -131,13 +145,80 @@ func completionFormatData(cmd *cobra.Command, args []string, toComplete string) 
 	return helpMapToSlice(format.DataFormatHelpMap), cobra.ShellCompDirectiveDefault
 }
 
+// completionLogFormat is the cobra completion function for the --log-format
+// flag, which uses the logger.LogFormat type.
+func completionLogFormat(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return helpMapToSlice(logger.LogFormatHelpMap), cobra.ShellCompDirectiveDefault
+}
+
+// completionLogColor is the cobra completion function for the --log-color
+// flag, which uses the logger.LogColor type.
+func completionLogColor(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return helpMapToSlice(logger.LogColorHelpMap), cobra.ShellCompDirectiveDefault
+}
+
+// diagnostic is a log message collected while configuration is being loaded,
+// before the final logger has been constructed. Replaying diagnostics after
+// InitializeLogger ensures they honor the configured format, color, log file,
+// and level instead of leaking through zerolog's default JSON-to-stderr
+// logger (see ochami#167 for the same pattern).
+type diagnostic struct {
+	level  logger.LogLevel
+	err    error
+	msg    string
+	fields map[string]string
+}
+
+// configDiagnostics accumulates diagnostics emitted during configuration
+// loading. It is drained by emitConfigDiagnostics once the logger is ready.
+var configDiagnostics []diagnostic
+
+// addDiagnostic records a diagnostic to be emitted after the logger is
+// initialized. fields may be nil.
+func addDiagnostic(level logger.LogLevel, err error, msg string, fields map[string]string) {
+	configDiagnostics = append(configDiagnostics, diagnostic{
+		level:  level,
+		err:    err,
+		msg:    msg,
+		fields: fields,
+	})
+}
+
+// emitConfigDiagnostics replays the diagnostics collected while configuration
+// was loaded through the now-configured global logger, then clears them. This
+// runs after InitializeLogger so that --log-format, --log-color, --log-file,
+// and the resolved --log-level/LOG_LEVEL all apply.
+func emitConfigDiagnostics() {
+	for _, d := range configDiagnostics {
+		var evt *zerolog.Event
+		switch d.level {
+		case logger.DEBUG:
+			evt = log.Debug()
+		case logger.WARN:
+			evt = log.Warn()
+		case logger.ERROR:
+			evt = log.Error()
+		default:
+			evt = log.Info()
+		}
+		if d.err != nil {
+			evt = evt.Err(d.err)
+		}
+		for k, v := range d.fields {
+			evt = evt.Str(k, v)
+		}
+		evt.Msg(d.msg)
+	}
+	configDiagnostics = nil
+}
+
 // InitializeConfig() initializes a new config object by loading it
 // from a file given a non-empty string.
 func InitializeConfig() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 
-	for _, key := range []string{"concurrency", "timeout", "log-level", "access-token", "cache"} {
+	for _, key := range []string{"concurrency", "timeout", "log-level", "log-format", "log-color", "access-token", "cache"} {
 		f := rootCmd.PersistentFlags().Lookup(key)
 		viper.SetDefault(key, f.DefValue)
 		if f.Changed {
@@ -159,10 +240,10 @@ func InitializeConfig() {
 		viper.SetConfigFile(configPath)
 	}
 	if err := viper.ReadInConfig(); err != nil {
-		log.Debug().Err(err).Msg("failed to load config")
+		addDiagnostic(logger.DEBUG, err, "failed to load config", nil)
 	}
 
-	for _, key := range []string{"concurrency", "timeout", "log-level", "access-token", "cache"} {
+	for _, key := range []string{"concurrency", "timeout", "log-level", "log-format", "log-color", "access-token", "cache"} {
 		f := rootCmd.PersistentFlags().Lookup(key)
 		if f.Changed || !viper.IsSet(key) {
 			continue
@@ -174,7 +255,15 @@ func InitializeConfig() {
 			timeout = viper.GetInt(key)
 		case "log-level":
 			if err := logLevel.Set(viper.GetString(key)); err != nil {
-				log.Warn().Err(err).Str("key", key).Msg("failed to set flag from config")
+				addDiagnostic(logger.WARN, err, "failed to set flag from config", map[string]string{"key": key})
+			}
+		case "log-format":
+			if err := logFormat.Set(viper.GetString(key)); err != nil {
+				addDiagnostic(logger.WARN, err, "failed to set flag from config", map[string]string{"key": key})
+			}
+		case "log-color":
+			if err := logColor.Set(viper.GetString(key)); err != nil {
+				addDiagnostic(logger.WARN, err, "failed to set flag from config", map[string]string{"key": key})
 			}
 		case "access-token":
 			accessToken = viper.GetString(key)
@@ -186,7 +275,7 @@ func InitializeConfig() {
 
 func InitializeLogger() {
 	// initialize the logger
-	err := logger.InitWithLogLevel(logLevel, logFile)
+	err := logger.Init(logLevel, logFormat, logColor, logFile)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to initialize logger")
 		os.Exit(1)
