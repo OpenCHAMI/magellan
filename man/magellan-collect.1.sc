@@ -82,8 +82,12 @@ magellan scan --subnet 172.18.0.0/24 --port 5000 -l info -i -F json | ./magellan
 	*timestamp* - Last time the remote asset was scanned or pinged.
 	*service_type* - Type of service. (Redfish|PDU)
 
-*-i, --insecure*                   
-	Skip TLS certificate verification during hardware inventory collection.
+*-i, --insecure* _scope_
+	Skip TLS certificate verification during hardware inventory collection, for
+	the given scope: *none* (verify everywhere, the default), *bmc* (BMC
+	connections), *secrets* (the secret manager connection), or *both*. The
+	bare form *-i*/*--insecure* (and the *true* alias) means *bmc*; *false*
+	means *none*.
 
 *-F, --output-format* _format_
 	Set the data format used for the collection output. This value is overridden
