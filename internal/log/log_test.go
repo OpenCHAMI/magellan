@@ -101,6 +101,7 @@ func TestNewStderrWriterBasic(t *testing.T) {
 }
 
 func TestNewStderrWriterColorOn(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	var buf bytes.Buffer
 	w, err := newStderrWriter(FORMAT_BASIC, COLOR_ON, &buf)
 	require.NoError(t, err)
@@ -115,6 +116,7 @@ func TestNewStderrWriterInvalid(t *testing.T) {
 }
 
 func TestNoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	// a non-terminal writer never receives colors in auto mode
 	require.True(t, noColor(COLOR_AUTO, &bytes.Buffer{}))
 	require.True(t, noColor(COLOR_OFF, &bytes.Buffer{}))
