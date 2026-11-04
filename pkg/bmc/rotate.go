@@ -41,7 +41,7 @@ func RotateStoredAccount(endpoint, accountID, newPassword string, store secrets.
 		return err
 	}
 	if err := UpdateAccount(client, accountID, string(payload)); err != nil {
-		return fmt.Errorf("password PATCH failed; outcome may be uncertain, retain both passwords and check manually: %w", err)
+		return fmt.Errorf("Redfish password PATCH returned an error; the BMC may still have applied the change, and the credential store is unchanged. Do not retry blindly: use independent administrator access to determine which password works, then repair the credential store if needed: %w", err)
 	}
 	updated := BMCCredentials{Username: creds.Username, Password: newPassword}
 	verification, err := ConnectWithCredentials(endpoint, secrets.NewStaticStore(updated.Username, updated.Password), insecure, caCert)

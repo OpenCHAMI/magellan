@@ -178,7 +178,8 @@ func TestRotateStoredAccountReportsPATCHFailureWithoutChangingStore(t *testing.T
 	store.values[server.URL] = `{"username":"test_user","password":"old-password"}`
 
 	err := RotateStoredAccount(server.URL, "2", "new-password", store, false, "")
-	require.ErrorContains(t, err, "password PATCH failed")
+	require.ErrorContains(t, err, "BMC may still have applied the change")
+	require.ErrorContains(t, err, "Do not retry blindly")
 	require.Equal(t, "old-password", fixture.password)
 	require.JSONEq(t, `{"username":"test_user","password":"old-password"}`, store.value(server.URL))
 }

@@ -61,12 +61,55 @@ func TestReadLocalRotationPasswordErrors(t *testing.T) {
 	require.ErrorContains(t, err, "required")
 }
 
+func TestResolveRotationPasswordUsesEnvironmentBeforeLocalSecret(t *testing.T) {
+	masterKey, err := secrets.GenerateMasterKey()
+	require.NoError(t, err)
+	t.Setenv("MASTER_KEY", masterKey)
+	t.Setenv(rotationPasswordEnv, "environment-password")
+
+	path := filepath.Join(t.TempDir(), "rotation-secrets.json")
+	store, err := secrets.NewLocalSecretStore(masterKey, path, true)
+	require.NoError(t, err)
+	credential, err := json.Marshal(bmc.BMCCredentials{Username: "test_user", Password: "stored-password"})
+	require.NoError(t, err)
+	require.NoError(t, store.StoreSecretByID("rotation", string(credential)))
+
+	got, err := resolveRotationPassword("rotation", path)
+	require.NoError(t, err)
+	require.Equal(t, "environment-password", got)
+}
+
+func TestResolveRotationPasswordFallsBackToLocalSecret(t *testing.T) {
+	masterKey, err := secrets.GenerateMasterKey()
+	require.NoError(t, err)
+	t.Setenv("MASTER_KEY", masterKey)
+	t.Setenv(rotationPasswordEnv, "")
+
+	path := filepath.Join(t.TempDir(), "rotation-secrets.json")
+	store, err := secrets.NewLocalSecretStore(masterKey, path, true)
+	require.NoError(t, err)
+	credential, err := json.Marshal(bmc.BMCCredentials{Username: "test_user", Password: "stored-password"})
+	require.NoError(t, err)
+	require.NoError(t, store.StoreSecretByID("rotation", string(credential)))
+
+	got, err := resolveRotationPassword("rotation", path)
+	require.NoError(t, err)
+	require.Equal(t, "stored-password", got)
+}
+
+func TestResolveRotationPasswordRequiresInput(t *testing.T) {
+	t.Setenv(rotationPasswordEnv, "")
+	_, err := resolveRotationPassword("", "")
+	require.ErrorContains(t, err, rotationPasswordEnv)
+}
+
 func TestRotateAccountCommandUsesSecretIDInsteadOfPasswordFile(t *testing.T) {
 	require.NotNil(t, rotateAccountCmd.Flags().Lookup("new-password-secret-id"))
 	require.NotNil(t, rotateAccountCmd.Flags().Lookup("new-password-secrets-file"))
 	require.NotNil(t, rotateAccountCmd.Flags().Lookup("secrets-file"))
 	require.Nil(t, rotateAccountCmd.Flags().Lookup("new-password-file"))
 	require.Contains(t, rotateAccountCmd.Long, "selected --secrets-backend")
+	require.Contains(t, rotateAccountCmd.Long, rotationPasswordEnv)
 }
 
 type rotateCommandFixture struct {
