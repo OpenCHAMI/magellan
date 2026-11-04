@@ -659,6 +659,36 @@ There is no upper limit on the number of property arguments: `list` and `get` wa
 
 The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations accept a resource ID or name, or `default` to select the first resource. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
 
+#### Rotating a BMC Account Password
+
+`settings rotate-account` reads the replacement credential from Magellan's local encrypted secrets file, independently of the backend used for the current BMC credential. After the BMC change is verified, Magellan updates the current credential in the selected backend (`local`, `bao`, or `vault`). The replacement entry uses the normal credential JSON shape and only its `password` field is used.
+
+For example, seed a replacement credential in a separate local encrypted file, then rotate while using OpenBao for the current BMC credential:
+
+```bash
+export MASTER_KEY=$(magellan secrets generatekey)
+
+# Store the replacement in the local encrypted store. The value is encrypted
+# at rest, but this existing command accepts it as an argument; use a trusted
+# host and account for shell-history/process-list exposure during import.
+magellan --secrets-backend local secrets store next-test-password \
+  '{"username":"test_user","password":"REPLACEMENT_PASSWORD"}' \
+  --input-format json --file rotation-secrets.json
+
+# The selected backend provides the current credential and receives the update.
+magellan --secrets-backend bao settings rotate-account 172.24.0.3 2 \
+  --new-password-secret-id next-test-password \
+  --new-password-secrets-file rotation-secrets.json
+```
+
+The destination backend's local file, if applicable, is selected with
+`--secrets-file`. The replacement source is always the encrypted local file
+selected by `--new-password-secrets-file` and requires `MASTER_KEY`. If the BMC
+changes its password but verification or the destination-store write fails,
+Magellan cannot roll the change back; retain the replacement entry and use
+independent BMC administrator access to repair credentials manually. Automatic
+recovery and concurrent-writer protection are not implemented.
+
 See `magellan-settings(1)` for more details.
 
 ### Daemon Mode

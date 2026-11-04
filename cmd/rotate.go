@@ -1,63 +1,78 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
 )
 
-var rotationPasswordFile string
+var (
+	rotationPasswordSecretID string
+	rotationSecretsFile      string
+)
 
 var rotateAccountCmd = &cobra.Command{
 	Use:   "rotate-account <bmc> <account-id>",
-	Short: "Change a BMC login password and save it to OpenBao (lab workflow)",
+	Short: "Change a BMC login password using a local encrypted secret",
 	Long: `Change the account matching the stored login username using a replacement
-password from a private file. Requires --secrets-backend bao and an exact BMC URI
-entry. Retain the file until verification is complete. There is no automatic
+credential read from Magellan's local encrypted secrets file. The updated BMC
+credential is saved to the selected --secrets-backend. There is no automatic
 recovery or concurrent-writer protection. Use only a recoverable lab account.`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if secretsBackend != secrets.BackendBao {
-			return fmt.Errorf("this lab workflow requires --secrets-backend bao")
+		if rotationPasswordSecretID == "" {
+			return fmt.Errorf("--new-password-secret-id is required")
 		}
 		endpoint, err := bmc.SettingsEndpoint(args[0])
 		if err != nil {
 			return err
 		}
-		info, err := os.Stat(rotationPasswordFile)
-		if err != nil {
-			return fmt.Errorf("read replacement password file: %w", err)
-		}
-		if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
-			return fmt.Errorf("replacement password must be a regular file accessible only by its owner (chmod 600)")
-		}
-		data, err := os.ReadFile(rotationPasswordFile)
+		newPassword, err := readLocalRotationPassword(rotationSecretsFile, rotationPasswordSecretID)
 		if err != nil {
 			return err
 		}
-		newPassword := strings.TrimSuffix(strings.TrimSuffix(string(data), "\n"), "\r")
-		if newPassword == "" || strings.ContainsAny(newPassword, "\r\n") {
-			return fmt.Errorf("password file must contain one nonempty line")
-		}
-		store, err := openSecretStore("")
+		store, err := openSecretStore(bmc.SettingsSecretsFile)
 		if err != nil {
 			return err
 		}
 		if err := bmc.RotateStoredAccount(endpoint, args[1], newPassword, store, insecureScope.BMC(), cacertPath); err != nil {
 			return err
 		}
-		_, err = fmt.Fprintln(cmd.OutOrStdout(), "BMC password verified and updated credential saved to OpenBao.")
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), "BMC password verified and updated credential saved to the selected secrets backend.")
 		return err
 	},
 }
 
 func init() {
-	rotateAccountCmd.Flags().StringVar(&rotationPasswordFile, "new-password-file", "", "Private file containing the replacement password; retain for manual recovery")
+	rotateAccountCmd.Flags().StringVar(&rotationPasswordSecretID, "new-password-secret-id", "", "ID of the replacement credential in the local encrypted secrets file")
+	rotateAccountCmd.Flags().StringVar(&rotationSecretsFile, "new-password-secrets-file", "secrets.json", "Local encrypted secrets file containing the replacement credential")
+	rotateAccountCmd.Flags().StringVar(&bmc.SettingsSecretsFile, "secrets-file", "secrets.json", "Local secrets file for the selected destination backend")
 	rotateAccountCmd.Flags().StringVar(&cacertPath, "cacert", "", "CA certificate bundle")
 	registerInsecureFlag(rotateAccountCmd, "Skip TLS verification for the selected scope (lab only).")
 	SettingsCmd.AddCommand(rotateAccountCmd)
+}
+
+func readLocalRotationPassword(filename, secretID string) (string, error) {
+	if filename == "" || secretID == "" {
+		return "", fmt.Errorf("local secrets file and replacement secret ID are required")
+	}
+	store, err := secrets.OpenStore(filename)
+	if err != nil {
+		return "", fmt.Errorf("open local encrypted secrets file: %w", err)
+	}
+	value, err := store.GetSecretByID(secretID)
+	if err != nil {
+		return "", fmt.Errorf("read replacement credential %q from local encrypted secrets: %w", secretID, err)
+	}
+	var credential bmc.BMCCredentials
+	if err := json.Unmarshal([]byte(value), &credential); err != nil {
+		return "", fmt.Errorf("replacement credential %q is not valid credential JSON: %w", secretID, err)
+	}
+	if credential.Password == "" {
+		return "", fmt.Errorf("replacement credential %q has an empty password", secretID)
+	}
+	return credential.Password, nil
 }

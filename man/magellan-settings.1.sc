@@ -11,6 +11,7 @@ magellan settings list <node> [<category> [<item> [<property>...]]] [OPTIONS]++
 magellan settings get <node> <category> [item] [property...] [OPTIONS]++
 magellan settings set <node> <category> [<item>] <property> <value> [OPTIONS]++
 magellan settings reset <node> [OPTIONS]
+magellan settings rotate-account <bmc> <account-id> --new-password-secret-id <id> [OPTIONS]
 
 # DESCRIPTION
 
@@ -63,6 +64,14 @@ used for all commands.
 	Manager.ResetToDefaults action, or does not support the requested
 	preserve type, an error is reported before any reset is attempted.
 
+*rotate-account* <bmc> <account-id>
+: Change the password for the account matching the current stored BMC username.
+: The replacement credential is read from the local encrypted secrets file by
+: *--new-password-secret-id*. After an authenticated read verifies the new
+: password, the updated BMC credential is written to the selected
+: *--secrets-backend* (local, bao, or vault). There is no automatic recovery or
+: concurrent-writer protection; use an account with independent recovery access.
+
 # FLAGS
 
 See *magellan*(1) for information about global flags and environment variables
@@ -89,7 +98,17 @@ used for all commands.
 :	Set the master BMC password.
 
 *--secrets-file* _path_
-:	Set the secrets file with BMC credentials.
+:	Set the local secrets file for the selected destination backend.
+
+*--new-password-secret-id* _id_
+:	ID of the replacement credential in the local encrypted secrets store. The
+	entry uses the normal credential JSON shape; its *password* field supplies
+	the replacement password.
+
+*--new-password-secrets-file* _path_
+:	Local encrypted secrets file containing the replacement credential. Requires
+	*MASTER_KEY*. Defaults to *secrets.json* and is independent of
+	*--secrets-backend*.
 
 *-i, --insecure* _scope_
 :	Skip TLS certificate verification, for the given scope: *none* (verify
@@ -166,6 +185,14 @@ magellan settings reset 172.16.0.105
 Factory reset preserving network settings:
 ```
 magellan settings reset 172.16.0.105 --preserve-config PreserveNetwork
+```
+
+Rotate account 2 using a replacement stored in a local encrypted store while
+reading and updating the current credential in OpenBao:
+```
+magellan --secrets-backend bao settings rotate-account 172.24.0.3 2 \
+	--new-password-secret-id next-test-password \
+	--new-password-secrets-file rotation-secrets.json
 ```
 
 Use inventory lookup for a node identifier:
