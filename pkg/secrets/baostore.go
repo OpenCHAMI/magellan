@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/openbao/openbao/api/v2"
 	"github.com/rs/zerolog/log"
@@ -35,16 +37,19 @@ const baoDefaultLoginPath = "auth/approle/login"
 // path segment below the configured mount and prefix. The literal DEFAULT_KEY
 // ("default") passes through unchanged. ListSecrets reverses the mapping.
 type BaoSecretStore struct {
-	client *api.Client
-	mount  string
-	prefix string
+	client    *api.Client
+	mount     string
+	prefix    string
+	cancel    context.CancelFunc
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 // NewBaoSecretStore builds a BaoSecretStore from cfg. Connection details come
 // from the environment: BAO_ADDR/VAULT_ADDR for the server, BAO_TOKEN/
 // VAULT_TOKEN or BAO_ROLE_ID+BAO_SECRET_ID (AppRole) for credentials, and
-// BAO_CACERT/VAULT_CACERT for the CA bundle. StoreConfig may override the CA
-// bundle (CACert), disable TLS verification (InsecureTLS, i.e.
+// BAO_CACERT/VAULT_CACERT for the CA bundle. StoreConfig supplies a fallback CA
+// bundle (CACert), disables TLS verification (InsecureTLS, i.e.
 // --insecure=secrets), and set the mount path, prefix, and AppRole login
 // path.
 func NewBaoSecretStore(cfg StoreConfig) (*BaoSecretStore, error) {
@@ -53,12 +58,11 @@ func NewBaoSecretStore(cfg StoreConfig) (*BaoSecretStore, error) {
 		return nil, fmt.Errorf("failed to configure OpenBao/Vault client: %w", apiCfg.Error)
 	}
 
-	// StoreConfig layers on top of whatever BAO_CACERT/VAULT_CACERT and
-	// BAO_SKIP_VERIFY/VAULT_SKIP_VERIFY already configured; only the fields
-	// that were actually requested are overridden.
+	// Preserve secret-manager CA files, bytes, or directories loaded by the
+	// SDK. The BMC CA is a fallback only; insecure scope may disable verification.
 	if cfg.CACert != "" || cfg.InsecureTLS {
 		tlsCfg := &api.TLSConfig{}
-		if cfg.CACert != "" {
+		if cfg.CACert != "" && firstEnv("BAO_CACERT", "VAULT_CACERT", "BAO_CACERT_BYTES", "VAULT_CACERT_BYTES", "BAO_CAPATH", "VAULT_CAPATH") == "" {
 			tlsCfg.CACert = cfg.CACert
 		}
 		if cfg.InsecureTLS {
@@ -76,8 +80,10 @@ func NewBaoSecretStore(cfg StoreConfig) (*BaoSecretStore, error) {
 
 	// NewClient picks up BAO_TOKEN/VAULT_TOKEN automatically; fall back to
 	// AppRole login when no token is available.
+	var login *api.Secret
 	if client.Token() == "" {
-		if err := baoAppRoleLogin(client, cfg); err != nil {
+		login, err = baoAppRoleLogin(context.Background(), client, cfg)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -95,21 +101,28 @@ func NewBaoSecretStore(cfg StoreConfig) (*BaoSecretStore, error) {
 		prefix = firstEnv("BAO_PREFIX", "VAULT_PREFIX")
 	}
 
-	return &BaoSecretStore{
+	store := &BaoSecretStore{
 		client: client,
 		mount:  strings.Trim(mount, "/"),
 		prefix: strings.Trim(prefix, "/"),
-	}, nil
+	}
+	if login != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		store.cancel = cancel
+		store.done = make(chan struct{})
+		go store.maintainLogin(ctx, cfg, login)
+	}
+	return store, nil
 }
 
 // baoAppRoleLogin authenticates with AppRole credentials read from the
 // BAO_ROLE_ID/BAO_SECRET_ID (or VAULT_ROLE_ID/VAULT_SECRET_ID) environment
 // variables and installs the returned token on client.
-func baoAppRoleLogin(client *api.Client, cfg StoreConfig) error {
+func baoAppRoleLogin(ctx context.Context, client *api.Client, cfg StoreConfig) (*api.Secret, error) {
 	roleID := firstEnv("BAO_ROLE_ID", "VAULT_ROLE_ID")
 	secretID := firstEnv("BAO_SECRET_ID", "VAULT_SECRET_ID")
 	if roleID == "" || secretID == "" {
-		return fmt.Errorf("no credentials for OpenBao/Vault: set BAO_TOKEN/VAULT_TOKEN or BAO_ROLE_ID and BAO_SECRET_ID")
+		return nil, fmt.Errorf("no credentials for OpenBao/Vault: set BAO_TOKEN/VAULT_TOKEN or BAO_ROLE_ID and BAO_SECRET_ID")
 	}
 
 	loginPath := cfg.LoginPath
@@ -120,18 +133,73 @@ func baoAppRoleLogin(client *api.Client, cfg StoreConfig) error {
 		loginPath = baoDefaultLoginPath
 	}
 
-	secret, err := client.Logical().Write(loginPath, map[string]any{
+	secret, err := client.Logical().WriteWithContext(ctx, loginPath, map[string]any{
 		"role_id":   roleID,
 		"secret_id": secretID,
 	})
 	if err != nil {
-		return fmt.Errorf("AppRole login to OpenBao/Vault failed: %w", err)
+		return nil, fmt.Errorf("AppRole login to OpenBao/Vault failed: %w", err)
 	}
 	if secret == nil || secret.Auth == nil || secret.Auth.ClientToken == "" {
-		return fmt.Errorf("AppRole login to OpenBao/Vault returned no client token")
+		return nil, fmt.Errorf("AppRole login to OpenBao/Vault returned no client token")
 	}
 	client.SetToken(secret.Auth.ClientToken)
+	return secret, nil
+}
+
+// Close stops AppRole renewal and cancels any in-flight reauthentication.
+func (b *BaoSecretStore) Close() error {
+	b.closeOnce.Do(func() {
+		if b.cancel != nil {
+			b.cancel()
+			<-b.done
+		}
+	})
 	return nil
+}
+
+func (b *BaoSecretStore) maintainLogin(ctx context.Context, cfg StoreConfig, secret *api.Secret) {
+	defer close(b.done)
+	for ctx.Err() == nil {
+		// Tokens with no lease do not need renewal.
+		if secret.Auth.LeaseDuration == 0 {
+			return
+		}
+		watcher, err := b.client.NewLifetimeWatcher(&api.LifetimeWatcherInput{Secret: secret})
+		if err == nil {
+			go watcher.Start()
+			select {
+			case <-ctx.Done():
+				watcher.Stop()
+				return
+			case <-watcher.DoneCh():
+				watcher.Stop()
+			}
+		}
+		// A nonrenewable or exhausted token needs a new AppRole login.
+		// Retry transient failures without spinning or logging credentials.
+		// Very short leases may exhaust the watcher's grace immediately.
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+		for delay := time.Second; ctx.Err() == nil; {
+			secret, err = baoAppRoleLogin(ctx, b.client, cfg)
+			if err == nil {
+				break
+			}
+			log.Warn().Msg("OpenBao/Vault AppRole reauthentication failed; retrying")
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+			delay = min(delay*2, 30*time.Second)
+		}
+	}
 }
 
 // firstEnv returns the first non-empty environment variable value.

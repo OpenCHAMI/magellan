@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -176,36 +175,7 @@ func setupCredentialStore() secrets.SecretStore {
 		if password != "" {
 			log.Info().Msg("--password passed, overriding all passwords from secret store")
 		}
-		switch s := store.(type) {
-		case *secrets.StaticStore:
-			if username != "" {
-				s.Username = username
-			}
-			if password != "" {
-				s.Password = password
-			}
-		case *secrets.LocalSecretStore:
-			for k := range s.Secrets {
-				if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-					log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
-				} else {
-					if username != "" {
-						creds.Username = username
-					}
-					if password != "" {
-						creds.Password = password
-					}
-					if newCreds, err := json.Marshal(creds); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to marshal updated credentials")
-					} else {
-						err = s.StoreSecretByID(k, string(newCreds))
-						if err != nil {
-							log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
-						}
-					}
-				}
-			}
-		}
+		store = credentialOverrides{store, username, password}
 	}
 
 	return store

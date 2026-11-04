@@ -786,8 +786,8 @@ The `magellan` CLI tool allows configuring its flags using environment variables
 | **secrets** | `--input-format` | `SECRETS_INPUT_FORMAT` | Sets the input format for the secrets file |
 | **secrets** | `--input-file` | `SECRETS_INPUT_FILE` | Sets the file to read as input |
 | **secret store** | — | `BAO_ADDR` / `VAULT_ADDR` | URL of the OpenBao/Vault server (bao/vault backends) |
-| **secret store** | — | `BAO_TOKEN` / `VAULT_TOKEN` | Token used to authenticate |
-| **secret store** | — | `BAO_ROLE_ID` + `BAO_SECRET_ID` (or `VAULT_*`) | AppRole credentials, used when no token is set |
+| **secret store** | — | `BAO_TOKEN` / `VAULT_TOKEN` | Caller-managed token used to authenticate; Magellan does not renew supplied tokens |
+| **secret store** | — | `BAO_ROLE_ID` + `BAO_SECRET_ID` (or `VAULT_*`) | AppRole credentials, used when no token is set; issued tokens are renewed and login is retried when renewal ends. Keep the deployed SecretID valid; Magellan does not rotate it |
 | **secret store** | `--cacert` | `BAO_CACERT` / `VAULT_CACERT` | CA bundle for the secret manager TLS connection |
 | **secret store** | — | `BAO_MOUNT` / `VAULT_MOUNT` | KV v2 mount path (default: magellan) |
 | **secret store** | — | `BAO_PREFIX` / `VAULT_PREFIX` | Path prefix below the mount |

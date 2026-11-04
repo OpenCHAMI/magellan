@@ -16,6 +16,7 @@ import (
 // cleared so a developer's real BAO_*/VAULT_* settings never leak into tests.
 var baoEnvVars = []string{
 	"BAO_ADDR", "BAO_AGENT_ADDR", "BAO_TOKEN", "BAO_NAMESPACE", "BAO_CACERT",
+	"BAO_CACERT_BYTES", "VAULT_CACERT_BYTES",
 	"BAO_CAPATH", "BAO_CLIENT_CERT", "BAO_CLIENT_KEY", "BAO_SKIP_VERIFY",
 	"BAO_TLS_SERVER_NAME", "BAO_CLIENT_TIMEOUT", "BAO_MAX_RETRIES",
 	"BAO_ROLE_ID", "BAO_SECRET_ID", "BAO_MOUNT", "BAO_PREFIX", "BAO_LOGIN_PATH",

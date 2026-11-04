@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	"github.com/openchami/magellan/internal/cache/sqlite"
 	"github.com/openchami/magellan/internal/format"
 	magellan "github.com/openchami/magellan/pkg"
-	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -163,37 +161,7 @@ available environment variables.
 			if password != "" {
 				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
 			}
-			switch s := store.(type) {
-			case *secrets.StaticStore:
-				if username != "" {
-					s.Username = username
-				}
-				if password != "" {
-					s.Password = password
-				}
-			case *secrets.LocalSecretStore:
-				for k := range s.Secrets {
-					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
-					} else {
-						if username != "" {
-							creds.Username = username
-						}
-						if password != "" {
-							creds.Password = password
-						}
-
-						if newCreds, err := json.Marshal(creds); err != nil {
-							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
-						} else {
-							err = s.StoreSecretByID(k, string(newCreds))
-							if err != nil {
-								log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
-							}
-						}
-					}
-				}
-			}
+			store = credentialOverrides{store, username, password}
 		}
 
 		// set the collect parameters from CLI params

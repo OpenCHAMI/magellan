@@ -325,6 +325,10 @@ var secretsRemoveCmd = &cobra.Command{
 }
 
 func init() {
+	secretsCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to the secret manager CA bundle (fallback for BAO_/VAULT_ CA settings)")
+	secretsCmd.PersistentFlags().Var(&insecureScope, "insecure", "Skip TLS verification for the secret manager with secrets or both (none|bmc|secrets|both)")
+	secretsCmd.PersistentFlags().Lookup("insecure").NoOptDefVal = "bmc"
+	checkRegisterFlagCompletionError(secretsCmd.RegisterFlagCompletionFunc("insecure", completionInsecureScope))
 	secretsCmd.PersistentFlags().StringVar(&secretsFile, "file", "secrets.json", "Set the secrets file with BMC credentials.")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreFormat, "input-format", "f", "basic", "Set the input format for the secrets file (basic|json|base64).")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "Set the file to read as input with credentials. The file must match the format specified with '--format'.")

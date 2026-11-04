@@ -70,20 +70,31 @@ Credentials are kept in an encrypted JSON file (see *--file* and
 ## bao
 
 Credentials are kept in a KV v2 secrets engine on an OpenBao server. The
-client is configured entirely through the environment:
+client is configured through the environment, with TLS flag fallbacks:
 
 - *BAO_ADDR*: URL of the OpenBao server (e.g. _https://bao.example.com:8200_)
 - *BAO_TOKEN*: Token with create, read, update, and delete on the KV v2
   engine. Alternatively, set *BAO_ROLE_ID* and *BAO_SECRET_ID* to log in via
   AppRole (path *BAO_LOGIN_PATH*, default _auth/approle/login_)
 - *BAO_CACERT*: Path to a CA bundle when the server certificate is not signed
-  by a system CA; the global *--cacert* flag is used as a fallback
+  by a system CA; *--cacert* is used only if no environment CA file, bytes,
+  or directory is configured
 - *BAO_MOUNT*: KV v2 mount path (default _magellan_)
 - *BAO_PREFIX*: Optional path prefix below the mount
 
 Use *--insecure=secrets* to skip TLS verification for the connection to the
 secret manager; this does not affect BMC connections (see *--insecure* in
 *magellan*(1)).
+
+The *--cacert* and long-form *--insecure* flags are inherited by *store*,
+*retrieve*, *list*, and *remove*. Bare *--insecure* selects _bmc_ and does not
+disable secret-manager verification. The *store -i* shorthand remains reserved
+for *--input-file*.
+
+Magellan renews AppRole-issued tokens and reauthenticates when renewal ends.
+The deployed RoleID and SecretID must remain valid for reauthentication;
+Magellan does not rotate them. Explicit *BAO_TOKEN*/*VAULT_TOKEN* values are
+caller-managed and are not renewed by Magellan.
 
 Secret IDs are BMC URIs such as _https://172.16.0.10_, which are stored as
 base64url-encoded path segments below the mount and prefix so any URI is a
