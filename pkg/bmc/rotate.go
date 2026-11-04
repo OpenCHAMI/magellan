@@ -58,7 +58,7 @@ func RotateStoredAccount(endpoint, accountID, newPassword string, store secrets.
 		return err
 	}
 	if err := store.StoreSecretByID(endpoint, string(value)); err != nil {
-		return fmt.Errorf("BMC password changed but OpenBao write failed; use the retained password file to repair the credential entry: %w", err)
+		return fmt.Errorf("BMC password changed but credential-store write failed; use the retained replacement password to repair the credential entry: %w", err)
 	}
 	return nil
 }
