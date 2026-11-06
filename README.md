@@ -736,6 +736,24 @@ curl -H "Authorization: Bearer $token" \
      "https://localhost:8500/v1/power?bmc=https://172.16.0.10&system=Node0"
 ```
 
+Account rotation is also available through the daemon when both TLS
+certificates and `--auth-token` are configured. These endpoints require an
+HTTPS request and a bearer token. Rotation requests identify a replacement
+credential already in the daemon's configured secret store; they never send a
+password in the HTTP body:
+
+```bash
+curl --fail --show-error --cacert ca.pem \
+  -H "Authorization: Bearer $token" \
+  -H 'Content-Type: application/json' \
+  https://localhost:8500/v1/accounts/rotate \
+  -d '{"bmc":"https://172.24.0.3","accountId":"2","replacementSecretId":"next-test-password"}'
+```
+
+To resume an interrupted rotation, call `POST /v1/accounts/recover-rotation`
+over HTTPS with the same bearer token and `{"bmc":"https://172.24.0.3"}`.
+See `magellan-serve(1)` for request fields and response behavior.
+
 ### Running with Docker
 
 The `magellan` tool can be run in a Docker container after pulling the latest image:
