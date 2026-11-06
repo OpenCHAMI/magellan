@@ -69,7 +69,7 @@ available environment variables.`,
 			// Alternatively, locate specific credentials (falling back to default) and override those
 			// with --username or --password if either are passed.
 			log.Debug().Str("uri", uri).Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
-			if store, err = secrets.OpenStore(secretsFile); err != nil {
+			if store, err = openSecretStore(secretsFile); err != nil {
 				log.Error().Str("uri", uri).Err(err).Msg("failed to open local secrets store")
 				return
 			}
@@ -130,7 +130,7 @@ available environment variables.`,
 			config   = crawler.CrawlerConfig{
 				URI:             uri,
 				CredentialStore: store,
-				Insecure:        insecure,
+				Insecure:        insecureScope.BMC(),
 				UseDefault:      true,
 			}
 		)
@@ -162,7 +162,7 @@ available environment variables.`,
 func init() {
 	CrawlCmd.Flags().StringVarP(&username, "username", "u", "", "Set the username for the BMC.")
 	CrawlCmd.Flags().StringVarP(&password, "password", "p", "", "Set the password for the BMC.")
-	CrawlCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification for Redfish request.")
+	registerInsecureFlag(CrawlCmd, "Skip TLS certificate verification for Redfish request.")
 	CrawlCmd.Flags().StringVarP(&secretsFile, "secrets-file", "f", "secrets.json", "Set the secrets file with BMC credentials.")
 	CrawlCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the hardware inventory found from BMC.")
 	CrawlCmd.Flags().VarP(&crawlOutputFormat, "output-format", "F", "Set the output format (json|yaml).")
