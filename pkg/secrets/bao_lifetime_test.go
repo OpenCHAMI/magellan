@@ -19,7 +19,9 @@ func TestBaoEnvironmentCAPrecedesFallback(t *testing.T) {
 		t.Run(env, func(t *testing.T) {
 			clearBaoEnv(t)
 			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprint(w, `{"data":{"data":{"value":"credentials"}}}`)
+				if _, err := fmt.Fprint(w, `{"data":{"data":{"value":"credentials"}}}`); err != nil {
+					t.Errorf("write response: %v", err)
+				}
 			}))
 			defer srv.Close()
 			cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
@@ -38,7 +40,7 @@ func TestBaoEnvironmentCAPrecedesFallback(t *testing.T) {
 			t.Setenv("BAO_TOKEN", "test")
 			store, err := NewBaoSecretStore(StoreConfig{CACert: filepath.Join(dir, "missing.pem")})
 			require.NoError(t, err)
-			defer store.Close()
+			t.Cleanup(func() { require.NoError(t, store.Close()) })
 			_, err = store.GetSecretByID("default")
 			require.NoError(t, err)
 		})
@@ -58,14 +60,18 @@ func TestBaoAppRoleReauthAndClose(t *testing.T) {
 				return
 			}
 			issued.Store(n)
-			fmt.Fprintf(w, `{"auth":{"client_token":"token-%d","lease_duration":1,"renewable":false}}`, n)
+			if _, err := fmt.Fprintf(w, `{"auth":{"client_token":"token-%d","lease_duration":1,"renewable":false}}`, n); err != nil {
+				t.Errorf("write response: %v", err)
+			}
 			return
 		}
 		if r.Header.Get("X-Vault-Token") != fmt.Sprintf("token-%d", issued.Load()) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		fmt.Fprint(w, `{"data":{"data":{"value":"credentials"}}}`)
+		if _, err := fmt.Fprint(w, `{"data":{"data":{"value":"credentials"}}}`); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 	t.Setenv("BAO_ADDR", server.URL)
@@ -92,7 +98,9 @@ func TestBaoAppRoleReauthAndClose(t *testing.T) {
 func TestBaoCAFallback(t *testing.T) {
 	clearBaoEnv(t)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"data":{"data":{"value":"credentials"}}}`)
+		if _, err := fmt.Fprint(w, `{"data":{"data":{"value":"credentials"}}}`); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 	path := filepath.Join(t.TempDir(), "ca.pem")
@@ -102,7 +110,7 @@ func TestBaoCAFallback(t *testing.T) {
 	t.Setenv("BAO_TOKEN", "test")
 	store, err := NewBaoSecretStore(StoreConfig{CACert: path})
 	require.NoError(t, err)
-	defer store.Close()
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	_, err = store.GetSecretByID("default")
 	require.NoError(t, err)
 }
@@ -114,7 +122,9 @@ func TestBaoAppRoleRenewsToken(t *testing.T) {
 		if r.URL.Path == "/v1/auth/token/renew-self" {
 			renewals.Add(1)
 		}
-		fmt.Fprint(w, `{"auth":{"client_token":"token","lease_duration":60,"renewable":true}}`)
+		if _, err := fmt.Fprint(w, `{"auth":{"client_token":"token","lease_duration":60,"renewable":true}}`); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 	t.Setenv("BAO_ADDR", server.URL)
@@ -122,6 +132,6 @@ func TestBaoAppRoleRenewsToken(t *testing.T) {
 	t.Setenv("BAO_SECRET_ID", "secret")
 	store, err := NewBaoSecretStore(StoreConfig{})
 	require.NoError(t, err)
-	defer store.Close()
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	require.Eventually(t, func() bool { return renewals.Load() > 0 }, 5*time.Second, 10*time.Millisecond)
 }

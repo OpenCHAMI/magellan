@@ -172,8 +172,11 @@ func (b *BaoSecretStore) maintainLogin(ctx context.Context, cfg StoreConfig, sec
 			case <-ctx.Done():
 				watcher.Stop()
 				return
-			case <-watcher.DoneCh():
+			case watchErr := <-watcher.DoneCh():
 				watcher.Stop()
+				if watchErr != nil {
+					log.Warn().Err(watchErr).Msg("OpenBao/Vault AppRole token renewal ended; reauthenticating")
+				}
 			}
 		}
 		// A nonrenewable or exhausted token needs a new AppRole login.
