@@ -47,6 +47,32 @@ concurrent-writer protection. Use only a recoverable lab account.`,
 	},
 }
 
+var recoverAccountRotationCmd = &cobra.Command{
+	Use:   "recover-rotation <bmc>",
+	Short: "Resume or finalize a pending BMC password rotation",
+	Long: `Inspect the pending rotation for a BMC. If the new password works, save
+it as the active credential. If only the previous password works, retry the
+Redfish PATCH, verify the new password, and save it. If neither password works,
+the pending record is retained for recovery through an independent BMC admin
+account. Only one rotation writer per BMC is supported at a time.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		endpoint, err := bmc.SettingsEndpoint(args[0])
+		if err != nil {
+			return err
+		}
+		store, err := openSecretStore(bmc.SettingsSecretsFile)
+		if err != nil {
+			return err
+		}
+		if err := bmc.RecoverStoredAccountRotation(endpoint, store, insecureScope.BMC(), cacertPath); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), "Pending BMC rotation recovered and credential store finalized.")
+		return err
+	},
+}
+
 func init() {
 	rotateAccountCmd.Flags().StringVar(&rotationPasswordSecretID, "new-password-secret-id", "", "Fallback ID of replacement credential in local encrypted store when MAGELLAN_NEW_PASSWORD is unset")
 	rotateAccountCmd.Flags().StringVar(&rotationSecretsFile, "new-password-secrets-file", "secrets.json", "Local encrypted secrets file for replacement credential fallback")
@@ -54,6 +80,11 @@ func init() {
 	rotateAccountCmd.Flags().StringVar(&cacertPath, "cacert", "", "CA certificate bundle")
 	registerInsecureFlag(rotateAccountCmd, "Skip TLS verification for the selected scope (lab only).")
 	SettingsCmd.AddCommand(rotateAccountCmd)
+
+	recoverAccountRotationCmd.Flags().StringVar(&bmc.SettingsSecretsFile, "secrets-file", "secrets.json", "Local secrets file for the selected destination backend")
+	recoverAccountRotationCmd.Flags().StringVar(&cacertPath, "cacert", "", "CA certificate bundle")
+	registerInsecureFlag(recoverAccountRotationCmd, "Skip TLS verification for the selected scope (lab only).")
+	SettingsCmd.AddCommand(recoverAccountRotationCmd)
 }
 
 func readLocalRotationPassword(filename, secretID string) (string, error) {
