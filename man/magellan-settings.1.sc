@@ -11,6 +11,7 @@ magellan settings list <node> [<category> [<item> [<property>...]]] [OPTIONS]++
 magellan settings get <node> <category> [item] [property...] [OPTIONS]++
 magellan settings set <node> <category> [<item>] <property> <value> [OPTIONS]++
 magellan settings reset <node> [OPTIONS]
+magellan settings rotate-account <bmc> <account-id> --new-password-secret-id <id> [OPTIONS]
 
 # DESCRIPTION
 
@@ -63,6 +64,14 @@ used for all commands.
 	Manager.ResetToDefaults action, or does not support the requested
 	preserve type, an error is reported before any reset is attempted.
 
+*rotate-account* <bmc> <account-id>
+: Change the password for the account matching the current stored BMC username.
+: The replacement password is read from *MAGELLAN_NEW_PASSWORD*. If that
+: variable is unset, it can be read from a local encrypted secret using
+: *--new-password-secret-id*. After an authenticated read verifies the new
+: password, the updated BMC credential is written to the selected
+: *--secrets-backend* (local, bao, or vault).
+
 # FLAGS
 
 See *magellan*(1) for information about global flags and environment variables
@@ -89,7 +98,29 @@ used for all commands.
 :	Set the master BMC password.
 
 *--secrets-file* _path_
-:	Set the secrets file with BMC credentials.
+:	Set the local secrets file for the selected destination backend.
+
+*--new-password-secret-id* _id_
+: Fallback ID of the replacement credential in the local encrypted store
+: when *MAGELLAN_NEW_PASSWORD* is unset. The entry uses the normal credential
+: JSON shape; its *password* field supplies the replacement.
+
+*--new-password-secrets-file* _path_
+: Local encrypted secrets file for replacement credential fallback. Requires
+: *MASTER_KEY*. Defaults to *secrets.json* and is independent of
+: *--secrets-backend*.
+
+*MAGELLAN_NEW_PASSWORD* _environment variable_
+: Preferred replacement password input. It is not written to shell history as
+: a command argument, but environment variables may be visible to privileged
+: local users while the process runs.
+
+A failed or timed-out Redfish PATCH can have an ambiguous outcome: the BMC may
+have applied the new password even though Magellan received no definitive
+response. The credential store is not updated until verification succeeds. Do
+not retry blindly; use independent administrator access to determine which
+password works and repair the credential store if needed. Automatic recovery
+and concurrent-writer protection are not implemented.
 
 *-i, --insecure* _scope_
 :	Skip TLS certificate verification, for the given scope: *none* (verify
@@ -166,6 +197,13 @@ magellan settings reset 172.16.0.105
 Factory reset preserving network settings:
 ```
 magellan settings reset 172.16.0.105 --preserve-config PreserveNetwork
+```
+
+Rotate account 2 using a replacement from the environment while reading and
+updating the current credential in OpenBao:
+```
+MAGELLAN_NEW_PASSWORD="$new_bmc_password" magellan --secrets-backend bao \
+	settings rotate-account 172.24.0.3 2
 ```
 
 Use inventory lookup for a node identifier:
