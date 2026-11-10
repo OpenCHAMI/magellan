@@ -77,6 +77,8 @@ func (s *Server) routes() http.Handler {
 		r.Get("/power", s.handlePowerState)
 		r.Get("/power/reset-types", s.handleResetTypes)
 		r.Post("/power", s.handlePowerAction)
+		r.Post("/accounts/rotate", s.handleAccountRotation)
+		r.Post("/accounts/recover-rotation", s.handleAccountRotationRecovery)
 	})
 
 	return r

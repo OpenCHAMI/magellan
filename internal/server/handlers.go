@@ -25,6 +25,92 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
+type accountRotationRequest struct {
+	BMC                 string `json:"bmc"`
+	AccountID           string `json:"accountId"`
+	ReplacementSecretID string `json:"replacementSecretId"`
+}
+
+type accountRotationRecoveryRequest struct {
+	BMC string `json:"bmc"`
+}
+
+// handleAccountRotation requires a TLS connection and bearer authentication.
+// The request contains a secret ID, never a password; the replacement is read
+// from the daemon's configured SecretStore.
+func (s *Server) handleAccountRotation(w http.ResponseWriter, r *http.Request) {
+	if !s.requireSecureRotationTransport(w, r) {
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
+	var req accountRotationRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.BMC == "" || req.AccountID == "" || req.ReplacementSecretID == "" {
+		writeError(w, http.StatusBadRequest, "fields 'bmc', 'accountId', and 'replacementSecretId' are required")
+		return
+	}
+	endpoint, err := bmc.SettingsEndpoint(req.BMC)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	replacement, err := bmc.GetBMCCredentials(s.svc.Secrets, req.ReplacementSecretID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "could not read replacement credential secret ID")
+		return
+	}
+	if replacement.Password == "" {
+		writeError(w, http.StatusBadRequest, "replacement credential has an empty password")
+		return
+	}
+	if err := bmc.RotateStoredAccount(endpoint, req.AccountID, replacement.Password, s.svc.Secrets, s.svc.Insecure, ""); err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"rotated": true, "bmc": endpoint, "accountId": req.AccountID})
+}
+
+func (s *Server) handleAccountRotationRecovery(w http.ResponseWriter, r *http.Request) {
+	if !s.requireSecureRotationTransport(w, r) {
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
+	var req accountRotationRecoveryRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.BMC == "" {
+		writeError(w, http.StatusBadRequest, "field 'bmc' is required")
+		return
+	}
+	endpoint, err := bmc.SettingsEndpoint(req.BMC)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := bmc.RecoverStoredAccountRotation(endpoint, s.svc.Secrets, s.svc.Insecure, ""); err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"recovered": true, "bmc": endpoint})
+}
+
+func (s *Server) requireSecureRotationTransport(w http.ResponseWriter, r *http.Request) bool {
+	if s.cfg.TLSCert == "" || s.cfg.TLSKey == "" || s.cfg.AuthToken == "" {
+		writeError(w, http.StatusServiceUnavailable, "account rotation requires daemon TLS and bearer authentication to be configured")
+		return false
+	}
+	if r.TLS == nil {
+		writeError(w, http.StatusUpgradeRequired, "account rotation requires an HTTPS connection")
+		return false
+	}
+	return true
+}
+
 // handleInventory crawls one or more BMCs for Redfish inventory and returns the
 // same collect-format JSON array that `magellan collect` emits, so the response
 // can be piped directly into `magellan send`.
