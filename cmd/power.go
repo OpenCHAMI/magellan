@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -138,7 +137,7 @@ For other identifiers, an inventory file from 'magellan collect' is required.`,
 		log.Debug().Msgf("found node in inventory: ClusterID=%s, BmcIP=%s, NodeID=%s", node.ClusterID, node.BmcIP, node.NodeID)
 
 		// Connect to the node's BMC
-		config := powerCrawlerConfig(*node, store, insecure, cacertPath)
+		config := powerCrawlerConfig(*node, store, insecureScope.BMC(), cacertPath)
 
 		client, err := bmc.DefaultManager.Client(ctx, config)
 		if err != nil {
@@ -165,7 +164,7 @@ func setupCredentialStore() secrets.SecretStore {
 		store = secrets.NewStaticStore(username, password)
 	} else {
 		log.Debug().Msgf("loading credentials from secret store at %s", secretsFile)
-		if store, err = secrets.OpenStore(secretsFile); err != nil {
+		if store, err = openSecretStore(secretsFile); err != nil {
 			log.Error().Err(err).Msg("failed to open local secrets store")
 		}
 
@@ -176,36 +175,7 @@ func setupCredentialStore() secrets.SecretStore {
 		if password != "" {
 			log.Info().Msg("--password passed, overriding all passwords from secret store")
 		}
-		switch s := store.(type) {
-		case *secrets.StaticStore:
-			if username != "" {
-				s.Username = username
-			}
-			if password != "" {
-				s.Password = password
-			}
-		case *secrets.LocalSecretStore:
-			for k := range s.Secrets {
-				if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-					log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
-				} else {
-					if username != "" {
-						creds.Username = username
-					}
-					if password != "" {
-						creds.Password = password
-					}
-					if newCreds, err := json.Marshal(creds); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to marshal updated credentials")
-					} else {
-						err = s.StoreSecretByID(k, string(newCreds))
-						if err != nil {
-							log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
-						}
-					}
-				}
-			}
-		}
+		store = credentialOverrides{store, username, password}
 	}
 
 	return store
@@ -287,7 +257,7 @@ func handleDirectIPConnection(ctx context.Context, ipAddr string, store secrets.
 	log.Info().Msgf("connecting directly to BMC at %s (no inventory file required)", ipAddr)
 
 	// Build connection config
-	config := powerCrawlerConfig(bmc.InventoryNode{BmcIP: ipAddr}, store, insecure, cacertPath)
+	config := powerCrawlerConfig(bmc.InventoryNode{BmcIP: ipAddr}, store, insecureScope.BMC(), cacertPath)
 
 	// Connect to BMC
 	client, err := bmc.DefaultManager.Client(ctx, config)
@@ -388,7 +358,7 @@ func init() {
 	PowerCmd.Flags().StringVarP(&username, "username", "u", "", "Set the master BMC username.")
 	PowerCmd.Flags().StringVarP(&password, "password", "p", "", "Set the master BMC password.")
 	PowerCmd.Flags().StringVar(&secretsFile, "secrets-file", "", "Set the secrets file with BMC credentials.")
-	PowerCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	registerInsecureFlag(PowerCmd, "Skip TLS certificate verification during probe.")
 	PowerCmd.Flags().StringVar(&cacertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
 	PowerCmd.Flags().StringVar(&powerVendor, "vendor", "", "Force a vendor plugin (generic|hpe|dell|supermicro|cray|lenovo) instead of auto-detecting.")
 	PowerCmd.Flags().VarP(&powerFormat, "format", "F", "Set the output format (json|yaml).")

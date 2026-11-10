@@ -15,6 +15,7 @@ import (
 
 var (
 	secretsFile           string
+	secretsCommandFile    string // isolated from other commands' --secrets-file defaults
 	secretsStoreInputFile string // this is for inputs not the store itself
 	secretsStoreFormat    string // slightly different from format.DataFormat
 	secretsListFormat     format.DataFormat
@@ -34,7 +35,11 @@ var secretsCmd = &cobra.Command{
   # list creds from specific secrets
   magellan secrets list -f nodes.json`,
 	Short: "Manage credentials for BMC nodes",
-	Long:  "Manage credentials for BMC nodes for querying information through Redfish. This requires generating a key and setting the 'MASTER_KEY' environment variable for the secrets store.",
+	Long: `Manage credentials for BMC nodes for querying information through Redfish. The
+default 'local' backend requires generating a key and setting the 'MASTER_KEY'
+environment variable. Use '--secrets-backend bao' (or 'vault') to manage
+credentials in an OpenBao/Vault KV v2 store instead; those backends authenticate
+with BAO_TOKEN/VAULT_TOKEN or BAO_ROLE_ID+BAO_SECRET_ID environment variables.`,
 }
 
 var secretsGenerateKeyCmd = &cobra.Command{
@@ -108,7 +113,7 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 			}
 
 			// open secret store to save credentials
-			store, err = secrets.OpenStore(secretsFile)
+			store, err = openSecretStore(secretsCommandFile)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to open secrets store")
 				return
@@ -126,7 +131,7 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 			if err != nil {
 				log.Error().
 					Err(err).
-					Str("path", secretsFile).
+					Str("path", secretsCommandFile).
 					Msg("failed to decode base64 data")
 				return
 			}
@@ -135,16 +140,16 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 			if !isValidCredsJSON(string(decoded)) {
 				log.Error().
 					Err(err).
-					Str("path", secretsFile).
+					Str("path", secretsCommandFile).
 					Msg("invalid JSON value or is missing credentials")
 				return
 			}
 
-			store, err = secrets.OpenStore(secretsFile)
+			store, err = openSecretStore(secretsCommandFile)
 			if err != nil {
 				log.Error().
 					Err(err).
-					Str("path", secretsFile).
+					Str("path", secretsCommandFile).
 					Msg("failed to open secrets store")
 				os.Exit(1)
 			}
@@ -175,11 +180,11 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 					Msg("invalid JSON value or creds")
 				os.Exit(1)
 			}
-			store, err = secrets.OpenStore(secretsFile)
+			store, err = openSecretStore(secretsCommandFile)
 			if err != nil {
 				log.Error().
 					Err(err).
-					Str("path", secretsFile).
+					Str("path", secretsCommandFile).
 					Msg("failed to open secret store")
 				os.Exit(1)
 			}
@@ -192,7 +197,7 @@ the secretID takes the form <username>:<password> similar to '-u' with 'curl'.`,
 			log.Error().
 				Err(err).
 				Str("id", secretID).
-				Str("path", secretsFile).
+				Str("path", secretsCommandFile).
 				Msg("failed to store secret by ID")
 			os.Exit(1)
 		}
@@ -227,7 +232,7 @@ var secretsRetrieveCmd = &cobra.Command{
 			err         error
 		)
 
-		store, err = secrets.OpenStore(secretsFile)
+		store, err = openSecretStore(secretsCommandFile)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to open secret store")
 			return
@@ -247,7 +252,7 @@ var secretsListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	Short: "Lists all the secret IDs and their values.",
 	Run: func(cmd *cobra.Command, args []string) {
-		store, err := secrets.OpenStore(secretsFile)
+		store, err := openSecretStore(secretsCommandFile)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -282,12 +287,12 @@ var secretsRemoveCmd = &cobra.Command{
 	Short: "Remove secrets by IDs from secret store.",
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, secretID := range args {
-			// open secret store from file
-			store, err := secrets.OpenStore(secretsFile)
+			// open the configured secret store
+			store, err := openSecretStore(secretsCommandFile)
 			if err != nil {
 				log.Error().
 					Err(err).
-					Str("path", secretsFile).
+					Str("path", secretsCommandFile).
 					Msg("failed to open secret store")
 				return
 			}
@@ -298,26 +303,34 @@ var secretsRemoveCmd = &cobra.Command{
 				log.Error().
 					Err(err).
 					Str("id", secretID).
-					Str("path", secretsFile).
+					Str("path", secretsCommandFile).
 					Msg("failed to remove secret")
 				return
 			}
 
-			// update store by saving to original file
-			err = secrets.SaveSecrets(secretsFile, store.(*secrets.LocalSecretStore).Secrets)
-			if err != nil {
-				log.Error().
-					Err(err).
-					Str("path", secretsFile).
-					Msg("failed to save secrets to file")
-				return
+			// Persist back to the original file for the local backend.
+			// Remote backends (bao/vault) write through on removal and have
+			// no file to save.
+			if ls, ok := store.(*secrets.LocalSecretStore); ok {
+				err = secrets.SaveSecrets(secretsCommandFile, ls.Secrets)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("path", secretsCommandFile).
+						Msg("failed to save secrets to file")
+					return
+				}
 			}
 		}
 	},
 }
 
 func init() {
-	secretsCmd.PersistentFlags().StringVar(&secretsFile, "file", "secrets.json", "Set the secrets file with BMC credentials.")
+	secretsCmd.PersistentFlags().StringVar(&cacertPath, "cacert", "", "Path to the secret manager CA bundle (fallback for BAO_/VAULT_ CA settings)")
+	secretsCmd.PersistentFlags().Var(&insecureScope, "insecure", "Skip TLS verification for the secret manager with secrets or both (none|bmc|secrets|both)")
+	secretsCmd.PersistentFlags().Lookup("insecure").NoOptDefVal = "bmc"
+	checkRegisterFlagCompletionError(secretsCmd.RegisterFlagCompletionFunc("insecure", completionInsecureScope))
+	secretsCmd.PersistentFlags().StringVar(&secretsCommandFile, "file", "secrets.json", "Set the secrets file with BMC credentials.")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreFormat, "input-format", "f", "basic", "Set the input format for the secrets file (basic|json|base64).")
 	secretsStoreCmd.Flags().StringVarP(&secretsStoreInputFile, "input-file", "i", "", "Set the file to read as input with credentials. The file must match the format specified with '--format'.")
 	secretsListCmd.Flags().VarP(&secretsListFormat, "output-format", "F", "Set the output format to list secrets.")

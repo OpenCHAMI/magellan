@@ -152,7 +152,7 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 			Concurrency:    concurrency,
 			Timeout:        timeout,
 			DisableProbing: disableProbing,
-			Insecure:       insecure,
+			Insecure:       insecureScope.BMC(),
 			Include:        include,
 		})
 
@@ -215,7 +215,7 @@ func init() {
 	ScanCmd.Flags().IPMaskVar(&subnetMask, "subnet-mask", net.IPv4Mask(255, 255, 255, 0), "Set the default subnet mask to use for with all subnets not using CIDR notation.")
 	ScanCmd.Flags().BoolVar(&disableProbing, "disable-probing", false, "Disable probing found assets for Redfish service(s) running on BMC nodes.")
 	ScanCmd.Flags().BoolVar(&disableCache, "disable-cache", false, "Disable saving found assets to a cache database specified with 'cache' flag.")
-	ScanCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	registerInsecureFlag(ScanCmd, "Skip TLS certificate verification during probe.")
 	ScanCmd.Flags().VarP(&scanOutputFormat, "output-format", "F", "Sets the output format (json, yaml).")
 	ScanCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Sets the output file path (for json/yaml formats).")
 	ScanCmd.Flags().StringSliceVar(&include, "include", []string{"bmcs"}, "Asset types to scan for (bmcs, pdus).")
