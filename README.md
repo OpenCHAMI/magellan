@@ -681,11 +681,17 @@ the normal credential JSON shape and its `password` field is used.
 
 If the Redfish PATCH returns an error or times out, the BMC may still have
 applied the change even though Magellan received no definitive response. The
-credential store remains unchanged in that case. Do not retry blindly: use
-independent administrator access to determine whether the old or new password
-works, then repair the credential store if needed. The same manual recovery is
-needed if verification or the destination-store write fails. Automatic recovery
-and concurrent-writer protection are not implemented.
+pending rotation record keeps both the previous and proposed credential in the
+selected store. Do not retry `rotate-account` blindly; run `settings
+recover-rotation <bmc>` instead. Recovery commits the new credential if it
+authenticates, or retries the PATCH if only the previous credential
+authenticates. If neither works, the pending record remains and independent
+administrator access is required to inspect or reset the account. The same
+command can finish committing the credential after a store-write failure.
+
+Run only one rotation writer per BMC at a time. This implementation serializes
+rotation commands within one Magellan process, but separate Magellan processes
+are not coordinated. Daemon support and cross-process locking are follow-up work.
 
 See `magellan-settings(1)` for more details.
 

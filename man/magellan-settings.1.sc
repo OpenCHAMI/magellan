@@ -12,6 +12,7 @@ magellan settings get <node> <category> [item] [property...] [OPTIONS]++
 magellan settings set <node> <category> [<item>] <property> <value> [OPTIONS]++
 magellan settings reset <node> [OPTIONS]
 magellan settings rotate-account <bmc> <account-id> --new-password-secret-id <id> [OPTIONS]
+magellan settings recover-rotation <bmc> [OPTIONS]
 
 # DESCRIPTION
 
@@ -72,6 +73,13 @@ used for all commands.
 : password, the updated BMC credential is written to the selected
 : *--secrets-backend* (local, bao, or vault).
 
+*recover-rotation* <bmc>
+: Resume a pending rotation. If the proposed password authenticates, finalize
+: the credential-store entry. If only the previous password authenticates,
+: retry the Redfish PATCH, verify the proposed credential, and finalize it. If
+: neither works, keep the pending record for recovery through an independent
+: administrator account.
+
 # FLAGS
 
 See *magellan*(1) for information about global flags and environment variables
@@ -118,9 +126,9 @@ used for all commands.
 A failed or timed-out Redfish PATCH can have an ambiguous outcome: the BMC may
 have applied the new password even though Magellan received no definitive
 response. The credential store is not updated until verification succeeds. Do
-not retry blindly; use independent administrator access to determine which
-password works and repair the credential store if needed. Automatic recovery
-and concurrent-writer protection are not implemented.
+not retry rotation blindly; run *recover-rotation*. Use only one rotation
+writer per BMC at a time; separate Magellan processes are not coordinated.
+Daemon support and cross-process locking are not implemented.
 
 *-i, --insecure* _scope_
 :	Skip TLS certificate verification, for the given scope: *none* (verify
@@ -204,6 +212,11 @@ updating the current credential in OpenBao:
 ```
 MAGELLAN_NEW_PASSWORD="$new_bmc_password" magellan --secrets-backend bao \
 	settings rotate-account 172.24.0.3 2
+```
+
+Resume an interrupted rotation:
+```
+magellan --secrets-backend bao settings recover-rotation 172.24.0.3
 ```
 
 Use inventory lookup for a node identifier:

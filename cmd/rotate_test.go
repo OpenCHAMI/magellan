@@ -112,6 +112,16 @@ func TestRotateAccountCommandUsesSecretIDInsteadOfPasswordFile(t *testing.T) {
 	require.Contains(t, rotateAccountCmd.Long, rotationPasswordEnv)
 }
 
+func TestRecoverRotationCommandRegistered(t *testing.T) {
+	recover, _, err := SettingsCmd.Find([]string{"recover-rotation"})
+	require.NoError(t, err)
+	require.Same(t, recoverAccountRotationCmd, recover)
+	require.NotNil(t, recoverAccountRotationCmd.Flags().Lookup("secrets-file"))
+	require.NotNil(t, recoverAccountRotationCmd.Flags().Lookup("insecure"))
+	require.Nil(t, recoverAccountRotationCmd.Flags().Lookup("password"))
+	require.Contains(t, recoverAccountRotationCmd.Long, "If neither password works")
+}
+
 type rotateCommandFixture struct {
 	mu       sync.Mutex
 	username string
