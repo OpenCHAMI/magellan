@@ -659,6 +659,34 @@ There is no upper limit on the number of property arguments: `list` and `get` wa
 
 The `get` and `set` commands support a direct BMC address (IP or hostname) as the node argument, or a node identifier from a previous `collect` inventory when used with the `--inventory-file` flag. Use `--input-format` to select JSON or YAML inventory input independently of the `get` command's output format. ComputerSystem and Manager operations accept a resource ID or name, or `default` to select the first resource. Credentials can be provided via `--username` and `--password` flags or from a secrets file.
 
+#### Rotating a BMC Account Password
+
+`settings rotate-account` reads the replacement password from `MAGELLAN_NEW_PASSWORD` by default, independently of the backend used for the current BMC credential. If that variable is unset, it can read a replacement credential from Magellan's local encrypted secrets file using `--new-password-secret-id`. After the BMC change is verified, Magellan updates the current credential in the selected backend (`local`, `bao`, or `vault`).
+
+For example, rotate while using OpenBao for the current BMC credential. Read the new password without echo, then pass it only in the environment of the Magellan process:
+
+```bash
+read -r -s -p 'New BMC password: ' new_bmc_password
+printf '\n'
+MAGELLAN_NEW_PASSWORD="$new_bmc_password" \
+  magellan --secrets-backend bao settings rotate-account 172.24.0.3 2
+unset new_bmc_password
+```
+
+Environment variables are inherited by child processes and may be visible to
+privileged local users while Magellan is running. For workflows that prefer
+encrypted-at-rest replacement input, leave `MAGELLAN_NEW_PASSWORD` unset and use
+`--new-password-secret-id` with `--new-password-secrets-file`; the entry uses
+the normal credential JSON shape and its `password` field is used.
+
+If the Redfish PATCH returns an error or times out, the BMC may still have
+applied the change even though Magellan received no definitive response. The
+credential store remains unchanged in that case. Do not retry blindly: use
+independent administrator access to determine whether the old or new password
+works, then repair the credential store if needed. The same manual recovery is
+needed if verification or the destination-store write fails. Automatic recovery
+and concurrent-writer protection are not implemented.
+
 See `magellan-settings(1)` for more details.
 
 ### Daemon Mode
