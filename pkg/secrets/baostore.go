@@ -277,6 +277,23 @@ func (b *BaoSecretStore) StoreSecretByID(secretID, secret string) error {
 	return nil
 }
 
+// ListSecretIDs lists metadata without reading credential values.
+func (b *BaoSecretStore) ListSecretIDs() ([]string, error) {
+	list, err := b.client.KVv2(b.mount).List(context.Background(), b.prefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets at %s/%s: %w", b.mount, b.prefix, err)
+	}
+	ids := []string{}
+	if list != nil {
+		for _, name := range list.Keys {
+			if !strings.HasSuffix(name, "/") {
+				ids = append(ids, b.secretIDFromName(name))
+			}
+		}
+	}
+	return ids, nil
+}
+
 // ListSecrets lists every secret ID below the configured prefix and reads
 // each value, matching the local store's behavior. This requires a policy
 // with read access to the KV v2 engine, not just list.

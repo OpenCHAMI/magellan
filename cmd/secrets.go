@@ -250,7 +250,7 @@ var secretsRetrieveCmd = &cobra.Command{
 var secretsListCmd = &cobra.Command{
 	Use:   "list",
 	Args:  cobra.ExactArgs(0),
-	Short: "Lists all the secret IDs and their values.",
+	Short: "Lists secret IDs without retrieving credential values.",
 	Run: func(cmd *cobra.Command, args []string) {
 		store, err := openSecretStore(secretsCommandFile)
 		if err != nil {
@@ -258,7 +258,7 @@ var secretsListCmd = &cobra.Command{
 			return
 		}
 
-		secrets, err := store.ListSecrets()
+		ids, err := secrets.ListSecretIDs(store)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to list secrets")
 			return
@@ -266,16 +266,16 @@ var secretsListCmd = &cobra.Command{
 
 		switch secretsListFormat {
 		case format.FORMAT_JSON, format.FORMAT_YAML:
-			output, err := format.MarshalData(secrets, secretsListFormat)
+			output, err := format.MarshalData(ids, secretsListFormat)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to marshal credential data")
 			}
-			fmt.Println(string(output))
+			fmt.Fprintln(cmd.OutOrStdout(), string(output))
 		case format.FORMAT_LIST:
 			fallthrough
 		default:
-			for key, value := range secrets {
-				fmt.Printf("%s: %s\n", key, value)
+			for _, id := range ids {
+				fmt.Fprintln(cmd.OutOrStdout(), id)
 			}
 		}
 	},

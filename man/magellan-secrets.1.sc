@@ -102,8 +102,8 @@ valid KV path. The default credentials are stored at the literal path
 *default*. The credential value is the JSON document
 _{"username": ..., "password": ...}_ under the *value* field.
 
-*magellan secrets list* reads the value of every secret, so its policy must
-grant read (not only list) on the engine.
+*magellan secrets list* lists metadata only; it does not fetch credential
+values. It requires metadata _list_ permission, not data _read_ permission.
 
 ## vault
 
@@ -122,7 +122,7 @@ Generates a new 32-byte master key (in hex).
 
 ## list
 
-Lists all the secret IDs and their values for the configured secret store (see *BACKENDS*; _--file_ applies to the local backend only).
+Lists sorted secret IDs only for the configured store (see *BACKENDS*; _--file_ applies to the local backend only). Default output is one ID per line. JSON and YAML output is an array of IDs, replacing the previous ID-to-value map. Use *retrieve* to explicitly reveal a credential. Listing skips subdirectories rather than recursing.
 
 The format of this command is:
 
@@ -160,6 +160,113 @@ The format of this command is:
 		Set the file to read as input.
 
 See *magellan*(1) for information about global flags and environment variables used for all commands.
+
+# DOCKER WALKTHROUGH
+
+Development only: this disposable server uses HTTP and a known root token.
+Use fake credentials, never production secrets. Docker must be running.
+From the source repository, build and create a test input file:
+
+```
+TEST_DIR=$(mktemp -d)
+go build -o "$TEST_DIR/magellan" .
+MAGELLAN="$TEST_DIR/magellan"
+printf '%s\n' '{"username":"review-user","password":"fake-review-password"}' > "$TEST_DIR/credentials.json"
+
+docker run --rm -d --name magellan-review-bao \
+  -p 127.0.0.1:18200:8200 quay.io/openbao/openbao:latest \
+  server -dev -dev-listen-address=0.0.0.0:8200 \
+  -dev-root-token-id=magellan-review-only
+
+(
+  for name in $(env | sed -n 's/^\(\(BAO\|VAULT\)_[A-Za-z0-9_]*\)=.*/\1/p'); do
+    unset "$name"
+  done
+  export BAO_ADDR=http://127.0.0.1:18200
+  export BAO_TOKEN=magellan-review-only
+  export BAO_MOUNT=secret
+  export SECRETS_BACKEND=bao
+  curl --fail --silent --show-error --retry 10 --retry-connrefused \
+    --retry-delay 1 "$BAO_ADDR/v1/sys/health"
+  "$MAGELLAN" secrets store review-check \
+    --input-format=json -i "$TEST_DIR/credentials.json"
+  "$MAGELLAN" secrets retrieve review-check
+  "$MAGELLAN" secrets list
+  "$MAGELLAN" secrets list --output-format=json
+  "$MAGELLAN" secrets remove review-check
+)
+
+docker stop magellan-review-bao
+```
+
+Retrieval prints the fake credentials; listing prints only _review-check_
+(JSON: _["review-check"]_). Removal deletes all versions. Stopping the
+container discards its data. Podman may replace Docker. This tests remote
+CRUD, not BMC access, TLS, AppRole renewal, or restricted policies.
+
+The dev server mounts KV v2 at _secret_, hence *BAO_MOUNT=secret* rather
+than Magellan's default _magellan_. The *-i* file is input, not a destination.
+Remote stores ignore *--file* and *MASTER_KEY*. Local storage requires
+*MASTER_KEY* and defaults to _./secrets.json_ unless *--file* is supplied.
+
+# POLICY PERMISSIONS
+
+Have an authorized administrator provision policies and service identities;
+do not give root tokens to production services. With mount _magellan_ and no
+prefix, a read-only BMC consumer uses:
+
+```
+path "magellan/data/*" {
+  capabilities = ["read"]
+}
+```
+
+Listing is separate and optional for BMC consumers. An IDs-only listing
+identity needs only:
+
+```
+path "magellan/metadata/" {
+  capabilities = ["list"]
+}
+```
+
+An identity authorized to manage secrets can additionally use:
+
+```
+path "magellan/data/*" {
+  capabilities = ["create", "update", "read"]
+}
+path "magellan/metadata/*" {
+  capabilities = ["delete"]
+}
+```
+
+Narrow wildcard permissions to the required scope. Use _secret_ instead of
+_magellan_ for the walkthrough. With *BAO_PREFIX=team*, listing requires
+_magellan/metadata/team_; values live at
+_magellan/data/team/<encoded-ID>_. IDs use base64url without padding, except
+the literal _default_. *remove* deletes metadata and all secret versions.
+
+# TROUBLESHOOTING
+
+- *403 / permission denied*: inspect the request URL. AppRole login failures
+  differ from KV data or metadata denials. Use *bao token lookup* and
+  *bao token capabilities* _path_ (omit _/v1/_). Read-only identities cannot
+  store/remove; list-only identities cannot retrieve values.
+- *AppRole not used*: nonempty *BAO_TOKEN* or *VAULT_TOKEN* wins. Unset both
+  to use AppRole. Supplied tokens are caller-managed; AppRole tokens are
+  renewed/reacquired, requiring a valid deployed RoleID/SecretID.
+- *Wrong mount or missing secret*: check KV v2, mount, and prefix. Depending
+  on policy, an incorrect path may return 403 or 404.
+- *TLS errors*: configure the environment CA file, bytes, or directory;
+  *--cacert* is only a fallback. Development-only *--insecure=secrets* skips
+  secret-manager verification; bare *--insecure* selects BMC scope instead.
+- *Local path/key errors*: verify the backend. *-i* is not the destination;
+  local storage needs *MASTER_KEY* and optionally *--file*. Remote storage
+  needs neither.
+
+Share only sanitized errors and paths, never tokens, SecretIDs, input
+credential files, or *retrieve* output.
 
 # AUTHOR
 

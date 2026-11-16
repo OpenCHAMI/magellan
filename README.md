@@ -510,24 +510,96 @@ Details:
 - The KV v2 engine must be mounted at `magellan` by default; override with `BAO_MOUNT`/`VAULT_MOUNT`, and optionally store credentials below a path prefix with `BAO_PREFIX`/`VAULT_PREFIX`.
 - BMC URIs (the secret IDs) are stored as base64url-encoded path segments so any URI is a valid KV path; the default credentials use the literal path `default`. The credential value is the JSON document `{"username": ..., "password": ...}` under a single `value` field.
 - `BAO_CACERT`/`VAULT_CACERT` set the CA bundle for the secret manager connection (`--cacert` is used as a fallback), and `--insecure=secrets` skips TLS verification for that connection only. BMC connections are unaffected: they use the `bmc` scope of `--insecure`.
-- `magellan secrets list` reads the value of every secret, so its policy must grant read (not only list) on the engine.
+- `magellan secrets list` returns sorted IDs only, without fetching remote values. JSON/YAML output is an array of IDs, not the previous ID-to-value map. Use `secrets retrieve <ID>` to explicitly reveal credentials. The existing Go `ListSecrets()` API remains available; new backends should also implement `SecretIDLister` for CLI listing.
 
-Throwaway dev-server for testing:
+##### Docker walkthrough (development only)
+
+This isolated, disposable server uses a known root token and HTTP. Use fake credentials only; neither this token nor this configuration is suitable for production. Docker must be running. Port 18200 is bound to localhost, and stopping the container discards its data.
+
+Run from the repository root:
 
 ```bash
-podman run --rm -d -p 8200:8200 --name bao-dev quay.io/openbao/openbao:latest server -dev
-export BAO_ADDR=http://127.0.0.1:8200
-export BAO_TOKEN=$(podman logs bao-dev 2>&1 | grep 'Root Token' | awk '{print $NF}')
+TEST_DIR=$(mktemp -d)
+go build -o "$TEST_DIR/magellan" .
+MAGELLAN="$TEST_DIR/magellan"
+printf '%s\n' '{"username":"review-user","password":"fake-review-password"}' > "$TEST_DIR/credentials.json"
+
+docker run --rm -d --name magellan-review-bao \
+  -p 127.0.0.1:18200:8200 quay.io/openbao/openbao:latest \
+  server -dev -dev-listen-address=0.0.0.0:8200 \
+  -dev-root-token-id=magellan-review-only
+
+(
+  # Clear inherited configuration only within this subshell.
+  for name in $(env | sed -n 's/^\(\(BAO\|VAULT\)_[A-Za-z0-9_]*\)=.*/\1/p'); do
+    unset "$name"
+  done
+  export BAO_ADDR=http://127.0.0.1:18200
+  export BAO_TOKEN=magellan-review-only
+  export BAO_MOUNT=secret
+  export SECRETS_BACKEND=bao
+
+  curl --fail --silent --show-error --retry 10 --retry-connrefused \
+    --retry-delay 1 "$BAO_ADDR/v1/sys/health"
+
+  "$MAGELLAN" secrets store review-check \
+    --input-format=json -i "$TEST_DIR/credentials.json"
+  "$MAGELLAN" secrets retrieve review-check
+  "$MAGELLAN" secrets list
+  "$MAGELLAN" secrets list --output-format=json
+  "$MAGELLAN" secrets remove review-check
+)
+
+docker stop magellan-review-bao
 ```
 
-> [!NOTE]
-> The OpenBao dev server mounts a KV v2 engine at `secret/`; enable one at `magellan/` with `bao secrets enable -path=magellan kv-v2`, or set `BAO_MOUNT=secret` to reuse the existing mount.
+Expected: `retrieve` prints the fake username/password; `list` prints only `review-check`, and JSON listing returns `["review-check"]`. Removal deletes the secret and **all versions**. This exercises the remote CRUD integration, not BMC access, TLS, restricted policies, or AppRole renewal. Podman can replace Docker in these commands.
+
+`-i` is the credential input file, not the destination store. With `bao`/`vault`, `--file` and `MASTER_KEY` are unused. With `local` (the default), `--file` selects the encrypted destination (default `./secrets.json`) and `MASTER_KEY` is required. The dev server already mounts KV v2 at `secret/`, whereas Magellan defaults to `magellan/`; this walkthrough explicitly selects `secret`.
+
+##### OpenBao policies and permissions
+
+The following HCL examples assume mount `magellan` with no prefix. Replace it with `secret` for the walkthrough. Provision policies and AppRoles using an authorized administrator; do not distribute a root token to Magellan services.
+
+A read-only BMC consumer needs data reads. Metadata listing is separate and optional unless the identity must run `secrets list`:
+
+```hcl
+path "magellan/data/*" {
+  capabilities = ["read"]
+}
+path "magellan/metadata/" {
+  capabilities = ["list"]
+}
+```
+
+For an identity explicitly authorized to manage secrets, add writes and deletion:
+
+```hcl
+path "magellan/data/*" {
+  capabilities = ["create", "update", "read"]
+}
+path "magellan/metadata/*" {
+  capabilities = ["delete"]
+}
+```
+
+These management rules supplement the listing rule above. A list-only identity needs only metadata `list`, not data `read`. An administrator should narrow wildcard access to the required IDs/prefixes. For `BAO_PREFIX=team`, the listing path is `magellan/metadata/team` and data paths are `magellan/data/team/<encoded-ID>`. Non-default IDs use base64url encoding without padding; `default` is literal. `remove` deletes metadata and all versions, not merely the latest version.
+
+##### Troubleshooting
+
+- **403 / permission denied:** distinguish `/auth/approle/login` failure from `/data/` or `/metadata/` denial using the URL in the error. Check token validity with `bao token lookup` and permissions with `bao token capabilities <API-path-without-v1>`. Read-only service policies intentionally deny `store` and `remove`; listing IDs alone does not authorize retrieval.
+- **AppRole unexpectedly unused:** nonempty `BAO_TOKEN` or `VAULT_TOKEN` takes precedence. Unset both to select AppRole. Supplied tokens are caller-managed; AppRole-issued tokens are renewed, with reauthentication when renewal ends. The deployed RoleID/SecretID must remain valid; Magellan does not rotate them.
+- **Wrong mount or missing secret:** use a KV v2 mount and check `BAO_MOUNT`/`VAULT_MOUNT` and prefix. A wrong path can produce 403 or 404 depending on server policy. Listing skips subdirectories; it does not recursively traverse prefixes.
+- **TLS verification errors:** configure `BAO_CACERT`/`VAULT_CACERT` (or SDK CA bytes/directory settings); `--cacert` is a fallback only. `--insecure=secrets` disables only secret-manager verification and should be limited to development. Bare `--insecure` selects BMC verification, not secret-manager verification.
+- **Local path/key errors:** confirm the selected backend. `-i` does not set the local destination; use `secrets --file /path/to/secrets.json` and a valid `MASTER_KEY` for local storage. No local store path or master key is needed for OpenBao.
+
+When sharing errors, include the failing operation and sanitized request path, but never tokens, SecretIDs, credential input files, or `retrieve` output.
 
 #### Adding a secret store backend
 
 Backends are pluggable through the `secrets.SecretStore` interface. To add one:
 
-1. Implement the `secrets.SecretStore` interface (4 methods: `GetSecretByID`, `StoreSecretByID`, `ListSecrets`, `RemoveSecretByID`) in a new `pkg/secrets/<name>store.go`.
+1. Implement the `secrets.SecretStore` interface (4 methods: `GetSecretByID`, `StoreSecretByID`, `ListSecrets`, `RemoveSecretByID`) in a new `pkg/secrets/<name>store.go`. Also implement `SecretIDLister.ListSecretIDs() ([]string, error)` for CLI listing; it must not fetch values. The CLI deliberately rejects stores without IDs-only support rather than falling back to value retrieval.
 2. Add a `Backend` constant, e.g. `BackendFoo Backend = "foo"`, and a matching `BackendHelpMap` entry — the help map drives `--secrets-backend` shell completion automatically.
 3. Add a case to `secrets.NewStore()` mapping `StoreConfig` fields to your constructor. Extend `StoreConfig` with backend-specific fields if needed (all optional; zero values must fail with a clear error, not panic).
 4. Add tests mirroring `pkg/secrets/baostore_test.go` (table-driven round-trip through the 4 interface methods, plus auth/config error paths).

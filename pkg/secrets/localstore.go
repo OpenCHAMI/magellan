@@ -96,7 +96,18 @@ func (l *LocalSecretStore) StoreSecretByID(secretID, secret string) error {
 	return err
 }
 
-// ListSecrets returns a copy of secret IDs to secrets stored in memory
+// ListSecretIDs copies identifiers without decrypting or exposing values.
+func (l *LocalSecretStore) ListSecretIDs() ([]string, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	ids := make([]string, 0, len(l.Secrets))
+	for id := range l.Secrets {
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// ListSecrets returns a copy of secret IDs to secrets stored in memory.
 func (l *LocalSecretStore) ListSecrets() (map[string]string, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()

@@ -1,14 +1,59 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/openchami/magellan/internal/format"
 
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSecretsListIDsOnly(t *testing.T) {
+	oldFile, oldBackend, oldFormat := secretsCommandFile, secretsBackend, secretsListFormat
+	oldOut := secretsListCmd.OutOrStdout()
+	t.Cleanup(func() {
+		secretsCommandFile, secretsBackend, secretsListFormat = oldFile, oldBackend, oldFormat
+		secretsListCmd.SetOut(oldOut)
+	})
+	key, err := secrets.GenerateMasterKey()
+	require.NoError(t, err)
+	t.Setenv("MASTER_KEY", key)
+	secretsCommandFile = filepath.Join(t.TempDir(), "secrets.json")
+	secretsBackend = secrets.BackendLocal
+	store, err := secrets.OpenStore(secretsCommandFile)
+	require.NoError(t, err)
+	for _, id := range []string{"z", "a"} {
+		require.NoError(t, store.StoreSecretByID(id, `{"username":"private-user","password":"private-password"}`))
+	}
+	for _, tc := range []struct {
+		format format.DataFormat
+		want   string
+	}{
+		{format.FORMAT_LIST, "a\nz\n"},
+		{format.FORMAT_JSON, ""},
+		{format.FORMAT_YAML, ""},
+	} {
+		var buf bytes.Buffer
+		secretsListCmd.SetOut(&buf)
+		secretsListFormat = tc.format
+		secretsListCmd.Run(secretsListCmd, nil)
+		out := buf.String()
+		require.NotContains(t, out, "private-")
+		switch tc.format {
+		case format.FORMAT_JSON:
+			require.JSONEq(t, `["a","z"]`, out)
+		case format.FORMAT_YAML:
+			require.YAMLEq(t, "- a\n- z\n", out)
+		default:
+			require.Equal(t, tc.want, out)
+		}
+	}
+}
 
 func TestSecretsStoreFileIsolation(t *testing.T) {
 	// Verify the actual initialized value, not only the flag's advertised
