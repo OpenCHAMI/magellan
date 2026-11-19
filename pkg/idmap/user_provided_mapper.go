@@ -100,7 +100,6 @@ func (mapper userProvidedMapper) Initialize() (Mapper, error) {
 	// Get the host to BMC ID mapping
 	idMap, err := getBMCIDMap(mapper.IDMapStr, mapper.IDMapFormat)
 	if err != nil {
-		log.Error().Err(err).Str("User Specified BMC ID Map", mapper.IDMapStr).Msg("failed to decode user supplied BMC ID Mapping")
 		return mapper, err
 	}
 	mapper.IDMap = idMap

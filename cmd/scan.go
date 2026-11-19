@@ -3,8 +3,11 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 
 	"github.com/openchami/magellan/internal/cache/sqlite"
 	"github.com/openchami/magellan/internal/format"
@@ -20,7 +23,6 @@ var (
 	scheme           string
 	subnets          []string
 	subnetMask       net.IPMask
-	targetHosts      [][]string
 	include          []string
 	disableProbing   bool
 	disableCache     bool
@@ -82,7 +84,7 @@ with '--port' or the default port used with each specified protocol. The default
 protocol is 'tcp' unless specified. The '--scheme' flag works similarly and the
 default value is 'https' in the host URL or with the '--protocol' flag.
 
-If the '--disable-probe' flag is used, the tool will not send another request to
+If the '--disable-probing' flag is used, the tool will not send another request to
 probe for available. Redfish and JAWS services. This is not recommended, since 
 the extra request makes the scan a bit more reliable for determining which hosts
 to collect inventory data.
@@ -94,7 +96,27 @@ must use the same data format specified with '-f/--input-format' and
 See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of available environment variables.
 	`,
 
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if scheme != "https" && scheme != "http" {
+			return fmt.Errorf("scan scheme must be http or https")
+		}
+		if protocol != "tcp" && protocol != "tcp4" && protocol != "tcp6" {
+			return fmt.Errorf("scan protocol must be tcp, tcp4, or tcp6")
+		}
+		if timeout <= 0 {
+			return fmt.Errorf("scan timeout must be positive")
+		}
+		if len(include) == 0 {
+			return fmt.Errorf("scan requires at least one asset type")
+		}
+		for _, assetType := range include {
+			if assetType != "bmcs" && assetType != "pdus" {
+				return fmt.Errorf("scan asset types must be bmcs or pdus")
+			}
+		}
+		if outputPath != "" && scanOutputFormat == "" {
+			return fmt.Errorf("scan output file requires an output format")
+		}
 		// add default ports for hosts if none are specified with flag
 		if len(ports) == 0 {
 			ports = magellan.GetDefaultPorts()
@@ -102,23 +124,40 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 		}
 
 		// format and combine flag and positional args
-		targetHosts = append(targetHosts, urlx.FormatHosts(args, ports, scheme)...)
+		for _, port := range ports {
+			if port < 1 || port > 65535 {
+				return fmt.Errorf("scan port out of range: %d", port)
+			}
+		}
+		for index, host := range args {
+			if !strings.Contains(host, "://") {
+				host = scheme + "://" + host
+			}
+			parsed, err := url.ParseRequestURI(host)
+			if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+				return fmt.Errorf("invalid scan target at argument %d (use an HTTP(S) host without credentials or query parameters)", index+1)
+			}
+			if port := parsed.Port(); port != "" {
+				value, err := strconv.Atoi(port)
+				if err != nil || value < 1 || value > 65535 {
+					return fmt.Errorf("invalid scan target port at argument %d", index+1)
+				}
+			}
+		}
+		targetHosts := urlx.FormatHosts(args, ports, scheme)
 
 		for _, subnet := range subnets {
 			// generate a slice of all hosts to scan from subnets
 			subnetHosts := magellan.GenerateHostsWithSubnet(subnet, &subnetMask, ports, scheme)
+			if len(subnetHosts) == 0 {
+				return fmt.Errorf("invalid or empty scan subnet")
+			}
 			targetHosts = append(targetHosts, subnetHosts...)
 		}
 
 		// if there are no target hosts, then there's nothing to do
-		if len(targetHosts) <= 0 {
-			log.Error().Msg("nothing to do (no valid target hosts)")
-			os.Exit(1)
-		} else {
-			if len(targetHosts[0]) <= 0 {
-				log.Error().Msg("nothing to do (no valid target hosts)")
-				os.Exit(1)
-			}
+		if len(targetHosts) == 0 {
+			return fmt.Errorf("nothing to do (no valid target hosts)")
 		}
 
 		// show the parameters going into the scan
@@ -141,7 +180,7 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 		if concurrency <= 0 {
 			concurrency = len(targetHosts)
 		} else {
-			concurrency = mathutil.Clamp(len(targetHosts), 1, len(targetHosts))
+			concurrency = mathutil.Clamp(concurrency, 1, len(targetHosts))
 		}
 
 		// scan and store scanned data in cache
@@ -159,8 +198,7 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 		if len(foundAssets) > 0 {
 			log.Trace().Any("assets", foundAssets).Msgf("found assets from scan")
 		} else {
-			log.Warn().Msg("no responsive assets found")
-			return
+			return fmt.Errorf("no responsive assets found; check network reachability, TLS, and probe settings")
 		}
 
 		if scanOutputFormat != "" {
@@ -173,22 +211,23 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 
 				output, err = format.MarshalData(foundAssets, scanOutputFormat)
 				if err != nil {
-					log.Error().Err(err).Msgf("failed to marshal output to %s", scanOutputFormat)
-					return
+					return fmt.Errorf("failed to marshal scan output: %w", err)
 				}
 				if outputPath != "" {
 					err := os.WriteFile(outputPath, output, 0644)
 					if err != nil {
-						log.Error().Err(err).Msgf("failed to write to file: %s", outputPath)
+						return fmt.Errorf("failed to write scan output: %w", err)
 					} else {
 						log.Debug().Msgf("scan results written to %s", outputPath)
 					}
 				} else {
-					fmt.Println(string(output))
+					if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(output)); err != nil {
+						return fmt.Errorf("failed to write scan output: %w", err)
+					}
 				}
 
 			default:
-				log.Error().Msgf("unknown format specified: %s. Please use 'db', 'json', or 'yaml'.", scanOutputFormat)
+				return fmt.Errorf("unknown scan output format: %s", scanOutputFormat)
 			}
 		}
 
@@ -196,14 +235,15 @@ See 'magellan-scan(1)' for more details. See 'magellan(1)' for a list of availab
 		if !disableCache && cachePath != "" {
 			err := os.MkdirAll(path.Dir(cachePath), 0755)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to make cache directory")
+				return fmt.Errorf("failed to make cache directory: %w", err)
 			}
 			err = sqlite.InsertScannedAssets(cachePath, foundAssets...)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to write scanned assets to cache")
+				return fmt.Errorf("failed to write scanned assets to cache: %w", err)
 			}
 			log.Debug().Str("path", cachePath).Msg("saved assets to cache")
 		}
+		return nil
 	},
 }
 

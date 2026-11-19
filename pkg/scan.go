@@ -107,8 +107,9 @@ func ScanForAssets(params *ScanParams) []RemoteAsset {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: params.Insecure},
 	}
 	probeClient := &http.Client{
-		Timeout:   time.Duration(params.Timeout) * time.Second,
-		Transport: transport,
+		Timeout:       time.Duration(params.Timeout) * time.Second,
+		Transport:     transport,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 
 	var wg sync.WaitGroup

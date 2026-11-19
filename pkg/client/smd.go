@@ -49,21 +49,15 @@ func (c *SmdClient) Add(data HTTPBody, headers HTTPHeader) error {
 
 	// Add redfish endpoint via POST `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := c.RootEndpoint("/Inventory/RedfishEndpoints")
-	res, body, err := MakeRequest(c.Client, url, http.MethodPost, data, headers)
+	res, _, err := MakeRequest(c.Client, url, http.MethodPost, data, headers)
 	if res != nil {
 		statusOk := res.StatusCode >= http.StatusOK && res.StatusCode < http.StatusMultipleChoices
 		if !statusOk {
-			if len(body) > 0 {
-				return fmt.Errorf("%d: %s", res.StatusCode, string(body))
-			} else {
-				return fmt.Errorf("returned status code %d when adding endpoint", res.StatusCode)
-			}
+			return fmt.Errorf("SMD rejected endpoint creation (HTTP %d)", res.StatusCode)
 		}
 		log.Debug().
 			Str("url", url).
-			Str("status", res.Status).
 			Int("status_code", res.StatusCode).
-			RawJSON("body", body).
 			Send()
 	}
 	return err
@@ -75,17 +69,13 @@ func (c *SmdClient) Update(data HTTPBody, headers HTTPHeader) error {
 	}
 	// Update redfish endpoint via PUT `/hsm/v2/Inventory/RedfishEndpoints` endpoint
 	url := c.RootEndpoint("/Inventory/RedfishEndpoints/" + c.Xname)
-	res, body, err := MakeRequest(c.Client, url, http.MethodPut, data, headers)
+	res, _, err := MakeRequest(c.Client, url, http.MethodPut, data, headers)
 	if res != nil {
 		statusOk := res.StatusCode >= 200 && res.StatusCode < 300
 		if !statusOk {
-			if len(body) > 0 {
-				return fmt.Errorf("%d: %s", res.StatusCode, string(body))
-			} else {
-				return fmt.Errorf("failed to update redfish endpoint (returned %s)", res.Status)
-			}
+			return fmt.Errorf("SMD rejected endpoint update (HTTP %d)", res.StatusCode)
 		}
-		log.Debug().Msgf("%v (%v)\n%s\n", url, res.Status, string(body))
+		log.Debug().Str("url", url).Int("status_code", res.StatusCode).Send()
 	}
 	return err
 }

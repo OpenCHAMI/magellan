@@ -61,17 +61,14 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]models.InventoryDetail, error) 
 			if err == nil {
 				// rf_systems = append(rf_systems, rf_chassis_systems...)
 				log.Debug().Msgf("found %d systems in chassis %s", len(rf_chassis_systems), chassis.ID)
+			} else {
+				return extractPtrMapValues(systems), fmt.Errorf("failed to get chassis systems: %w", err)
 			}
 
 			// Walk the systems found under Chassis with reference
 			newSystems, err := walkSystems(rf_chassis_systems, chassis, config.URI)
 			if err != nil {
-				log.Error().
-					Err(err).
-					Str("chassis_id", chassis.ID).
-					Str("uri", config.URI).
-					Msg("failed to get systems in chassis...continuing...")
-				continue
+				return extractPtrMapValues(systems), fmt.Errorf("failed to walk chassis systems: %w", err)
 			}
 
 			// add systems found from chassis to total collection
@@ -79,10 +76,12 @@ func CrawlBMCForSystems(config CrawlerConfig) ([]models.InventoryDetail, error) 
 				systems[newSystems[i].URI] = &newSystems[i]
 			}
 		}
+	} else {
+		return extractPtrMapValues(systems), fmt.Errorf("failed to get chassis: %w", err)
 	}
 	rf_root_systems, err := rf_service.Systems()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get systems from ServiceRoot")
+		return extractPtrMapValues(systems), fmt.Errorf("failed to get systems from ServiceRoot: %w", err)
 	}
 	log.Debug().Msgf("found %d systems in ServiceRoot", len(rf_root_systems))
 	rf_systems = append(rf_systems, rf_root_systems...)
@@ -127,9 +126,7 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]models.Manager, error) {
 
 	rf_managers, err := rf_service.Managers()
 	if err != nil {
-		log.Error().
-			Err(err).
-			Msg("failed to get managers from ServiceRoot")
+		return managers, fmt.Errorf("failed to get managers from ServiceRoot: %w", err)
 	}
 	return walkManagers(rf_managers, config.URI)
 }
@@ -168,14 +165,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		// get all of the links to managers
 		rf_managers, err := rf_computersystem.ManagedBy()
 		if err != nil {
-			log.Warn().
-				Err(err).
-				Msg("failed to get system managers")
-			log.Error().
-				Err(err).
-				Str("id", rf_computersystem.ID).
-				Str("system", rf_computersystem.Name).
-				Msg("failed to get manager for system")
+			log.Warn().Msg("failed to get optional system manager links")
 		} else {
 			for _, manager := range rf_managers {
 				managerLinks = append(managerLinks, manager.ODataID)
@@ -188,7 +178,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 			// get power-related details from rf_chassis
 			power, err = rf_chassis.Power()
 			if err != nil {
-				log.Warn().Err(err).Str("id", rf_computersystem.ID).
+				log.Warn().Str("id", rf_computersystem.ID).
 					Str("system", rf_computersystem.Name).Msg("failed to get power-related details from chassis")
 			} else {
 				// extract the power control odata.id resource
@@ -258,7 +248,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		// add ethernet interfaces
 		rf_ethernetinterfaces, err := rf_computersystem.EthernetInterfaces()
 		if err != nil {
-			log.Error().Err(err).Msg("failed to get ethernet interfaces from computer system")
+			log.Error().Msg("failed to get ethernet interfaces from computer system")
 			return systems, err
 		}
 		// only interfaces carrying a usable IPv4 address are emitted;
@@ -267,7 +257,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 
 		rf_networkInterfaces, err := rf_computersystem.NetworkInterfaces()
 		if err != nil {
-			log.Error().Err(err).Msg("failed to get network interfaces from computer system")
+			log.Error().Msg("failed to get network interfaces from computer system")
 			return systems, err
 		}
 
@@ -275,7 +265,7 @@ func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chass
 		for _, rf_networkInterface := range rf_networkInterfaces {
 			rf_networkAdapter, err := rf_networkInterface.NetworkAdapter()
 			if err != nil {
-				log.Error().Err(err).Msg("failed to get network adapter from network interface")
+				log.Error().Msg("failed to get network adapter from network interface")
 				return systems, err
 			}
 
@@ -332,7 +322,7 @@ func walkManagers(rf_managers []*schemas.Manager, baseURI string) ([]models.Mana
 	for _, rf_manager := range rf_managers {
 		rf_ethernetinterfaces, err := rf_manager.EthernetInterfaces()
 		if err != nil {
-			log.Error().Err(err).Msg("failed to get ethernet interfaces from manager")
+			log.Error().Msg("failed to get ethernet interfaces from manager")
 			return managers, err
 		}
 		// interfaces without a usable IPv4 address are dropped here as well;

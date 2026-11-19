@@ -45,6 +45,13 @@ func newMockRedfish(t *testing.T, initial schemas.PowerState) *httptest.Server {
 	mux.HandleFunc("/redfish/v1/", test.Make(test.RESPONSE_ServiceRoot))
 	mux.HandleFunc("/redfish/v1", test.Make(test.RESPONSE_ServiceRoot))
 	mux.HandleFunc("/redfish/v1/Systems", test.Make(test.RESPONSE_Systems))
+	mux.HandleFunc("/redfish/v1/Chassis", test.Make(`{
+		"@odata.id": "/redfish/v1/Chassis",
+		"@odata.type": "#ChassisCollection.ChassisCollection",
+		"Name": "Chassis Collection",
+		"Members": [],
+		"Members@odata.count": 0
+	}`))
 	mux.HandleFunc("/redfish/v1/Managers", test.Make(test.RESPONSE_Managers))
 	mux.HandleFunc("/redfish/v1/Managers/bmc", test.Make(test.RESPONSE_Manager))
 	mux.HandleFunc("/redfish/v1/Managers/bmc/EthernetInterfaces", test.Make(test.RESPONSE_EthernetInterfaceCollection))

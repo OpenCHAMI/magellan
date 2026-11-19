@@ -84,7 +84,7 @@ func TestLogFlagsFromEnvironment(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "rfc3339")
 	t.Setenv("LOG_COLOR", "off")
 
-	InitializeConfig()
+	_ = InitializeConfig()
 
 	require.Equal(t, logger.DEBUG, logLevel)
 	require.Equal(t, logger.FORMAT_RFC3339, logFormat)
@@ -105,7 +105,7 @@ func TestLogFlagOverridesEnvironment(t *testing.T) {
 		logFormat = logger.FORMAT_JSON
 	})
 
-	InitializeConfig()
+	_ = InitializeConfig()
 
 	require.Equal(t, logger.FORMAT_BASIC, logFormat, "explicit flag must win over env")
 	require.Equal(t, logger.COLOR_OFF, logColor)
@@ -118,7 +118,7 @@ func TestInvalidLogEnvValueKeepsDefault(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "bogus")
 	t.Setenv("LOG_COLOR", "bogus")
 
-	InitializeConfig()
+	_ = InitializeConfig()
 
 	require.Equal(t, logger.FORMAT_JSON, logFormat)
 	require.Equal(t, logger.COLOR_AUTO, logColor)
@@ -148,7 +148,7 @@ func TestConfigDiagnosticsDeferredUntilLoggerReady(t *testing.T) {
 	os.Stderr = w
 	t.Cleanup(func() { os.Stderr = origStderr })
 
-	InitializeConfig()
+	_ = InitializeConfig()
 	// the diagnostic must be collected, not emitted through the default logger
 	require.NotEmpty(t, configDiagnostics, "missing config must produce a collected diagnostic")
 
@@ -162,14 +162,14 @@ func TestConfigDiagnosticsDeferredUntilLoggerReady(t *testing.T) {
 	stderrOut := string(stderrBytes)
 
 	// the diagnostic was rendered in the configured basic format (not raw JSON)
-	require.Contains(t, stderrOut, "failed to load config")
+	require.Contains(t, stderrOut, "failed to load Magellan config")
 	require.NotContains(t, stderrOut, `{"level"`, "diagnostic must use the configured format, not raw JSON")
 
 	// and it was appended to the log file as raw JSON
 	require.NoError(t, logger.LogFile.Sync())
 	fileBytes, err := os.ReadFile(logPath)
 	require.NoError(t, err)
-	require.Contains(t, string(fileBytes), "failed to load config")
+	require.Contains(t, string(fileBytes), "failed to load Magellan config")
 	require.Contains(t, string(fileBytes), `"level":"debug"`)
 }
 
@@ -187,7 +187,7 @@ func TestConfigDiagnosticsHonourDisabledLevel(t *testing.T) {
 	os.Stderr = w
 	t.Cleanup(func() { os.Stderr = origStderr })
 
-	InitializeConfig()
+	_ = InitializeConfig()
 	require.NotEmpty(t, configDiagnostics, "invalid LOG_FORMAT must produce a collected diagnostic")
 
 	InitializeLogger()

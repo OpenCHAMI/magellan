@@ -40,7 +40,7 @@ var DefaultManager = NewManager()
 func (m *Manager) ConnectContext(ctx context.Context, cfg ConnConfig) (*gofish.APIClient, error) {
 	creds, err := cfg.GetUserPass()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to load BMC credentials")
+		log.Error().Msg("failed to load BMC credentials")
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (m *Manager) ConnectContext(ctx context.Context, cfg ConnConfig) (*gofish.A
 		if strings.HasPrefix(err.Error(), "401:") {
 			err = fmt.Errorf("authentication failed.  Check your username and password: %s", cfg.URI)
 		}
-		log.Error().Err(err).Msg("could not connect to the specified BMC")
+		log.Error().Msg("could not connect to the specified BMC")
 		return nil, err
 	}
 	return api, nil
