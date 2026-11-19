@@ -2,12 +2,12 @@
 package magellan
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -59,14 +59,24 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	if params.Concurrency <= 0 {
 		return nil, fmt.Errorf("invalid concurrency: %d", params.Concurrency)
 	}
+	mapper, err := idmap.NewIDMapper(params.BMCIDMap, params.OutputFormat)
+	if err != nil {
+		return nil, fmt.Errorf("invalid BMC ID mapping: check mapping file and format")
+	}
+	for index, asset := range *assets {
+		host, err := url.ParseRequestURI(asset.Host)
+		if err != nil || host.Hostname() == "" || host.User != nil || host.RawQuery != "" || host.Path != "" || host.Port() != "" || (host.Scheme != "http" && host.Scheme != "https") || asset.Port < 1 || asset.Port > 65535 {
+			return nil, fmt.Errorf("invalid collect asset at index %d: expected an HTTP(S) host and a valid port", index)
+		}
+	}
 
 	// collect bmc information asynchronously
 	var (
 		wg           sync.WaitGroup
 		collection   = make([]map[string]any, 0)
+		failures     []error
 		collectionMu sync.Mutex
 		chanAssets   = make(chan RemoteAsset, params.Concurrency+1)
-		mapper       = idmap.PickIDMapper(params.BMCIDMap, params.OutputFormat)
 	)
 
 	// set the client's params from CLI
@@ -80,7 +90,8 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					return
 				}
 
-				trimmedHost := strings.TrimPrefix(sr.Host, "https://")
+				endpoint, _ := url.ParseRequestURI(sr.Host)
+				trimmedHost := endpoint.Hostname()
 				uri := fmt.Sprintf("%s:%d", sr.Host, sr.Port)
 				keys := &idmap.MapperKeys{
 					IPv4Addr: trimmedHost,
@@ -94,6 +105,11 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// meaning that the BMC is
 				// unrecognized. Skip this BMC.
 				if bmcID == "" {
+					if params.BMCIDMap == "" {
+						collectionMu.Lock()
+						failures = append(failures, fmt.Errorf("BMC %s: cannot generate an ID; provide a BMC ID map", trimmedHost))
+						collectionMu.Unlock()
+					}
 					continue
 				}
 
@@ -110,14 +126,19 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				)
 
 				// crawl for node and BMC information
-				systems, err := crawler.CrawlBMCForSystems(config)
-				if err != nil {
-					log.Error().Err(err).Str("uri", uri).Msg("failed to crawl BMC for systems")
+				systems, systemsErr := crawler.CrawlBMCForSystems(config)
+				managers, managersErr := crawler.CrawlBMCForManagers(config)
+				collectionMu.Lock()
+				if systemsErr != nil {
+					failures = append(failures, fmt.Errorf("BMC %s: failed to collect systems (check credentials and Redfish access)", bmcID))
 				}
-				managers, err = crawler.CrawlBMCForManagers(config)
-				if err != nil {
-					log.Error().Err(err).Str("uri", uri).Msg("failed to crawl BMC for managers")
+				if managersErr != nil {
+					failures = append(failures, fmt.Errorf("BMC %s: failed to collect managers (check credentials and Redfish access)", bmcID))
 				}
+				if systemsErr == nil && managersErr == nil && util.IsEmpty(systems) && util.IsEmpty(managers) {
+					failures = append(failures, fmt.Errorf("BMC %s: no systems or managers collected", bmcID))
+				}
+				collectionMu.Unlock()
 
 				// we didn't find anything so do not proceed
 				if util.IsEmpty(systems) && util.IsEmpty(managers) {
@@ -135,7 +156,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 					"ID":                 bmcID,
 					"Type":               "",
 					"Name":               "",
-					"FQDN":               strings.TrimPrefix(sr.Host, "https://"),
+					"FQDN":               trimmedHost,
 					"User":               bmcCreds.Username,
 					"MACRequired":        true,
 					"RediscoverOnUpdate": false,
@@ -152,7 +173,7 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 				// already an IP literal.
 				mac, err := FindMACAddressWithIP(config, net.ParseIP(trimmedHost))
 				if err != nil {
-					log.Warn().Err(err).Msgf("failed to find MAC address with IP '%s'", trimmedHost)
+					log.Warn().Msgf("failed to find MAC address with IP '%s'", trimmedHost)
 				}
 				if mac != "" {
 					data["MACAddr"] = mac
@@ -181,6 +202,9 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 	close(chanAssets)
 	wg.Wait()
+	if err := errors.Join(failures...); err != nil {
+		return collection, err
+	}
 
 	var (
 		output     []byte
@@ -189,32 +213,24 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 
 	// format our output to write to file or standard out
 	formatType = format.DataFormatFromFileExt(params.OutputPath, params.OutputFormat)
-	output, err := format.MarshalData(collection, formatType)
+	output, err = format.MarshalData(collection, formatType)
 	if err != nil {
-		log.Error().Err(err).Msgf("failed to marshal output to %s", strings.ToUpper(formatType.String()))
+		return collection, fmt.Errorf("failed to marshal collect output: %w", err)
 	}
 
 	// write data to file in preset directory if output path is set using set format
 	if params.OutputDir != "" {
 		for _, data := range collection {
 			var (
-				finalPath = fmt.Sprintf("./%s/%s/%d.%s",
-					path.Clean(params.OutputDir),
-					data["ID"],
-					time.Now().Unix(),
-					formatType,
-				)
-				finalDir = filepath.Dir(finalPath)
+				finalPath = filepath.Join(params.OutputDir, fmt.Sprint(data["ID"]), fmt.Sprintf("%d.%s", time.Now().Unix(), formatType))
+				finalDir  = filepath.Dir(finalPath)
 			)
 			// if it doesn't, make the directory and write file
-			err = os.MkdirAll(finalDir, 0o777)
-			if err == nil { // no error
-				err = os.WriteFile(path.Clean(finalPath), output, os.ModePerm)
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to write collect output to file")
-				}
-			} else { // error is set
-				log.Error().Err(err).Msg("failed to make directory for collect output")
+			if err := os.MkdirAll(finalDir, 0755); err != nil {
+				return collection, fmt.Errorf("create collect output directory: %w", err)
+			}
+			if err := os.WriteFile(finalPath, output, 0644); err != nil {
+				return collection, fmt.Errorf("write collect output: %w", err)
 			}
 		}
 	}
@@ -222,14 +238,11 @@ func CollectInventory(assets *[]RemoteAsset, params *CollectParams) ([]map[strin
 	// write data to only to the path set (no preset directory structure)
 	if params.OutputPath != "" {
 		// if it doesn't, make the directory and write file
-		err = os.MkdirAll(filepath.Dir(params.OutputPath), 0o777)
-		if err == nil { // no error
-			err = os.WriteFile(path.Clean(params.OutputPath), output, os.ModePerm)
-			if err != nil {
-				log.Error().Err(err).Msgf("failed to write collect output to file")
-			}
-		} else { // error is set
-			log.Error().Err(err).Msg("failed to make directory for collect output")
+		if err := os.MkdirAll(filepath.Dir(params.OutputPath), 0755); err != nil {
+			return collection, fmt.Errorf("create collect output directory: %w", err)
+		}
+		if err := os.WriteFile(params.OutputPath, output, 0644); err != nil {
+			return collection, fmt.Errorf("write collect output: %w", err)
 		}
 	}
 
@@ -259,7 +272,6 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 	client, err := bmc.DefaultManager.Connect(config)
 	if err != nil {
 		event := log.Error()
-		event.Err(err)
 		event.Msg("failed to connect to BMC")
 		return "", err
 	}
@@ -279,7 +291,7 @@ func FindMACAddressWithIP(config crawler.CrawlerConfig, targetIP net.IP) (string
 	for _, manager := range rf_managers {
 		eths, err := manager.EthernetInterfaces()
 		if err != nil {
-			log.Error().Err(err).Msgf("failed to get ethernet interfaces from manager '%s'", manager.Name)
+			log.Warn().Msg("failed to get manager Ethernet interfaces for optional MAC lookup")
 			continue
 		}
 		for _, eth := range eths {

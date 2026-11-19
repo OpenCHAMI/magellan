@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/openchami/magellan/internal/format"
 	urlx "github.com/openchami/magellan/internal/url"
@@ -39,46 +42,56 @@ var sendCmd = &cobra.Command{
 	Args: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if timeout <= 0 {
+			return fmt.Errorf("send timeout must be positive")
+		}
 		// the destination host is a required positional argument; without it
 		// no request is attempted at all, which must not look like success
 		if len(args) == 0 {
-			log.Error().Msg("host argument required (e.g. magellan send ... https://smd.example.com)")
-			os.Exit(1)
+			return fmt.Errorf("host argument required (e.g. magellan send ... https://smd.example.com)")
+		}
+		for index, host := range args {
+			parsed, err := url.ParseRequestURI(host)
+			if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+				return fmt.Errorf("invalid SMD destination at argument %d (use an HTTP(S) URL without credentials or query parameters)", index+1)
+			}
 		}
 
 		// try to load access token either from env var, file, or config if var not set
 		if accessToken == "" {
 			var err error
 			accessToken, err = auth.LoadAccessToken(tokenPath)
-			if err != nil {
-				log.Warn().Err(err).Msg("could not load access token")
-			} else if accessToken != "" {
-				log.Debug().Str("access_token", accessToken).Msg("using access token")
+			if err != nil && tokenPath != "" {
+				return fmt.Errorf("could not load access token")
 			}
 		}
 
 		// try and load cert if argument is passed for client
 		var smdClient = client.NewSmdClient()
+		smdClient.Timeout = time.Duration(timeout) * time.Second
+		smdClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 		if cacertPath != "" {
 			log.Debug().Str("path", cacertPath).Msg("using provided certificate path")
 			err := client.LoadCertificateFromPath(smdClient, cacertPath)
 			if err != nil {
-				log.Warn().Err(err).Str("path", cacertPath).Msg("could not load certificate")
+				return fmt.Errorf("could not load certificate: %w", err)
 			}
 		}
 
 		// make one request be host positional argument (restricted to 1 for now)
-		var inputData []map[string]any
-		temp := append(handleArgs(args, sendInputFormat), processDataArgs(sendDataArgs, sendInputFormat)...)
-		for _, data := range temp {
-			if data != nil {
-				inputData = append(inputData, data)
+		inputData, err := loadDiscoveryDataArgs(sendDataArgs, sendInputFormat)
+		if err != nil {
+			return err
+		}
+		if len(sendDataArgs) == 0 {
+			inputData, err = readDiscoveryStdin(sendInputFormat)
+			if err != nil {
+				return err
 			}
 		}
 		if len(inputData) == 0 {
-			log.Error().Msg("data required with standard input or -d/--data flag")
-			os.Exit(1)
+			return fmt.Errorf("data required with standard input or -d/--data flag")
 		}
 
 		// show the data that was just loaded as input
@@ -90,12 +103,9 @@ var sendCmd = &cobra.Command{
 		sent, failed := sendDataToHosts(args, inputData, smdClient)
 		log.Debug().Int("sent", sent).Int("failed", failed).Send()
 		if failed > 0 {
-			log.Error().
-				Int("sent", sent).
-				Int("failed", failed).
-				Msgf("failed to send %d of %d request(s)", failed, sent+failed)
-			os.Exit(1)
+			return fmt.Errorf("failed to send %d of %d request(s)", failed, sent+failed)
 		}
+		return nil
 	},
 }
 
@@ -112,11 +122,11 @@ func sendDataToHosts(hosts []string, inputData []map[string]any, smdClient *clie
 	for _, host := range hosts {
 		sanitized, err := urlx.Sanitize(host)
 		if err != nil {
-			log.Error().Err(err).Str("host", host).Msg("could not sanitize host")
+			log.Error().Msg("could not sanitize SMD destination")
 			failed += len(inputData)
 			continue
 		}
-		smdClient.URI = sanitized
+		smdClient.URI = strings.TrimSuffix(sanitized, "/hsm/v2")
 
 		for _, dataObject := range inputData {
 			// skip on to the next thing if it does not exist, but count it:
@@ -141,7 +151,6 @@ func sendDataToHosts(hosts []string, inputData []map[string]any, smdClient *clie
 				failed++
 				continue
 			}
-			log.Debug().Str("host", sanitized).RawJSON("data", body).Send()
 
 			// make request to remote host
 			if err := smdClient.Add(body, headers); err != nil {
@@ -150,7 +159,6 @@ func sendDataToHosts(hosts []string, inputData []map[string]any, smdClient *clie
 					log.Error().
 						Err(err).
 						Str("host", sanitized).
-						Str("ID", dataObjectID(dataObject)).
 						Msg("failed to add Redfish endpoint")
 					failed++
 					continue
@@ -168,7 +176,6 @@ func sendDataToHosts(hosts []string, inputData []map[string]any, smdClient *clie
 					log.Error().
 						Err(err).
 						Str("host", sanitized).
-						Str("ID", id).
 						Msg("failed to forcibly update Redfish endpoint")
 					failed++
 					continue
@@ -302,6 +309,48 @@ func parseInput(contents []byte, dataFormat format.DataFormat) ([]map[string]any
 	err = format.UnmarshalData(contents, &data, dataFormat)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %v", err)
+	}
+	return data, nil
+}
+
+func loadDiscoveryDataArgs(args []string, inputFormat format.DataFormat) ([]map[string]any, error) {
+	var result []map[string]any
+	for index, arg := range args {
+		contents, dataFormat := []byte(arg), inputFormat
+		if name, fromFile := strings.CutPrefix(arg, "@"); fromFile {
+			var err error
+			contents, err = os.ReadFile(name)
+			if err != nil {
+				return nil, fmt.Errorf("cannot read --data file at argument %d: %w", index+1, err)
+			}
+			dataFormat = format.DataFormatFromFileExt(name, inputFormat)
+		}
+		data, err := parseDiscoveryInput(contents, dataFormat)
+		if err != nil || len(data) == 0 {
+			return nil, fmt.Errorf("--data argument %d must contain a nonempty array of objects", index+1)
+		}
+		result = append(result, data...)
+	}
+	return result, nil
+}
+
+func readDiscoveryStdin(inputFormat format.DataFormat) ([]map[string]any, error) {
+	contents, err := ReadStdin()
+	if err != nil || len(contents) == 0 {
+		return nil, err
+	}
+	return parseDiscoveryInput(contents, inputFormat)
+}
+
+func parseDiscoveryInput(contents []byte, inputFormat format.DataFormat) ([]map[string]any, error) {
+	data, err := parseInput(contents, inputFormat)
+	if err != nil || data == nil {
+		return nil, fmt.Errorf("discovery input must be an array of objects")
+	}
+	for _, entry := range data {
+		if entry == nil {
+			return nil, fmt.Errorf("discovery input contains a null entry")
+		}
 	}
 	return data, nil
 }

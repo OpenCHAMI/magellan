@@ -99,10 +99,19 @@ func init() {
 		// collected while configuration loads are replayed through the
 		// configured logger afterwards (see emitConfigDiagnostics), so they
 		// honor the selected format, color, log file, and level.
-		InitializeConfig()
+		configErr := InitializeConfig()
 		InitializeLogger()
 		emitConfigDiagnostics()
-		resolveFlagsFromViper(cmd)
+		flagErr := resolveFlagsFromViper(cmd)
+		switch cmd.Name() {
+		case "scan", "collect", "send":
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
+			if configErr != nil {
+				return configErr
+			}
+			return flagErr
+		}
 		return nil
 	}
 	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "j", -1, "Set the number of concurrent processes")
@@ -214,7 +223,7 @@ func emitConfigDiagnostics() {
 
 // InitializeConfig() initializes a new config object by loading it
 // from a file given a non-empty string.
-func InitializeConfig() {
+func InitializeConfig() error {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 
@@ -239,8 +248,12 @@ func InitializeConfig() {
 	} else {
 		viper.SetConfigFile(configPath)
 	}
+	var configErr error
 	if err := viper.ReadInConfig(); err != nil {
-		addDiagnostic(logger.DEBUG, err, "failed to load config", nil)
+		if _, notFound := err.(viper.ConfigFileNotFoundError); configPath != "" || !notFound {
+			configErr = fmt.Errorf("failed to load Magellan config; check file path and syntax")
+			addDiagnostic(logger.DEBUG, nil, configErr.Error(), nil)
+		}
 	}
 
 	for _, key := range []string{"concurrency", "timeout", "log-level", "log-format", "log-color", "access-token", "cache"} {
@@ -253,6 +266,9 @@ func InitializeConfig() {
 			concurrency = viper.GetInt(key)
 		case "timeout":
 			timeout = viper.GetInt(key)
+			if timeout <= 0 {
+				configErr = fmt.Errorf("configured timeout must be a positive integer")
+			}
 		case "log-level":
 			if err := logLevel.Set(viper.GetString(key)); err != nil {
 				addDiagnostic(logger.WARN, err, "failed to set flag from config", map[string]string{"key": key})
@@ -271,6 +287,7 @@ func InitializeConfig() {
 			cachePath = viper.GetString(key)
 		}
 	}
+	return configErr
 }
 
 func InitializeLogger() {
@@ -288,10 +305,11 @@ var viperKeyAliases = map[string]string{
 	"scan.subnet-mask": "scan.subnet-masks",
 }
 
-func resolveFlagsFromViper(cmd *cobra.Command) {
+func resolveFlagsFromViper(cmd *cobra.Command) error {
 	if cmd == nil {
-		return
+		return nil
 	}
+	var flagErr error
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if f.Changed {
 			return
@@ -306,28 +324,33 @@ func resolveFlagsFromViper(cmd *cobra.Command) {
 		}
 		for _, k := range keys {
 			if viper.IsSet(k) {
-				setFlagFromViper(cmd, f, k)
+				if err := setFlagFromViper(cmd, f, k); err != nil && flagErr == nil {
+					flagErr = err
+				}
 				return
 			}
 		}
 	})
+	return flagErr
 }
 
-func setFlagFromViper(cmd *cobra.Command, f *pflag.Flag, key string) {
+func setFlagFromViper(cmd *cobra.Command, f *pflag.Flag, key string) error {
+	var err error
 	switch f.Value.Type() {
 	case "stringSlice":
 		if vals := viper.GetStringSlice(key); len(vals) > 0 {
-			if err := cmd.Flags().Set(f.Name, strings.Join(vals, ",")); err != nil {
-				log.Warn().Err(err).Str("flag", f.Name).Msg("failed to set flag from config")
-			}
+			err = cmd.Flags().Set(f.Name, strings.Join(vals, ","))
 		}
 	default:
 		if s := viper.GetString(key); s != "" && s != f.DefValue {
-			if err := cmd.Flags().Set(f.Name, s); err != nil {
-				log.Warn().Err(err).Str("flag", f.Name).Msg("failed to set flag from config")
-			}
+			err = cmd.Flags().Set(f.Name, s)
 		}
 	}
+	if err != nil {
+		log.Warn().Str("flag", f.Name).Msg("failed to set flag from config")
+		return fmt.Errorf("invalid configuration for --%s", f.Name)
+	}
+	return nil
 }
 
 // SetDefaults() resets all of the viper properties back to their

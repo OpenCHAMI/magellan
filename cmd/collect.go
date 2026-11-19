@@ -78,16 +78,19 @@ See 'magellan-collect(1)' for more details. See 'magellan(1)' for a list of
 available environment variables.
 
 	`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// get probe states stored in db from scan
 		var (
 			scannedResults []magellan.RemoteAsset
 
 			// used for processing stdin and --data arguments
 			inputData []map[string]any
-			temp      = processDataArgs(collectDataArgs, collectInputFormat)
 			err       error
 		)
+		temp, err := loadDiscoveryDataArgs(collectDataArgs, collectInputFormat)
+		if err != nil {
+			return err
+		}
 
 		// resolve which assets to collect from: an explicit --cache wins
 		// unconditionally, even over a piped stdin, so `scan --cache ... ;
@@ -96,8 +99,7 @@ available environment variables.
 		var stdinInput []map[string]any
 		scannedResults, stdinInput, err = loadCollectInput(cachePath, isCacheExplicit(cmd), args, collectInputFormat)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to load input for collect")
-			os.Exit(1)
+			return fmt.Errorf("failed to load input for collect: %w", err)
 		}
 		temp = append(temp, stdinInput...)
 
@@ -120,19 +122,18 @@ available environment variables.
 			)
 			inputRaw, err = format.MarshalData(dataObject, collectInputFormat)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to marshal input data")
+				return fmt.Errorf("failed to marshal collect input")
 			}
 			err = format.UnmarshalData(inputRaw, &asset, collectInputFormat)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to unmarshal input data")
+				return fmt.Errorf("failed to unmarshal collect input")
 			}
 			scannedResults = append(scannedResults, asset)
 		}
 
 		// check that we have something to actually scan
 		if len(scannedResults) == 0 {
-			log.Error().Msg("data required to perform collect either from standard input, '--data' flag, or '--cache'")
-			os.Exit(1)
+			return fmt.Errorf("data required to perform collect either from standard input, '--data' flag, or '--cache'")
 		}
 
 		// set the minimum/maximum number of concurrent processes
@@ -150,8 +151,11 @@ available environment variables.
 			// Alternatively, locate specific credentials (falling back to default) and override those
 			// with --username or --password if either are passed.
 			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
+			if _, err := os.Stat(secretsFile); err != nil {
+				return fmt.Errorf("cannot read configured BMC secrets file")
+			}
 			if store, err = secrets.OpenStore(secretsFile); err != nil {
-				log.Error().Err(err).Msg("failed to open local secrets store")
+				return fmt.Errorf("failed to open local secrets store")
 			}
 
 			// Temporarily override username/password of each BMC if one of those
@@ -174,7 +178,7 @@ available environment variables.
 			case *secrets.LocalSecretStore:
 				for k := range s.Secrets {
 					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
+						return fmt.Errorf("failed to read stored BMC credentials for override")
 					} else {
 						if username != "" {
 							creds.Username = username
@@ -184,11 +188,11 @@ available environment variables.
 						}
 
 						if newCreds, err := json.Marshal(creds); err != nil {
-							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
+							return fmt.Errorf("failed to encode BMC credential override")
 						} else {
 							err = s.StoreSecretByID(k, string(newCreds))
 							if err != nil {
-								log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
+								return fmt.Errorf("failed to store BMC credential override")
 							}
 						}
 					}
@@ -209,22 +213,20 @@ available environment variables.
 			BMCIDMap:     idMap,
 		}
 
-		// show all of the 'collect' parameters being set from CLI if verbose
-		log.Debug().Any("params", params).Send()
-
 		inventory, err := magellan.CollectInventory(&scannedResults, params)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to collect data")
+			return fmt.Errorf("failed to collect data: %w", err)
 		}
 
 		if showOutput {
 			output, err := format.MarshalData(inventory, collectOutputFormat)
 			if err != nil {
-				log.Error().Msgf("failed to marshal inventory to %s", strings.ToUpper(collectOutputFormat.String()))
-				os.Exit(1)
+				return fmt.Errorf("failed to marshal inventory to %s", strings.ToUpper(collectOutputFormat.String()))
 			}
-			fmt.Println(string(output))
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), string(output))
+			return err
 		}
+		return nil
 	},
 }
 
@@ -320,7 +322,7 @@ func isCacheExplicit(cmd *cobra.Command) bool {
 func loadCollectInput(cachePath string, cacheExplicit bool, args []string, inputFormat format.DataFormat) ([]magellan.RemoteAsset, []map[string]any, error) {
 	isStdinEmpty, err := IsStdinEmpty()
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to determine if stdin is empty")
+		return nil, nil, fmt.Errorf("failed to determine if stdin is empty: %w", err)
 	}
 	piped := !isStdinEmpty
 
@@ -348,27 +350,29 @@ func loadCollectInput(cachePath string, cacheExplicit bool, args []string, input
 	for _, arg := range args {
 		var asset magellan.RemoteAsset
 		if err := format.UnmarshalData([]byte(arg), &asset, inputFormat); err != nil {
-			log.Warn().Err(err).Msg("failed to unmarshal data from standard input")
-			continue
+			return nil, nil, fmt.Errorf("invalid positional collect input")
 		}
 		assets = append(assets, asset)
 	}
 
 	// ...and piped stdin, but never a terminal (it would block)
 	if piped {
-		stdinInput = handleArgs(args, inputFormat)
+		stdinInput, err = readDiscoveryStdin(inputFormat)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// (3) fall back to the cache when nothing else produced input; an
 	// explicitly empty --cache ("") means "no cache at all"
 	cacheDisabled := cacheExplicit && cachePath == ""
-	if len(assets) == 0 && len(stdinInput) == 0 && !cacheDisabled {
+	if len(assets) == 0 && len(stdinInput) == 0 && len(collectDataArgs) == 0 && !cacheDisabled {
 		cached, err := sqlite.GetScannedAssets(cachePath)
 		switch {
 		case err == nil:
 			assets = cached
 		case cachePath != "":
-			log.Warn().Err(err).Msgf("failed to get scanned results from cache")
+			return nil, nil, fmt.Errorf("failed to get scanned results from cache: %w", err)
 		default:
 			log.Warn().Msg("expected '--cache' to be set when stdin is empty")
 		}

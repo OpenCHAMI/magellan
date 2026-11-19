@@ -122,6 +122,51 @@ go mod tidy && go build
 
 This might take some time to complete initially because of the `go-sqlite3` driver, but should be much faster for subsequent builds.
 
+### Discovery Exit Status
+
+Use the exit status of each command before moving to the next stage. For example,
+with `COLLECT_USERNAME`, `COLLECT_PASSWORD` and (if needed) `ACCESS_TOKEN` already
+set in the environment:
+
+```bash
+magellan scan "$BMC_URL" --disable-cache -F json -o assets.json &&
+  magellan collect -d @assets.json -o inventory.json &&
+  magellan send -d @inventory.json "$SMD_URL"
+```
+
+For a lab BMC with an untrusted TLS certificate, use `--insecure` on `scan` and
+`collect` only when appropriate. For SMD with a private CA, use `send --cacert`.
+For Bash pipelines, use `set -o pipefail` to retain upstream failures. Do not
+reuse output files from a previous run after a failure.
+
+| Command | Exit `0` | Exit `1` |
+| --- | --- | --- |
+| `scan` | At least one configured asset was found and requested outputs succeeded. | No responsive assets, invalid settings, or a cache/output error. |
+| `collect` | Every active, mapped target was collected and requested outputs succeeded. A valid ID map may explicitly exclude every target. | Any required collection fails, even if other BMCs succeeded, or input/configuration/output fails. |
+| `send` | SMD returned HTTP 2xx for every endpoint request (including successful `--force-update` retries). | Invalid input/configuration, failed transport, or HTTP rejection. Earlier requests may already have succeeded. |
+
+`scan` cannot distinguish an empty subnet from filtered ports, DNS/routing or TLS
+failures, or a service probe that does not return HTTP 200. Having some results
+does not prove the scan reached every target. `--disable-probing` detects open
+ports, not Redfish services. A scan does not validate BMC credentials.
+`collect` treats inactive assets and unmapped hosts in a valid user ID map as
+skips. It does not publish new inventory on crawl failure; the Go API returns
+partial results with a non-nil error. Optional enrichment, such as a matching
+MAC address, may be unavailable, and a BMC that omits resources without an error
+cannot be distinguished from one that has no such resources. `send` confirms
+HTTP acceptance only; it cannot verify downstream SMD processing or persistence.
+
+These guarantees apply to a build containing the discovery error-reporting
+changes, not the published `v0.9.0` image. From the updated checkout, build with
+`go build -o magellan .` or `make container FQCN=magellan:discovery-exit-status`.
+Use the local image tag until a release containing the fix is published.
+
+To validate on a real lab BMC, run `go test . -run '^TestLiveDiscovery$' -v`
+with `MAGELLAN_TEST_BMC_URL` and the collection credentials set. The test makes
+one invalid-credential collection; use a lab account that can tolerate failed
+authentication. Set `MAGELLAN_TEST_REJECTING_SMD_URL` to also test HTTP rejection
+of invalid inventory by a real lab SMD.
+
 ### Docker
 
 The tool can also run using Docker. There are two Dockerfiles for different build workflows:
