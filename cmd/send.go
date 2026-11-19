@@ -163,8 +163,8 @@ func sendDataToHosts(hosts []string, inputData []map[string]any, smdClient *clie
 					failed++
 					continue
 				}
-				id, ok := dataObject["ID"].(string)
-				if !ok || id == "" {
+				id := dataObjectID(dataObject)
+				if id == "" {
 					log.Error().
 						Str("host", sanitized).
 						Msg("failed to forcibly update Redfish endpoint: data object is missing a string 'ID' field")

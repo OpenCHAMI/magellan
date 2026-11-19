@@ -348,13 +348,13 @@ func TestSettingsEnvironmentVariablesUseSettingsPrefix(t *testing.T) {
 	t.Setenv("SETTINGS_INPUT_FORMAT", "yaml")
 	t.Setenv("SETTINGS_PRESERVE_CONFIG", "PreserveNetwork")
 
-	resolveFlagsFromViper(SettingsGetCmd)
+	require.NoError(t, resolveFlagsFromViper(SettingsGetCmd))
 	require.Equal(t, "env-user", bmc.SettingsUsername)
 	require.Equal(t, "env-pass", bmc.SettingsPassword)
 	require.Equal(t, "/tmp/nodes.yaml", settingsInventoryFile)
 	require.Equal(t, format.FORMAT_YAML, settingsInputFormat)
 
-	resolveFlagsFromViper(SettingsResetCmd)
+	require.NoError(t, resolveFlagsFromViper(SettingsResetCmd))
 	require.Equal(t, "PreserveNetwork", settingsPreserveConfig)
 }
 
