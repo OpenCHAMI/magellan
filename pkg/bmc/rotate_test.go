@@ -14,9 +14,11 @@ import (
 )
 
 type rotateTestStore struct {
-	mu       sync.Mutex
-	values   map[string]string
-	writeErr error
+	mu          sync.Mutex
+	values      map[string]string
+	writeErr    error
+	writeCount  int
+	failWriteAt int
 }
 
 func (s *rotateTestStore) GetSecretByID(id string) (string, error) {
@@ -32,7 +34,8 @@ func (s *rotateTestStore) GetSecretByID(id string) (string, error) {
 func (s *rotateTestStore) StoreSecretByID(id, value string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.writeErr != nil {
+	s.writeCount++
+	if s.writeErr != nil && (s.failWriteAt == 0 || s.writeCount == s.failWriteAt) {
 		return s.writeErr
 	}
 	s.values[id] = value
@@ -63,14 +66,15 @@ func (s *rotateTestStore) value(id string) string {
 }
 
 type rotateRedfishFixture struct {
-	mu                sync.Mutex
-	username          string
-	password          string
-	accountUsername   string
-	patchStatus       int
-	rejectReplacement bool
-	passwordChanged   bool
-	patchCount        int
+	mu                 sync.Mutex
+	username           string
+	password           string
+	accountUsername    string
+	patchStatus        int
+	patchApplyThenFail bool
+	rejectReplacement  bool
+	passwordChanged    bool
+	patchCount         int
 }
 
 func (f *rotateRedfishFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -116,6 +120,10 @@ func (f *rotateRedfishFixture) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		defer f.mu.Unlock()
 		f.patchCount++
 		if f.patchStatus != 0 {
+			if f.patchApplyThenFail {
+				f.password = payload["Password"]
+				f.passwordChanged = true
+			}
 			http.Error(w, "injected PATCH failure", f.patchStatus)
 			return
 		}
@@ -166,7 +174,7 @@ func TestRotateStoredAccountRejectsUsernameMismatchBeforePatch(t *testing.T) {
 	store.values[server.URL] = `{"username":"test_user","password":"old-password"}`
 
 	err := RotateStoredAccount(server.URL, "2", "new-password", store, false, "")
-	require.ErrorContains(t, err, "target account must match")
+	require.ErrorContains(t, err, "account username does not match stored credential")
 	require.Zero(t, fixture.patchCount)
 	require.JSONEq(t, `{"username":"test_user","password":"old-password"}`, store.value(server.URL))
 }
@@ -181,6 +189,19 @@ func TestRotateStoredAccountReportsPATCHFailureWithoutChangingStore(t *testing.T
 	require.ErrorContains(t, err, "BMC may still have applied the change")
 	require.ErrorContains(t, err, "Do not retry blindly")
 	require.Equal(t, "old-password", fixture.password)
+	require.JSONEq(t, `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"new-password"}}`, store.value(server.URL))
+}
+
+func TestRotateStoredAccountDoesNotPatchWhenIntentWriteFails(t *testing.T) {
+	server, fixture := newRotateRedfishFixture(t)
+	store := newRotateTestStore()
+	store.values[server.URL] = `{"username":"test_user","password":"old-password"}`
+	store.writeErr = errors.New("injected intent write failure")
+
+	err := RotateStoredAccount(server.URL, "2", "new-password", store, false, "")
+	require.ErrorContains(t, err, "could not persist rotation intent")
+	require.Equal(t, "old-password", fixture.password)
+	require.Zero(t, fixture.patchCount)
 	require.JSONEq(t, `{"username":"test_user","password":"old-password"}`, store.value(server.URL))
 }
 
@@ -191,9 +212,9 @@ func TestRotateStoredAccountReportsVerificationFailureAndLeavesStoreUnchanged(t 
 	store.values[server.URL] = `{"username":"test_user","password":"old-password"}`
 
 	err := RotateStoredAccount(server.URL, "2", "new-password", store, false, "")
-	require.ErrorContains(t, err, "authenticated account verification failed")
+	require.ErrorContains(t, err, "new credential verification failed")
 	require.Equal(t, "new-password", fixture.password)
-	require.JSONEq(t, `{"username":"test_user","password":"old-password"}`, store.value(server.URL))
+	require.JSONEq(t, `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"new-password"}}`, store.value(server.URL))
 }
 
 func TestRotateStoredAccountReportsStoreFailureAfterBMCChange(t *testing.T) {
@@ -201,11 +222,75 @@ func TestRotateStoredAccountReportsStoreFailureAfterBMCChange(t *testing.T) {
 	store := newRotateTestStore()
 	store.values[server.URL] = `{"username":"test_user","password":"old-password"}`
 	store.writeErr = errors.New("injected store failure")
+	store.failWriteAt = 2
 
 	err := RotateStoredAccount(server.URL, "2", "new-password", store, false, "")
-	require.ErrorContains(t, err, "BMC password changed but credential-store write failed")
+	require.ErrorContains(t, err, "credential-store finalization failed")
 	require.Equal(t, "new-password", fixture.password)
-	require.JSONEq(t, `{"username":"test_user","password":"old-password"}`, store.value(server.URL))
+	require.JSONEq(t, `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"new-password"}}`, store.value(server.URL))
+	store.writeErr = nil
+	require.NoError(t, RecoverStoredAccountRotation(server.URL, store, false, ""))
+	require.JSONEq(t, `{"username":"test_user","password":"new-password"}`, store.value(server.URL))
+}
+
+func TestRecoverStoredAccountRotationCommitsWhenNewPasswordIsActive(t *testing.T) {
+	server, fixture := newRotateRedfishFixture(t)
+	fixture.password = "new-password"
+	store := newRotateTestStore()
+	store.values[server.URL] = `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"new-password"}}`
+
+	require.NoError(t, RecoverStoredAccountRotation(server.URL, store, false, ""))
+	require.JSONEq(t, `{"username":"test_user","password":"new-password"}`, store.value(server.URL))
+	require.Zero(t, fixture.patchCount)
+}
+
+func TestRotateStoredAccountRefusesToReplacePendingRotation(t *testing.T) {
+	server, fixture := newRotateRedfishFixture(t)
+	store := newRotateTestStore()
+	store.values[server.URL] = `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"pending-password"}}`
+
+	err := RotateStoredAccount(server.URL, "2", "another-password", store, false, "")
+	require.ErrorContains(t, err, "a rotation is already pending")
+	require.Zero(t, fixture.patchCount)
+	require.JSONEq(t, `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"pending-password"}}`, store.value(server.URL))
+}
+
+func TestRecoverStoredAccountRotationRetriesWhenOldPasswordIsActive(t *testing.T) {
+	server, fixture := newRotateRedfishFixture(t)
+	store := newRotateTestStore()
+	store.values[server.URL] = `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"new-password"}}`
+
+	require.NoError(t, RecoverStoredAccountRotation(server.URL, store, false, ""))
+	require.Equal(t, "new-password", fixture.password)
+	require.JSONEq(t, `{"username":"test_user","password":"new-password"}`, store.value(server.URL))
+	require.Equal(t, 1, fixture.patchCount)
+}
+
+func TestRecoverStoredAccountRotationHandlesAppliedPatchTimeout(t *testing.T) {
+	server, fixture := newRotateRedfishFixture(t)
+	fixture.patchStatus = http.StatusInternalServerError
+	fixture.patchApplyThenFail = true
+	store := newRotateTestStore()
+	store.values[server.URL] = `{"username":"test_user","password":"old-password"}`
+
+	err := RotateStoredAccount(server.URL, "2", "new-password", store, false, "")
+	require.ErrorContains(t, err, "BMC may still have applied the change")
+	require.Equal(t, "new-password", fixture.password)
+	require.NoError(t, RecoverStoredAccountRotation(server.URL, store, false, ""))
+	require.JSONEq(t, `{"username":"test_user","password":"new-password"}`, store.value(server.URL))
+	require.Equal(t, 1, fixture.patchCount)
+}
+
+func TestRecoverStoredAccountRotationRetainsPendingWhenNeitherPasswordWorks(t *testing.T) {
+	server, fixture := newRotateRedfishFixture(t)
+	fixture.password = "admin-reset-password"
+	store := newRotateTestStore()
+	store.values[server.URL] = `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"new-password"}}`
+
+	err := RecoverStoredAccountRotation(server.URL, store, false, "")
+	require.ErrorContains(t, err, "neither previous nor pending password authenticates")
+	require.JSONEq(t, `{"username":"test_user","password":"old-password","pending_rotation":{"account_id":"2","new_password":"new-password"}}`, store.value(server.URL))
+	require.Zero(t, fixture.patchCount)
 }
 
 func TestRotateStoredAccountRequiresExactPersistentCredential(t *testing.T) {
