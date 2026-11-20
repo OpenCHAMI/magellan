@@ -30,8 +30,11 @@ var ServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Run magellan as a long-lived BMC service (REST API)",
 	Long: `Run magellan as a persistent daemon exposing a REST API for BMC inventory and
-power operations, backed by the same shared core the CLI uses. The server runs
-until it receives SIGINT or SIGTERM, then drains in-flight requests.`,
+	power operations, backed by the same shared core the CLI uses. Account rotation
+	and recovery endpoints are available only with TLS and bearer authentication
+	configured. Rotation requests reference a replacement credential in the
+	configured secret store; passwords are not accepted in request bodies. The
+	server runs until it receives SIGINT or SIGTERM, then drains in-flight requests.`,
 	Example: `  # serve on the default port (8500) using a secrets file
   magellan serve --secrets-file secrets.json
 

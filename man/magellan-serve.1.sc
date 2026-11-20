@@ -11,7 +11,7 @@ magellan serve - Run magellan as a long-lived BMC service (REST API)
 # DESCRIPTION
 
 The magellan serve command runs magellan as a persistent daemon exposing a REST
-API for BMC inventory and power operations. The server runs until it receives
+API for BMC inventory, power operations, and credential rotation. The server runs until it receives
 SIGINT or SIGTERM, then drains in-flight requests. The API is backed by the same
 shared core as the CLI, so behavior is consistent across front-ends.
 
@@ -332,6 +332,56 @@ curl -s -X POST http://localhost:8500/v1/power \\
 	-H "Content-Type: application/json" \\
 	-d '{"bmc":"https://127.0.0.1:5000","system":"Node0","operation":"off","wait":true}'
 ```
+
+## POST /v1/accounts/rotate
+
+Rotate a BMC account password. This endpoint is available only when the daemon
+has both *--tls-cert*/*--tls-key* and *--auth-token* configured, and the request
+arrives over HTTPS. A bearer token alone is insufficient; HTTP requests are
+rejected. The endpoint accepts a replacement secret ID, not a plaintext
+password. That secret must already exist in the daemon's configured
+*SecretStore* as the usual credential JSON object; its *password* field is used.
+
+Request body:
+
+```
+{
+	"bmc": "https://172.24.0.3",
+	"accountId": "2",
+	"replacementSecretId": "next-test-password"
+}
+```
+
+Example:
+
+```
+curl --fail --show-error --cacert ca.pem \
+	-H "Authorization: Bearer $token" \
+	-H "Content-Type: application/json" \
+	-d '{"bmc":"https://172.24.0.3","accountId":"2","replacementSecretId":"next-test-password"}' \
+	https://localhost:8500/v1/accounts/rotate
+```
+
+Responses: 200 (rotation verified and credential saved), 400 (invalid request or
+replacement secret), 401 (missing/invalid bearer token), 426 (not HTTPS), 502
+(BMC or credential-store operation failed), 503 (TLS or bearer auth not
+configured). If a PATCH response is ambiguous, inspect the error and use *POST
+/v1/accounts/recover-rotation* rather than blindly retrying.
+
+## POST /v1/accounts/recover-rotation
+
+Resume a pending BMC password rotation. This endpoint has the same TLS and
+bearer-authentication requirements as */v1/accounts/rotate*.
+
+Request body:
+
+```
+{"bmc":"https://172.24.0.3"}
+```
+
+Recovery commits the proposed credential if it authenticates, retries the
+Redfish PATCH if only the previous credential authenticates, and leaves pending
+state unchanged if neither credential can be verified.
 
 # ERROR RESPONSES
 

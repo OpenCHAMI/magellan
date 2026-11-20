@@ -3,10 +3,12 @@ package server_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 
@@ -331,4 +333,258 @@ func TestBearerAuth(t *testing.T) {
 		map[string]string{"Authorization": "Bearer " + token}); rec.Code == http.StatusUnauthorized {
 		t.Fatalf("correct-token /v1 = 401, want it to pass the auth gate")
 	}
+}
+
+type rotationStore struct {
+	mu     sync.Mutex
+	values map[string]string
+}
+
+func (s *rotationStore) GetSecretByID(id string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	value, ok := s.values[id]
+	if !ok {
+		return "", errors.New("secret missing")
+	}
+	return value, nil
+}
+
+func (s *rotationStore) StoreSecretByID(id, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.values[id] = value
+	return nil
+}
+
+func (s *rotationStore) ListSecrets() (map[string]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	values := make(map[string]string, len(s.values))
+	for key, value := range s.values {
+		values[key] = value
+	}
+	return values, nil
+}
+
+func (s *rotationStore) RemoveSecretByID(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.values, id)
+	return nil
+}
+
+func (s *rotationStore) get(id string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.values[id]
+}
+
+func rotationRedfish(t *testing.T, initialPassword string) (*httptest.Server, func() string) {
+	t.Helper()
+	var mu sync.Mutex
+	password := initialPassword
+	mux := chi.NewMux()
+	mux.HandleFunc("/redfish/v1/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `{"@odata.id":"/redfish/v1/","AccountService":{"@odata.id":"/redfish/v1/AccountService"}}`)
+	})
+	mux.HandleFunc("/redfish/v1/AccountService", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		valid := hasBasicAuth(r, "test_user", password)
+		mu.Unlock()
+		if !valid {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"@odata.id":"/redfish/v1/AccountService","Accounts":{"@odata.id":"/redfish/v1/AccountService/Accounts"}}`)
+	})
+	mux.HandleFunc("/redfish/v1/AccountService/Accounts", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		valid := hasBasicAuth(r, "test_user", password)
+		mu.Unlock()
+		if !valid {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"@odata.id":"/redfish/v1/AccountService/Accounts","Members":[{"@odata.id":"/redfish/v1/AccountService/Accounts/2"}]}`)
+	})
+	mux.HandleFunc("/redfish/v1/AccountService/Accounts/2", func(w http.ResponseWriter, r *http.Request) {
+		username, suppliedPassword, ok := r.BasicAuth()
+		mu.Lock()
+		valid := ok && username == "test_user" && suppliedPassword == password
+		if valid && r.Method == http.MethodPatch {
+			var payload map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				mu.Unlock()
+				http.Error(w, "bad patch", http.StatusBadRequest)
+				return
+			}
+			password = payload["Password"]
+		}
+		currentPassword := password
+		mu.Unlock()
+		if !valid {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method == http.MethodPatch {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"@odata.id": r.URL.Path, "Id": "2", "UserName": "test_user", "PasswordNotReturned": currentPassword == ""})
+	})
+	tlsServer := httptest.NewTLSServer(mux)
+	t.Cleanup(tlsServer.Close)
+	return tlsServer, func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		return password
+	}
+}
+
+func hasBasicAuth(r *http.Request, username, password string) bool {
+	gotUsername, gotPassword, ok := r.BasicAuth()
+	return ok && gotUsername == username && gotPassword == password
+}
+
+func TestAccountRotationEndpointRequiresConfiguredTLSAndBearer(t *testing.T) {
+	store := &rotationStore{values: map[string]string{}}
+	svc := service.New(store)
+	t.Cleanup(svc.Close)
+	h := server.New(svc, server.Config{AuthToken: "token"}).Handler()
+	rec := do(t, h, http.MethodPost, "/v1/accounts/rotate", map[string]string{
+		"bmc": "https://bmc", "accountId": "2", "replacementSecretId": "replacement",
+	}, map[string]string{"Authorization": "Bearer token"})
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("rotation without configured TLS = %d, want 503", rec.Code)
+	}
+
+	h = server.New(svc, server.Config{TLSCert: "cert", TLSKey: "key", AuthToken: "token"}).Handler()
+	rec = do(t, h, http.MethodPost, "/v1/accounts/rotate", map[string]string{
+		"bmc": "https://bmc", "accountId": "2", "replacementSecretId": "replacement",
+	}, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("rotation without bearer token = %d, want 401", rec.Code)
+	}
+	rec = do(t, h, http.MethodPost, "/v1/accounts/rotate", map[string]string{
+		"bmc": "https://bmc", "accountId": "2", "replacementSecretId": "replacement",
+	}, map[string]string{"Authorization": "Bearer token"})
+	if rec.Code != http.StatusUpgradeRequired {
+		t.Fatalf("rotation over plaintext = %d, want 426", rec.Code)
+	}
+}
+
+func TestAccountRotationEndpointUsesSecretIDOverHTTPS(t *testing.T) {
+	bmcServer, currentPassword := rotationRedfish(t, "current-password")
+	store := &rotationStore{values: map[string]string{
+		bmcServer.URL: `{"username":"test_user","password":"current-password"}`,
+		"replacement": `{"username":"test_user","password":"replacement-password"}`,
+	}}
+	svc := service.New(store)
+	svc.Insecure = true
+	t.Cleanup(svc.Close)
+	const token = "rotation-test-token"
+	h := server.New(svc, server.Config{TLSCert: "configured-cert", TLSKey: "configured-key", AuthToken: token}).Handler()
+	daemon := httptest.NewTLSServer(h)
+	t.Cleanup(daemon.Close)
+	body := `{"bmc":` + mustJSON(t, bmcServer.URL) + `,"accountId":"2","replacementSecretId":"replacement"}`
+	req, err := http.NewRequest(http.MethodPost, daemon.URL+"/v1/accounts/rotate", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	response, err := daemon.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("rotation status = %d, want 200", response.StatusCode)
+	}
+	var result map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if result["rotated"] != true {
+		t.Fatalf("rotation response = %v", result)
+	}
+	encoded, _ := json.Marshal(result)
+	if strings.Contains(string(encoded), "replacement-password") {
+		t.Fatal("rotation response exposed a password")
+	}
+	if currentPassword() != "replacement-password" {
+		t.Fatalf("BMC password was not rotated")
+	}
+	if !strings.Contains(store.get(bmcServer.URL), "replacement-password") {
+		t.Fatalf("credential store was not updated")
+	}
+}
+
+func TestAccountRotationEndpointRejectsPlaintextPassword(t *testing.T) {
+	store := &rotationStore{values: map[string]string{}}
+	svc := service.New(store)
+	t.Cleanup(svc.Close)
+	h := server.New(svc, server.Config{TLSCert: "configured-cert", TLSKey: "configured-key", AuthToken: "rotation-test-token"}).Handler()
+	daemon := httptest.NewTLSServer(h)
+	t.Cleanup(daemon.Close)
+	body := `{"bmc":"https://172.24.0.3","accountId":"2","replacementSecretId":"replacement","newPassword":"do-not-accept"}`
+	req, err := http.NewRequest(http.MethodPost, daemon.URL+"/v1/accounts/rotate", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer rotation-test-token")
+	req.Header.Set("Content-Type", "application/json")
+	response, err := daemon.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("plaintext password body status = %d, want 400", response.StatusCode)
+	}
+}
+
+func TestAccountRotationRecoveryEndpointUsesTLSAndBearer(t *testing.T) {
+	bmcServer, currentPassword := rotationRedfish(t, "replacement-password")
+	store := &rotationStore{values: map[string]string{
+		bmcServer.URL: `{"username":"test_user","password":"current-password","pending_rotation":{"account_id":"2","new_password":"replacement-password"}}`,
+	}}
+	svc := service.New(store)
+	svc.Insecure = true
+	t.Cleanup(svc.Close)
+	const token = "recovery-test-token"
+	h := server.New(svc, server.Config{TLSCert: "configured-cert", TLSKey: "configured-key", AuthToken: token}).Handler()
+	daemon := httptest.NewTLSServer(h)
+	t.Cleanup(daemon.Close)
+	requestBody := `{"bmc":` + mustJSON(t, bmcServer.URL) + `}`
+	req, err := http.NewRequest(http.MethodPost, daemon.URL+"/v1/accounts/recover-rotation", strings.NewReader(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	response, err := daemon.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("recovery status = %d, want 200", response.StatusCode)
+	}
+	if currentPassword() != "replacement-password" {
+		t.Fatal("BMC did not retain the pending password")
+	}
+	if !strings.Contains(store.get(bmcServer.URL), `"password":"replacement-password"`) || strings.Contains(store.get(bmcServer.URL), "pending_rotation") {
+		t.Fatalf("recovery did not finalize credential store: %s", store.get(bmcServer.URL))
+	}
+}
+
+func mustJSON(t *testing.T, value string) string {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(encoded)
 }
