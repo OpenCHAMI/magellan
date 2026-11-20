@@ -318,8 +318,16 @@ func init() {
 		c.Flags().StringVarP(&bmc.SettingsUsername, "username", "u", "", "Set the master BMC username.")
 		c.Flags().StringVarP(&bmc.SettingsPassword, "password", "p", "", "Set the master BMC password.")
 		c.Flags().StringVar(&bmc.SettingsSecretsFile, "secrets-file", "secrets.json", "Set the secrets file with BMC credentials.")
-		c.Flags().BoolVarP(&bmc.SettingsInsecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+		registerInsecureFlag(c, "Skip TLS certificate verification during probe.")
 		c.Flags().StringVar(&bmc.SettingsCACertPath, "cacert", "", "Set the path to CA cert file (defaults to system CAs when blank).")
+		// Derive the BMC-level booleans and the secrets backend from the
+		// shared scoped flag values. PreRun runs after root's
+		// PersistentPreRunE has resolved flags/env via viper.
+		c.PreRun = func(cmd *cobra.Command, args []string) {
+			bmc.SettingsInsecure = insecureScope.BMC()
+			bmc.SettingsInsecureTLS = insecureScope.Secrets()
+			bmc.SettingsSecretsBackend = string(secretsBackend)
+		}
 	}
 
 	SettingsCmd.AddCommand(SettingsListCmd)

@@ -4,9 +4,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/openchami/magellan/internal/insecure"
 	logger "github.com/openchami/magellan/internal/log"
+	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -200,4 +203,125 @@ func TestConfigDiagnosticsHonourDisabledLevel(t *testing.T) {
 
 	require.NotContains(t, string(stderrBytes), "failed to set flag from config",
 		"LOG_LEVEL=disabled must suppress collected warnings")
+}
+
+// TestSecretsBackendFlagRegistered verifies that the --secrets-backend flag
+// exists as a persistent flag with the local backend as its default and
+// working shell completion.
+func TestSecretsBackendFlagRegistered(t *testing.T) {
+	f := rootCmd.PersistentFlags().Lookup("secrets-backend")
+	require.NotNil(t, f)
+	require.Equal(t, "local", f.DefValue)
+	require.Equal(t, "Backend", f.Value.Type())
+	require.Empty(t, f.Shorthand)
+
+	vals, directive := completionSecretsBackend(nil, nil, "")
+	require.Equal(t, cobra.ShellCompDirectiveDefault, directive)
+	require.Len(t, vals, len(secrets.BackendHelpMap))
+	require.Contains(t, vals, "local\tEncrypted JSON file on disk (requires MASTER_KEY)")
+	require.Contains(t, vals, "bao\tOpenBao KV v2 secrets engine (requires BAO_ADDR and BAO_TOKEN or AppRole env vars)")
+	require.Contains(t, vals, "vault\tHashiCorp Vault KV v2 secrets engine (requires VAULT_ADDR and VAULT_TOKEN or AppRole env vars)")
+}
+
+// TestSecretsBackendFromEnvironment verifies that SECRETS_BACKEND is applied
+// by InitializeConfig when the flag is not set on the command line, and that
+// invalid values are rejected without clobbering the default.
+func TestSecretsBackendFromEnvironment(t *testing.T) {
+	resetRootLoggerState(t)
+	t.Cleanup(func() { secretsBackend = secrets.BackendLocal })
+	secretsBackend = secrets.BackendLocal
+	t.Setenv("SECRETS_BACKEND", "bao")
+
+	InitializeConfig()
+	require.Equal(t, secrets.BackendBao, secretsBackend)
+}
+
+func TestInvalidSecretsBackendFromEnvironment(t *testing.T) {
+	resetRootLoggerState(t)
+	t.Cleanup(func() { secretsBackend = secrets.BackendLocal })
+	secretsBackend = secrets.BackendLocal
+	t.Setenv("SECRETS_BACKEND", "consul")
+
+	InitializeConfig()
+	require.Equal(t, secrets.BackendLocal, secretsBackend)
+	require.NotEmpty(t, configDiagnostics)
+	d := configDiagnostics[len(configDiagnostics)-1]
+	require.Equal(t, logger.WARN, d.level)
+	require.Error(t, d.err)
+	require.Equal(t, "failed to set flag from config", d.msg)
+	require.Equal(t, "secrets-backend", d.fields["key"])
+}
+
+// TestInsecureFlagScopes verifies every registration of the scoped --insecure
+// flag: type, default, and the bare form resolving to the bmc scope.
+func TestInsecureFlagScopes(t *testing.T) {
+	commands := map[string]*cobra.Command{
+		"scan":           ScanCmd,
+		"crawl":          CrawlCmd,
+		"collect":        CollectCmd,
+		"power":          PowerCmd,
+		"serve":          ServeCmd,
+		"update":         updateCmd,
+		"settings list":  SettingsListCmd,
+		"settings get":   SettingsGetCmd,
+		"settings set":   SettingsSetCmd,
+		"settings reset": SettingsResetCmd,
+	}
+	for name, cmd := range commands {
+		f := cmd.Flags().Lookup("insecure")
+		require.NotNil(t, f, "%s must register --insecure", name)
+		require.Equal(t, "Scope", f.Value.Type(), name)
+		require.Equal(t, "none", f.DefValue, name)
+		require.Equal(t, "i", f.Shorthand, name)
+		require.Equal(t, "bmc", f.NoOptDefVal, "%s: bare --insecure must mean bmc", name)
+	}
+}
+
+// TestInsecureFlagParsing verifies that the flag parses to the expected
+// scopes, including the boolean aliases kept for backwards compatibility.
+func TestInsecureFlagParsing(t *testing.T) {
+	tests := []struct {
+		args    []string
+		want    insecure.Scope
+		wantBMC bool
+		wantSec bool
+	}{
+		{args: []string{"-i"}, want: insecure.BMC, wantBMC: true},
+		{args: []string{"--insecure"}, want: insecure.BMC, wantBMC: true},
+		{args: []string{"--insecure=bmc"}, want: insecure.BMC, wantBMC: true},
+		{args: []string{"--insecure=secrets"}, want: insecure.Secrets, wantSec: true},
+		{args: []string{"--insecure=both"}, want: insecure.Both, wantBMC: true, wantSec: true},
+		{args: []string{"--insecure=true"}, want: insecure.BMC, wantBMC: true},
+		{args: []string{"--insecure=false"}, want: insecure.None},
+	}
+	f := ScanCmd.Flags().Lookup("insecure")
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.args, " "), func(t *testing.T) {
+			t.Cleanup(func() {
+				f.Changed = false
+				insecureScope = insecure.None
+			})
+			insecureScope = insecure.None
+			require.NoError(t, ScanCmd.Flags().Parse(tt.args))
+			require.Equal(t, tt.want, insecureScope)
+			require.Equal(t, tt.wantBMC, insecureScope.BMC())
+			require.Equal(t, tt.wantSec, insecureScope.Secrets())
+		})
+	}
+
+	t.Run("invalid value is rejected", func(t *testing.T) {
+		err := ScanCmd.Flags().Parse([]string{"--insecure=maybe"})
+		require.ErrorContains(t, err, "invalid insecure scope")
+	})
+}
+
+// TestCompletionInsecureScope verifies the --insecure completion function.
+func TestCompletionInsecureScope(t *testing.T) {
+	vals, directive := completionInsecureScope(nil, nil, "")
+	require.Equal(t, cobra.ShellCompDirectiveDefault, directive)
+	require.Len(t, vals, len(insecure.ScopeHelpMap))
+	require.Contains(t, vals, "none\tVerify TLS certificates everywhere (default)")
+	require.Contains(t, vals, "bmc\tSkip TLS verification for BMC connections")
+	require.Contains(t, vals, "secrets\tSkip TLS verification for the secret manager connection")
+	require.Contains(t, vals, "both\tSkip TLS verification for BMC and secret manager connections")
 }

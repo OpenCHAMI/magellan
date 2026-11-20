@@ -35,8 +35,11 @@ shared core as the CLI, so behavior is consistent across front-ends.
 *--secrets-file* _file_
 	Path to the node secrets file (used to resolve BMC credentials)
 
-*-i, --insecure*
-	Ignore BMC TLS verification errors
+*-i, --insecure* _scope_
+	Skip TLS certificate verification for the given scope: *none* (verify
+	everywhere, the default), *bmc* (BMC connections), *secrets* (the secret
+	manager connection), or *both*. The bare form *-i*/*--insecure* (and the
+	*true* alias) means *bmc*; *false* means *none*.
 
 *--vendor* _name_
 	Force a vendor plugin instead of auto-detecting the BMC vendor for every
@@ -55,7 +58,7 @@ shared core as the CLI, so behavior is consistent across front-ends.
 - *SERVER_AUTH_TOKEN* / *AUTH_TOKEN*: Bearer token required for /v1 routes
 - *SERVER_VENDOR*: Vendor plugin to force for all requests
 - *SECRETS_FILE*: Path to node secrets file
-- *INSECURE*: Ignore TLS verification errors
+- *INSECURE*: TLS verification scope (none, bmc, secrets, both; *true*/*false* accepted)
 
 # AUTHENTICATION
 

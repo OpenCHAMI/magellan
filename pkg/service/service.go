@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"io"
 
 	"github.com/openchami/magellan/internal/format"
 	magellan "github.com/openchami/magellan/pkg"
@@ -144,6 +145,9 @@ func (s *Service) PowerTransition(ctx context.Context, uri, systemID string, op 
 // Close releases any cached BMC sessions held by the manager.
 func (s *Service) Close() {
 	s.Manager.LogoutAll()
+	if closer, ok := s.Secrets.(io.Closer); ok {
+		_ = closer.Close()
+	}
 }
 
 // Format is re-exported for callers that need to reference data formats without

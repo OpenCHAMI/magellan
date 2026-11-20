@@ -91,8 +91,11 @@ used for all commands.
 *--secrets-file* _path_
 :	Set the secrets file with BMC credentials.
 
-*-i, --insecure*
-:	Skip TLS certificate verification during probe.
+*-i, --insecure* _scope_
+:	Skip TLS certificate verification, for the given scope: *none* (verify
+:	everywhere, the default), *bmc* (BMC connections), *secrets* (the secret
+:	manager connection), or *both*. The bare form *-i*/*--insecure* (and the
+:	*true* alias) means *bmc*; *false* means *none*.
 
 *--cacert* _path_
 :	Set the path to CA cert file (defaults to system CAs when blank).

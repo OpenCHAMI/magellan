@@ -26,8 +26,8 @@ var ListCmd = &cobra.Command{
 	`,
 	Args:  cobra.ExactArgs(0),
 	Short: "List information stored in cache from a scan",
-	Long: "Prints all of the host and associated data found from performing a scan.\n" +
-		"See the 'scan' command on how to perform a scan.",
+	Long: `Prints all of the host and associated data found from performing a scan.
+See the 'scan' command on how to perform a scan.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// check if we just want to show cache-related info and exit
 		if showCache {

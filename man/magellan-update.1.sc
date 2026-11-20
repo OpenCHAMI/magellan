@@ -22,9 +22,12 @@ magellan update 172.16.0.108:443 -i -u $bmc_username -p $bmc_password --status
 	Set the URI to retrieve the firmware binary or executable. A download request
 	is made using the protocol set with the *--scheme* flag.
 
-*-i, --insecure*
-	Skip TLS verification when making HTTP requests. This allows making requests
-	to HTTPS hosts without needing to supply a CA certificate.
+*-i, --insecure* _scope_
+	Skip TLS verification when making HTTP requests, for the given scope:
+	*none* (verify everywhere, the default), *bmc* (BMC connections), *secrets*
+	(the secret manager connection), or *both*. The bare form *-i*/*--insecure*
+	(and the *true* alias) means *bmc*; *false* means *none*. This allows
+	making requests to HTTPS hosts without needing to supply a CA certificate.
 
 *-p, --password* _value_
 	Set the password for basic authentication for requests to the BMC node.

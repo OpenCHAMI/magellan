@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	"github.com/openchami/magellan/internal/cache/sqlite"
 	"github.com/openchami/magellan/internal/format"
 	magellan "github.com/openchami/magellan/pkg"
-	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/secrets"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -150,7 +148,7 @@ available environment variables.
 			// Alternatively, locate specific credentials (falling back to default) and override those
 			// with --username or --password if either are passed.
 			log.Debug().Msgf("one or both of --username and --password NOT passed, attempting to obtain missing credentials from secret store at %s", secretsFile)
-			if store, err = secrets.OpenStore(secretsFile); err != nil {
+			if store, err = openSecretStore(secretsFile); err != nil {
 				log.Error().Err(err).Msg("failed to open local secrets store")
 			}
 
@@ -163,37 +161,7 @@ available environment variables.
 			if password != "" {
 				log.Info().Msg("--password passed, temporarily overriding all passwords from secret store with value")
 			}
-			switch s := store.(type) {
-			case *secrets.StaticStore:
-				if username != "" {
-					s.Username = username
-				}
-				if password != "" {
-					s.Password = password
-				}
-			case *secrets.LocalSecretStore:
-				for k := range s.Secrets {
-					if creds, err := bmc.GetBMCCredentials(store, k); err != nil {
-						log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials")
-					} else {
-						if username != "" {
-							creds.Username = username
-						}
-						if password != "" {
-							creds.Password = password
-						}
-
-						if newCreds, err := json.Marshal(creds); err != nil {
-							log.Error().Str("id", k).Err(err).Msg("failed to override BMC credentials: marshal error")
-						} else {
-							err = s.StoreSecretByID(k, string(newCreds))
-							if err != nil {
-								log.Error().Err(err).Str("id", k).Msg("failed to store secret by ID")
-							}
-						}
-					}
-				}
-			}
+			store = credentialOverrides{store, username, password}
 		}
 
 		// set the collect parameters from CLI params
@@ -202,7 +170,7 @@ available environment variables.
 			Concurrency:  concurrency,
 			OutputPath:   outputPath,
 			OutputDir:    outputDir,
-			Insecure:     insecure,
+			Insecure:     insecureScope.BMC(),
 			OutputFormat: collectOutputFormat,
 			InputFormat:  collectInputFormat,
 			SecretStore:  store,
@@ -235,7 +203,7 @@ func init() {
 	CollectCmd.Flags().StringVar(&protocol, "protocol", "tcp", "Set the protocol used to query.")
 	CollectCmd.Flags().StringVarP(&outputPath, "output-file", "o", "", "Set the path to store collection data in a single file.")
 	CollectCmd.Flags().StringVarP(&outputDir, "output-dir", "O", "", "Set the path to store collection data using HIVE partitioning.")
-	CollectCmd.Flags().BoolVarP(&insecure, "insecure", "i", false, "Skip TLS certificate verification during probe.")
+	registerInsecureFlag(CollectCmd, "Skip TLS certificate verification during probe.")
 	CollectCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show the output of a collect run.")
 	CollectCmd.Flags().VarP(&collectInputFormat, "input-format", "f", "Set the default input data format (json|yaml).")
 	CollectCmd.Flags().VarP(&collectOutputFormat, "output-format", "F", "Set the default output data format (json|yaml; can be overridden by file extensions).")
