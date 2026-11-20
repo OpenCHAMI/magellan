@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/openchami/magellan/internal/format"
 	"github.com/openchami/magellan/pkg/models"
@@ -47,7 +50,13 @@ func GetBMCCredentials(store secrets.SecretStore, id string) (BMCCredentials, er
 	if store == nil {
 		return creds, fmt.Errorf("invalid secrets store")
 	}
-	if strCreds, err := store.GetSecretByID(id); err != nil {
+	strCreds, err := store.GetSecretByID(id)
+	if err != nil {
+		if alternate := defaultPortCredentialID(id); alternate != "" {
+			strCreds, err = store.GetSecretByID(alternate)
+		}
+	}
+	if err != nil {
 		return creds, fmt.Errorf("get BMC credentials from secret store: %w", err)
 	} else {
 		// Specific URI credentials found, use them.
@@ -57,6 +66,36 @@ func GetBMCCredentials(store secrets.SecretStore, id string) (BMCCredentials, er
 	}
 
 	return creds, nil
+}
+
+// defaultPortCredentialID returns the equivalent HTTP(S) secret ID with the
+// default port added or removed. It never aliases non-default ports or schemes.
+func defaultPortCredentialID(id string) string {
+	u, err := url.Parse(id)
+	if err != nil || u.Hostname() == "" || u.User != nil {
+		return ""
+	}
+	var port string
+	switch u.Scheme {
+	case "https":
+		port = "443"
+	case "http":
+		port = "80"
+	default:
+		return ""
+	}
+	switch u.Port() {
+	case "":
+		u.Host = net.JoinHostPort(u.Hostname(), port)
+	case port:
+		u.Host = u.Hostname()
+		if strings.Contains(u.Host, ":") {
+			u.Host = "[" + u.Host + "]"
+		}
+	default:
+		return ""
+	}
+	return u.String()
 }
 
 func GetBMCCredentialsOrDefault(store secrets.SecretStore, id string) BMCCredentials {

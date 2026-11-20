@@ -479,7 +479,7 @@ magellan collect \
 If you pass arguments with the `--username/--password` flags, the arguments will override all credentials set in the secret store for each flag. However, it is possible only override a single flag (e.g. `magellan collect --username`).
 
 > [!WARNING]
-> Make sure that the `secretID` is EXACTLY as show with `magellan list`. Otherwise, `magellan` will not be able to do the lookup from the secret store correctly.
+> Use the BMC URI as the `secretID`. Credential lookup tries the exact ID first, then its equivalent default-port form (`https`/443 or `http`/80), before falling back to `default`. Non-default ports remain distinct; stored IDs are not rewritten.
 
 > [!TIP]
 > You can set default fallback credentials by storing a secret with the `secretID` of "default". This is used if no `secretID` is found in the local store for the specified host. This is useful when you want to set a username and password that is the same for all BMCs with the exception of the ones specified.
@@ -511,6 +511,17 @@ Details:
 - BMC URIs (the secret IDs) are stored as base64url-encoded path segments so any URI is a valid KV path; the default credentials use the literal path `default`. The credential value is the JSON document `{"username": ..., "password": ...}` under a single `value` field.
 - `BAO_CACERT`/`VAULT_CACERT` set the CA bundle for the secret manager connection (`--cacert` is used as a fallback), and `--insecure=secrets` skips TLS verification for that connection only. BMC connections are unaffected: they use the `bmc` scope of `--insecure`.
 - `magellan secrets list` returns sorted IDs only, without fetching remote values. JSON/YAML output is an array of IDs, not the previous ID-to-value map. Use `secrets retrieve <ID>` to explicitly reveal credentials. The existing Go `ListSecrets()` API remains available; new backends should also implement `SecretIDLister` for CLI listing.
+
+##### BMC credential lookup check
+
+With OpenBao configured and credentials already stored under `https://<bmc-host>:443`, run the following against a real BMC (replace `<bmc-host>` with its address). Both commands should authenticate with the same stored credentials; the first uses HTTPS's default port. This is a read-only check and does not change BMC settings.
+
+```console
+SECRETS_BACKEND=bao magellan settings get <bmc-host> Systems
+SECRETS_BACKEND=bao magellan settings get <bmc-host>:443 Systems
+```
+
+The same equivalence applies to HTTP's port 80. Explicit non-default ports are never substituted. If both default-port forms have their own stored credentials, the exact ID takes precedence. This fallback applies to BMC credential lookup, not to `secrets retrieve` or `secrets remove`, which address exact stored IDs.
 
 ##### Docker walkthrough (development only)
 

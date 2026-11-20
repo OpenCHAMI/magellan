@@ -26,14 +26,16 @@ func TestBaoListIDsWithoutReadPermission(t *testing.T) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		fmt.Fprint(w, `{"data":{"keys":["eg","default","YQ","subdir/"]}}`)
+		if _, err := fmt.Fprint(w, `{"data":{"keys":["eg","default","YQ","subdir/"]}}`); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 	t.Setenv("BAO_ADDR", server.URL)
 	t.Setenv("BAO_TOKEN", "list-only")
 	store, err := NewBaoSecretStore(StoreConfig{Prefix: "team"})
 	require.NoError(t, err)
-	defer store.Close()
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	ids, err := ListSecretIDs(store)
 	require.NoError(t, err)
 	require.Equal(t, []string{"a", "default", "z"}, ids)

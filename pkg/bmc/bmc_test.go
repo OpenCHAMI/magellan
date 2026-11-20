@@ -46,3 +46,57 @@ func TestCredentials(t *testing.T) {
 	_, err = GetBMCCredentials(mapStore{"node": "{"}, "node")
 	require.Error(t, err)
 }
+
+func TestCredentialsDefaultPortEquivalence(t *testing.T) {
+	const node = `{"username":"node-user","password":"node-pass"}`
+	const fallback = `{"username":"fallback","password":"fallback"}`
+	for _, tc := range []struct {
+		name, requested, stored string
+	}{
+		{"https omitted", "https://172.16.0.101", "https://172.16.0.101:443"},
+		{"https explicit", "https://bmc.example:443", "https://bmc.example"},
+		{"http omitted", "http://bmc.example", "http://bmc.example:80"},
+		{"http explicit", "http://bmc.example:80", "http://bmc.example"},
+		{"IPv6 omitted", "https://[2001:db8::1]", "https://[2001:db8::1]:443"},
+		{"IPv6 explicit", "https://[2001:db8::1]:443", "https://[2001:db8::1]"},
+		{"path preserved", "https://bmc.example/redfish", "https://bmc.example:443/redfish"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := mapStore{tc.stored: node, secrets.DEFAULT_KEY: fallback}
+			got, err := GetBMCCredentials(store, tc.requested)
+			require.NoError(t, err)
+			require.Equal(t, "node-user", got.Username)
+			require.Equal(t, got, GetBMCCredentialsOrDefault(store, tc.requested))
+
+			// Exact IDs take precedence even if both forms are present.
+			store[tc.requested] = fallback
+			got, err = GetBMCCredentials(store, tc.requested)
+			require.NoError(t, err)
+			require.Equal(t, "fallback", got.Username)
+
+			// An invalid exact value is not silently replaced by an alias.
+			store[tc.requested] = "{"
+			_, err = GetBMCCredentials(store, tc.requested)
+			require.ErrorContains(t, err, "unmarshal")
+		})
+	}
+}
+
+func TestCredentialsDoNotAliasDistinctEndpoints(t *testing.T) {
+	for _, id := range []string{
+		"https://bmc.example:8443", "https://bmc.example:80",
+		"http://bmc.example:443", "ssh://bmc.example", "bmc.example",
+		"https://user@bmc.example", "https://bmc.example:invalid",
+	} {
+		t.Run(id, func(t *testing.T) {
+			require.Empty(t, defaultPortCredentialID(id))
+			store := mapStore{
+				"https://bmc.example": `{"username":"wrong-endpoint"}`,
+				secrets.DEFAULT_KEY:   `{"username":"default"}`,
+			}
+			_, err := GetBMCCredentials(store, id)
+			require.Error(t, err)
+			require.Equal(t, "default", GetBMCCredentialsOrDefault(store, id).Username)
+		})
+	}
+}

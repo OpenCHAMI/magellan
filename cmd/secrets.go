@@ -269,13 +269,20 @@ var secretsListCmd = &cobra.Command{
 			output, err := format.MarshalData(ids, secretsListFormat)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to marshal credential data")
+				return
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(output))
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(output)); err != nil {
+				log.Error().Err(err).Msg("failed to write secret IDs")
+				return
+			}
 		case format.FORMAT_LIST:
 			fallthrough
 		default:
 			for _, id := range ids {
-				fmt.Fprintln(cmd.OutOrStdout(), id)
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), id); err != nil {
+					log.Error().Err(err).Msg("failed to write secret IDs")
+					return
+				}
 			}
 		}
 	},
