@@ -2,8 +2,10 @@ package crawler
 
 import (
 	"net"
+	"strings"
 
 	"github.com/openchami/magellan/pkg/models"
+	"github.com/rs/zerolog/log"
 	"github.com/stmcginnis/gofish/schemas"
 )
 
@@ -26,6 +28,13 @@ import (
 func mapEthernetInterfaces(rf_ethernetinterfaces []*schemas.EthernetInterface, baseURI string) []models.EthernetInterface {
 	ethernet_interfaces := make([]models.EthernetInterface, 0, len(rf_ethernetinterfaces))
 	for _, rf_ethernetinterface := range rf_ethernetinterfaces {
+		// Dell GB200 HGX BMCs expose a usb0 interface as an internal
+		// management link. It is not routable and causes SMD to reject the
+		// entire endpoint with "Invalid CompEthInterface IP Address".
+		if strings.HasPrefix(strings.ToLower(rf_ethernetinterface.ID), "usb") {
+			log.Debug().Str("id", rf_ethernetinterface.ID).Msg("skipping USB ethernet interface")
+			continue
+		}
 		ip := usableIPv4(rf_ethernetinterface)
 		if ip == "" {
 			continue
