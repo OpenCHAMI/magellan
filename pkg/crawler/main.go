@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/openchami/magellan/pkg/bmc"
 	"github.com/openchami/magellan/pkg/models"
@@ -158,6 +159,13 @@ func CrawlBMCForManagers(config CrawlerConfig) ([]models.Manager, error) {
 func walkSystems(rf_systems []*schemas.ComputerSystem, rf_chassis *schemas.Chassis, baseURI string) ([]models.InventoryDetail, error) {
 	systems := []models.InventoryDetail{}
 	for _, rf_computersystem := range rf_systems {
+		// Dell GB200 BMCs expose an HGX_Baseboard_0 system alongside the real
+		// compute system. It is a GPU baseboard, not a compute node, and
+		// registers with an unusable xname if sent to SMD. Skip it.
+		if strings.HasPrefix(rf_computersystem.ID, "HGX_Baseboard") {
+			log.Debug().Str("id", rf_computersystem.ID).Msg("skipping HGX_Baseboard system")
+			continue
+		}
 		var (
 			managerLinks    []string
 			chassisLinks    []string
